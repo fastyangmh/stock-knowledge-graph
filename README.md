@@ -266,3 +266,17 @@ EXIT_CODE=0
 ```
 
 **結論：** 3/3 文件向量成功從 SQLite 快取重複使用，未重新計算 Embedding。此驗證只涵蓋 3 篇示範文件，不代表大規模效能測試；Pipeline 仍載入模型、重算相似度及匯出 JSON。後續應測試單篇文件修改、模型版本變更、歷史資料成長下的關聯計算成本，以及發布前端到端驗證。
+
+## 盤後手動驗證安全性加固（2026-11-15）
+
+依已確認決策，`local/run_after_close.py` **只允許產生本地私有預覽**：現在必須指定 `--universe` 台灣 50 有效日期名單，使用 `--lifecycle` 節點裁剪，預設輸出 `local/private/preview` 而非公開 `data/`。傳入 `--publish` 將明確拒絕執行，不會意外 Git Push。完整流程的正式資料來源及權威台灣 50 名單仍未取得，因此不得視為生產可用。
+
+```bash
+uv run python -m local.run_after_close \
+  --calendar local/private/tw_calendar.csv \
+  --universe local/private/tw50.csv \
+  --input local/private/normalized.json \
+  --preview-output local/private/preview
+```
+
+注意：該入口僅在當日台北時間達到 cutoff 且外部日曆確認開市時執行；使用者仍須人工確認預覽資料、來源授權及更新日期。若決定正式發布，需先把已驗證的輸出透過獨立受控流程移入 `data/`，再執行 `local.publish`。本次新增防誤發布測試已提交，尚未取得 Linux 重新測試結果。
