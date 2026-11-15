@@ -57,3 +57,17 @@ The model downloads on first local use; later runs use the local model cache. Yo
 - Stock-to-stock score currently aggregates by maximum linked document-pair cosine, which can overstate relevance; treat as an exploratory signal.
 
 **Scale limitation:** Exact all-pairs similarity is O(N²). For large news corpora add an ANN index such as FAISS and date/category candidate filters before production deployment. The optional encoder uses CPU by default when no compatible accelerator is available. For research reproducibility, pin model revision and dependency versions.
+
+## uv environment management (preferred)
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and run from repository root:
+
+```bash
+uv python install 3.11
+uv sync --extra dev
+uv run python -m local.pipeline all --semantic --top-k 10 --threshold 0.65
+uv run python -m local.pipeline validate
+uv run pytest -q
+```
+
+`pyproject.toml` manages dependencies; `.python-version` selects Python 3.11. `uv sync` creates a local `.venv` automatically. To make installs reproducible, run `uv lock` and commit the generated `uv.lock`. Until the lockfile is committed, dependency resolution may change across machines or CI runs. The older `requirements-embedding.txt` remains only for compatibility; prefer uv commands above.
