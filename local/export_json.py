@@ -2,6 +2,7 @@
 import json
 import os
 import tempfile
+import shutil
 from pathlib import Path
 from .core import ROOT, now
 from .lifecycle import prune
@@ -16,14 +17,23 @@ def write_json(path,data):
 
 def export(conn, output=None, universe=None, lifecycle=False):
     output=Path(output) if output else ROOT/"data"
+    if output.resolve()==ROOT.resolve() or output.resolve()==(ROOT/'local').resolve():
+        raise ValueError('Unsafe export directory')
     stocks=conn.execute("SELECT stock_id,ticker,market,name FROM stocks ORDER BY market,ticker").fetchall()
     if universe is not None:
         stocks=[s for s in stocks if s["stock_id"] in universe]
+    if not stocks:
+        raise ValueError("No stocks selected for export")
+    if universe is not None and {s["stock_id"] for s in stocks} != set(universe):
+        raise ValueError("Universe contains stocks missing from SQLite; refuse partial export")
     node_rows={r["node_id"]:dict(r) for r in conn.execute("SELECT * FROM graph_nodes")}
     edges=[dict(r) for r in conn.execute("SELECT * FROM graph_edges ORDER BY edge_id")]
     stock_docs={}
     for r in conn.execute("SELECT stock_id,document_id FROM document_stocks"):
         stock_docs.setdefault(r["stock_id"],set()).add("doc:"+r["document_id"])
+    # Generate a complete replacement in a temporary sibling directory first.
+    output.parent.mkdir(parents=True,exist_ok=True)
+    stage=Path(tempfile.mkdtemp(prefix=".stock-graph-stage-",dir=output.parent))
     manifest={"schema_version":"1.0","version":now(),"generated_at":now(),"stocks":[]}
     for s in stocks:
         sid=s["stock_id"]
@@ -53,9 +63,25 @@ def export(conn, output=None, universe=None, lifecycle=False):
         # Market-specific subfolders avoid collisions for equal tickers across exchanges.
         folder=s["ticker"] if s["market"]=="TW" else s["market"]+"-"+s["ticker"]
         relative=f"stocks/{folder}/graph.json"
-        write_json(output/relative,graph)
+        write_json(stage/relative,graph)
         manifest["stocks"].append({"label":s["ticker"]+" "+s["name"],"path":"data/"+relative})
-    write_json(output/"manifest.json",manifest)
+    write_json(stage/"manifest.json",manifest)
+    # Validate staged tree before touching current public data.
+    from .validate_release import validate_release
+    validate_release(stage)
+    backup=output.with_name(output.name+".previous")
+    if backup.exists():
+        shutil.rmtree(backup)
+    try:
+        if output.exists():
+            output.rename(backup)
+        stage.rename(output)
+    except Exception:
+        if backup.exists() and not output.exists():
+            backup.rename(output)
+        raise
+    else:
+        if backup.exists():shutil.rmtree(backup)
     return manifest
 
 def validate_graph(graph):
