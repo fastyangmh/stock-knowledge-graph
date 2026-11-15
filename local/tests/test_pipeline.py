@@ -31,7 +31,7 @@ class PipelineTests(unittest.TestCase):
                 validate_graph(graph)
                 self.assertTrue(graph["nodes"])
                 self.assertTrue(all(e["source"] in {n["id"] for n in graph["nodes"]} for e in graph["edges"]))
-            db.close()
+            # Re-export a smaller universe: stale stock graph files must disappear.\n            manifest2=export(db,Path(tmp)/"out",universe={"TW:2330"},lifecycle=True)\n            self.assertEqual(len(manifest2["stocks"]),1)\n            self.assertFalse((Path(tmp)/"out/stocks/2454/graph.json").exists())\n            self.assertFalse((Path(tmp)/"out/stocks/2317/graph.json").exists())\n            with self.assertRaises(ValueError):\n                export(db,Path(tmp)/"out",universe={"TW:9999"})\n            self.assertTrue((Path(tmp)/"out/stocks/2330/graph.json").exists())\n            db.close()
 
     def test_cosine(self):
         self.assertAlmostEqual(cosine([1,0],[1,0]),1.0)
