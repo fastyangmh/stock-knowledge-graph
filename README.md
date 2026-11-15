@@ -190,7 +190,7 @@ uv run python -m local.run_after_close \
 
 **每檔股票公開圖譜初始上限：100 個資訊節點**，另保留股票主節點及合理數量的相關股票節點。節點及邊的數量限制應一起執行；不應留下指向未輸出節點的邊。超過上限的資訊日後可提供「載入更多」或時間區間查詢，而不是直接從 SQLite 刪除。
 
-### 預計新增 Graph Lifecycle Manager
+### Graph Lifecycle Manager（初版已實作；後續仍需擴充）
 
 1. 對文件使用穩定 ID 去重；同一新聞關聯多檔股票時共享文件節點。
 2. 以交易日／可得時間作為資料篩選依據，避免使用未來資訊。
@@ -200,4 +200,23 @@ uv run python -m local.run_after_close \
 6. 保留必要的歷史快照，讓日後可做時間切片比較與回測；制定資料庫備份、封存與清理策略。
 7. 監控每日新增文件數、去重率、Embedding 快取命中率、邊數、輸出檔大小及頁面載入時間。
 
-**實作狀態：** 目前 `local/export_json.py` 尚未加入 90 天視窗、100 節點上限、Top-5／Top-15 展示限制；`local/semantic.py` 的 Top-K 關聯計算已存在，但不等於上述完整的圖譜生命週期管理。這一節是後續開發準則，不代表功能已完成。
+**實作狀態：** 初版展示層裁剪已在 `local/lifecycle.py` 實作並以 `--lifecycle` 選用；財報季數、籌碼事件視窗、歷史快照、輸出目錄原子替換及效能優化仍未完成。
+
+## 第一階段已確認：台灣 50 + Linux 手動驗證
+
+- **股票範圍**：台灣 50 成分股。成分股會調整，必須使用附有效起訖日期的權威名單，不能將固定 50 檔清單當作永遠不變的成分股。名單 CSV 格式為 `stock_id,effective_from,effective_to`（例如 `TW:2330,2026-01-01,`；此行僅為格式範例，不代表官方成分股資料）。
+- **排程**：先在 Linux/NAS 手動執行、驗證成功後才安裝 cron 或 systemd timer。**目前沒有自動排程或自動推送。**
+- **新功能**：`local/universe.py` 提供依指定日期篩選股票清單；`local/lifecycle.py` 提供展示層節點與邊的裁剪，不刪除 SQLite 歷史。匯出器與 CLI 已提供可選參數。
+
+```bash
+# 前提：準備已確認來源及日期的台灣 50 成分股 CSV，及經授權的標準化金融資料
+uv run python -m local.pipeline all --semantic \
+  --input local/private/normalized.json \
+  --universe local/private/tw50.csv --as-of 2026-11-15 \
+  --lifecycle --threshold 0.65 --output local/private/export-preview
+
+# 預覽輸出與測試（尚未發布）
+uv run pytest -q
+```
+
+注意：`--universe` 僅限制匯出的股票主圖，不會自動限制 SQLite 收錄範圍；`--lifecycle` 目前為選用，包含資訊節點 100、相關股票 15、語意邊每節點 5、新聞 90 天的展示限制。**目前尚未取得並驗證官方台灣 50 歷史成分股名單**；匯出目錄若已有舊股票檔案，需要清理／原子替換後才能通過完整發布驗證。現階段不應直接發布預覽輸出。
