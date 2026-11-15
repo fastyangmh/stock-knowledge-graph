@@ -51,7 +51,11 @@ def compute_semantic(conn, model_name=DEFAULT_MODEL, top_k=10, threshold=0.65,
         except ImportError as exc:
             raise RuntimeError("Install local/requirements-embedding.txt to use semantic embeddings") from exc
         encoder = SentenceTransformer(model_name, revision=revision) if revision else SentenceTransformer(model_name)
-    dimension = int(encoder.get_sentence_embedding_dimension())
+    # Prefer the newer API, while retaining compatibility with older versions and test encoders.
+    get_dimension = getattr(encoder, "get_embedding_dimension", None)
+    if get_dimension is None:
+        get_dimension = encoder.get_sentence_embedding_dimension
+    dimension = int(get_dimension())
     if dimension <= 0:
         raise ValueError("invalid model embedding dimension")
     # Revision is part of identity so cache cannot silently cross pinned revisions.
