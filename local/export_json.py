@@ -33,7 +33,9 @@ def export(conn, output=None, universe=None, lifecycle=False):
         stock_docs.setdefault(r["stock_id"],set()).add("doc:"+r["document_id"])
     # Generate a complete replacement in a temporary sibling directory first.
     output.parent.mkdir(parents=True,exist_ok=True)
-    stage=Path(tempfile.mkdtemp(prefix=".stock-graph-stage-",dir=output.parent))
+    stage_root=Path(tempfile.mkdtemp(prefix=".stock-graph-stage-",dir=output.parent))
+    stage=stage_root/"data"
+    stage.mkdir()
     manifest={"schema_version":"1.0","version":now(),"generated_at":now(),"stocks":[]}
     for s in stocks:
         sid=s["stock_id"]
@@ -68,7 +70,7 @@ def export(conn, output=None, universe=None, lifecycle=False):
     write_json(stage/"manifest.json",manifest)
     # Validate staged tree before touching current public data.
     from .validate_release import validate_release
-    validate_release(stage)
+    validate_release(stage_root)
     backup=output.with_name(output.name+".previous")
     if backup.exists():
         shutil.rmtree(backup)
@@ -82,6 +84,7 @@ def export(conn, output=None, universe=None, lifecycle=False):
         raise
     else:
         if backup.exists():shutil.rmtree(backup)
+    shutil.rmtree(stage_root,ignore_errors=True)
     return manifest
 
 def validate_graph(graph):
