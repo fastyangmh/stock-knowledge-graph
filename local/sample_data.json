@@ -1,0 +1,88 @@
+{
+  "stocks": [
+    {
+      "stock_id": "TW:2330",
+      "ticker": "2330",
+      "market": "TW",
+      "name": "台積電（示範）",
+      "industry": "半導體"
+    },
+    {
+      "stock_id": "TW:2454",
+      "ticker": "2454",
+      "market": "TW",
+      "name": "聯發科（示範）",
+      "industry": "半導體"
+    },
+    {
+      "stock_id": "TW:2317",
+      "ticker": "2317",
+      "market": "TW",
+      "name": "鴻海（示範）",
+      "industry": "電子製造"
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "demo",
+      "provider": "Synthetic demo",
+      "license_type": "synthetic"
+    }
+  ],
+  "documents": [
+    {
+      "document_id": "demo-001",
+      "source_id": "demo",
+      "doc_type": "news",
+      "title": "晶片技術與人工智慧運算示範消息",
+      "content": "半導體晶片人工智慧運算需求增加。此為虛構測試資料。",
+      "published_at": "2026-11-14T09:00:00+08:00",
+      "stock_ids": [
+        "TW:2330",
+        "TW:2454"
+      ]
+    },
+    {
+      "document_id": "demo-002",
+      "source_id": "demo",
+      "doc_type": "financial",
+      "title": "晶片需求與營收示範報告",
+      "content": "半導體晶片人工智慧需求與營收變化。此為虛構測試資料。",
+      "published_at": "2026-11-14T10:00:00+08:00",
+      "stock_ids": [
+        "TW:2454"
+      ]
+    },
+    {
+      "document_id": "demo-003",
+      "source_id": "demo",
+      "doc_type": "news",
+      "title": "電子製造供應鏈示範消息",
+      "content": "電子製造供應鏈生產規劃與設備需求。此為虛構測試資料。",
+      "published_at": "2026-11-14T11:00:00+08:00",
+      "stock_ids": [
+        "TW:2317"
+      ]
+    }
+  ],
+  "financial_metrics": [
+    {
+      "stock_id": "TW:2330",
+      "metric": "revenue",
+      "period_end": "2026-09-30",
+      "period_type": "quarter",
+      "value": 100,
+      "unit": "synthetic",
+      "available_at": "2026-11-14T09:00:00+08:00"
+    }
+  ],
+  "chip_metrics": [
+    {
+      "stock_id": "TW:2330",
+      "trade_date": "2026-11-13",
+      "metric": "foreign_net_buy",
+      "value": 10,
+      "unit": "synthetic"
+    }
+  ]
+}
