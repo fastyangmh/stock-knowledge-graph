@@ -254,3 +254,15 @@ uv run pytest -q
 測試環境透過 SOCKS 代理連線，第一次因缺少 `socksio` 失敗；在測試虛擬環境額外安裝後重跑成功。此為環境特定依賴，尚未加入預設專案依賴。Hugging Face 匿名下載限速提示不影響本次成功。程式已更新為優先使用新的 `get_embedding_dimension()` API，並保留舊版相容回退；這項程式修改仍須重新執行測試。
 
 **尚待驗證：** 在同一 SQLite DB、相同模型與未變動輸入下第二次執行，應看到 `encoded=0`、`cache_hits=3`。此外仍需 `uv.lock`、官方台灣 50 資料、正式授權與端到端發布前測試。
+
+## SQLite Embedding 快取第二次實機驗證（2026-11-15）
+
+使用者在相同 Linux 測試環境、相同 SQLite DB、相同模型與參數下再次執行 `--semantic`：
+
+```text
+Semantic: {'model_id': 'st:1cfd264d04e3b6b6e5322922', 'documents': 3, 'cache_hits': 3, 'encoded': 0, 'document_pairs': 2, 'stock_pairs': 2}
+Exported 3 stocks
+EXIT_CODE=0
+```
+
+**結論：** 3/3 文件向量成功從 SQLite 快取重複使用，未重新計算 Embedding。此驗證只涵蓋 3 篇示範文件，不代表大規模效能測試；Pipeline 仍載入模型、重算相似度及匯出 JSON。後續應測試單篇文件修改、模型版本變更、歷史資料成長下的關聯計算成本，以及發布前端到端驗證。
