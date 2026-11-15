@@ -280,3 +280,19 @@ uv run python -m local.run_after_close \
 ```
 
 注意：該入口僅在當日台北時間達到 cutoff 且外部日曆確認開市時執行；使用者仍須人工確認預覽資料、來源授權及更新日期。若決定正式發布，需先把已驗證的輸出透過獨立受控流程移入 `data/`，再執行 `local.publish`。本次新增防誤發布測試已提交，尚未取得 Linux 重新測試結果。
+
+## 最新回歸修復與驗證要求
+
+盤後入口 `local/run_after_close.py` 曾有殘留 `else` 導致的 SyntaxError，現已修正；其單元測試 CSV fixture 的換行字元亦已修正。`local.pipeline validate` 已統一使用完整 manifest／檔案閉包驗證，而不僅是逐檔檢查邊端點。**這些是最新 main 的變更，先前 15 passed 的實機結果不涵蓋它們。**
+
+Linux/NAS 在最新 main 執行：
+
+```bash
+git pull --ff-only
+uv run python -m compileall -q local
+uv run pytest -q
+uv run python -m local.pipeline all --db /tmp/stock-graph-regression.db --input local/sample_data.json --output /tmp/stock-graph-regression-json --lifecycle
+uv run python -m local.pipeline validate --output /tmp/stock-graph-regression-json
+```
+
+尚未通過以上回歸驗證前，**不得啟用盤後自動排程或發布**。正式官方資料來源、授權及台灣 50 成分股名單仍待核准。
