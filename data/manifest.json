@@ -1,0 +1,10 @@
+{
+  "version": "0.1.0",
+  "generated_at": "2026-11-15",
+  "stocks": [
+    {
+      "label": "2330 台積電（示範）",
+      "path": "data/stocks/2330/graph.json"
+    }
+  ]
+}
