@@ -71,3 +71,13 @@ uv run pytest -q
 ```
 
 `pyproject.toml` manages dependencies; `.python-version` selects Python 3.11. `uv sync` creates a local `.venv` automatically. To make installs reproducible, run `uv lock` and commit the generated `uv.lock`. Until the lockfile is committed, dependency resolution may change across machines or CI runs. The older `requirements-embedding.txt` remains only for compatibility; prefer uv commands above.
+
+## CI and release safeguards
+
+GitHub Actions now runs offline unit tests and an isolated CLI smoke test using `/tmp/stock-graph-ci.db` and `/tmp/stock-graph-ci-json`. This does not publish test JSON to GitHub Pages.
+
+Before production publication, validate every exported graph and review data licensing. A successful push to `main` is a publication action because GitHub Pages serves `data/` publicly.
+
+The SQLite database is excluded from Git. Do not commit the model cache, private source documents or access tokens. To reproduce the Python environment, generate and commit `uv.lock` in an environment with package-index access, then use `uv sync --locked --extra dev`.
+
+**Verification status:** CI workflow has been configured, but passing CI and an actual downloaded Sentence Transformers model run must be confirmed separately.
