@@ -16,3 +16,8 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["local/tests"]
 pythonpath = ["."]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
