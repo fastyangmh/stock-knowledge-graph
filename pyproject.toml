@@ -1,0 +1,18 @@
+[project]
+name = "stock-knowledge-graph"
+version = "0.1.0"
+description = "Local SQLite-to-JSON financial knowledge graph pipeline"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+  "sentence-transformers>=3.0,<6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["local/tests"]
+pythonpath = ["."]
