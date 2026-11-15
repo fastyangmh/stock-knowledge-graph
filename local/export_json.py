@@ -4,6 +4,7 @@ import os
 import tempfile
 from pathlib import Path
 from .core import ROOT, now
+from .lifecycle import prune
 
 def write_json(path,data):
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -13,9 +14,11 @@ def write_json(path,data):
         name=tmp.name
     os.replace(name,path)
 
-def export(conn, output=None):
+def export(conn, output=None, universe=None, lifecycle=False):
     output=Path(output) if output else ROOT/"data"
     stocks=conn.execute("SELECT stock_id,ticker,market,name FROM stocks ORDER BY market,ticker").fetchall()
+    if universe is not None:
+        stocks=[s for s in stocks if s["stock_id"] in universe]
     node_rows={r["node_id"]:dict(r) for r in conn.execute("SELECT * FROM graph_nodes")}
     edges=[dict(r) for r in conn.execute("SELECT * FROM graph_edges ORDER BY edge_id")]
     stock_docs={}
@@ -44,6 +47,8 @@ def export(conn, output=None):
                               "relation":e["relation_type"],"score":e["score"],"method":e["method"],
                               "as_of":e["as_of"]})
         graph={"schema_version":"1.0","stock_id":sid,"generated_at":now(),"nodes":nodes,"edges":out_edges}
+        if lifecycle:
+            graph=prune(graph,max_information_nodes=100,max_related_stocks=15,max_semantic_per_node=5,news_days=90)
         validate_graph(graph)
         # Market-specific subfolders avoid collisions for equal tickers across exchanges.
         folder=s["ticker"] if s["market"]=="TW" else s["market"]+"-"+s["ticker"]
