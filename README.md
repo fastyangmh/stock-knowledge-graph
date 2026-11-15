@@ -296,3 +296,9 @@ uv run python -m local.pipeline validate --output /tmp/stock-graph-regression-js
 ```
 
 尚未通過以上回歸驗證前，**不得啟用盤後自動排程或發布**。正式官方資料來源、授權及台灣 50 成分股名單仍待核准。
+
+## 最新 Linux 回歸測試回報（2026-11-15 18:31 Asia/Taipei）
+
+使用者在 Linux 主機執行 `uv run python -m compileall -q local`（無錯誤輸出）、`uv run pytest -q`（**16 passed in 0.05s**）、`local.pipeline all`（3 documents、3 document pairs、3 stock pairs、Exported 3 stocks）及 `local.pipeline validate`（Validated 3 stock graphs）。本次測試使用 `local/sample_data.json`、獨立 /tmp SQLite 與 JSON 目錄、`--lifecycle`，沒有正式發布。使用者未提供 commit SHA 或逐項 exit code，不能據此確認特定 commit 或聲稱已測試全部未來功能。
+
+**下一步：** 鎖定 uv 依賴、確認官方資料集授權與台灣 50 生效日期名單、測試官方欄位映射，然後進行至少一輪私有真實資料預覽；在此之前維持手動執行。
