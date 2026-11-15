@@ -15,6 +15,8 @@ jobs:
         run: uv sync --extra dev
       - name: Offline tests (no model download)
         run: uv run pytest -q
+      - name: Validate currently published JSON
+        run: uv run python -m local.validate_release
       - name: CLI smoke test in isolated directory
         run: |
           uv run python -m local.pipeline all --db /tmp/stock-graph-ci.db --output /tmp/stock-graph-ci-json
