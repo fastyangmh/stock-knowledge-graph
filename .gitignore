@@ -7,3 +7,7 @@ __pycache__/
 
 .uv-cache/
 .pytest_cache/
+
+local/private/
+local/inputs/
+*.log
