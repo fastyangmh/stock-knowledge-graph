@@ -1,1 +1,62 @@
-[]
+[
+  {
+    "dataset_id": "twse_companies",
+    "title": "上市公司基本資料",
+    "kind": "companies",
+    "enabled": true,
+    "format": "csv",
+    "provider": "金融監督管理委員會證券期貨局",
+    "dataset_url": "https://data.gov.tw/dataset/18419",
+    "resource_url": "https://mopsfin.twse.com.tw/opendata/t187ap03_L.csv",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": true,
+    "reviewed_at": "2026-11-15",
+    "attribution": "金融監督管理委員會證券期貨局 2026 上市公司基本資料；依政府資料開放授權條款第1版釋出。來源及條款請見 dataset_url 與 license_url；本專案的整理與分析不代表提供機關認可。"
+  },
+  {
+    "dataset_id": "twse_monthly_revenue",
+    "title": "上市公司每月營業收入彙總表",
+    "kind": "monthly_revenue",
+    "enabled": true,
+    "format": "csv",
+    "provider": "金融監督管理委員會證券期貨局",
+    "dataset_url": "https://data.gov.tw/dataset/18420",
+    "resource_url": "https://mopsfin.twse.com.tw/opendata/t187ap05_L.csv",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": true,
+    "reviewed_at": "2026-11-15",
+    "attribution": "金融監督管理委員會證券期貨局 2026 上市公司每月營業收入彙總表；依政府資料開放授權條款第1版釋出。來源及條款請見 dataset_url 與 license_url；本專案的整理與分析不代表提供機關認可。"
+  },
+  {
+    "dataset_id": "tpex_companies",
+    "title": "上櫃公司基本資料",
+    "kind": "companies",
+    "enabled": false,
+    "format": "csv",
+    "provider": "金融監督管理委員會證券期貨局",
+    "dataset_url": "https://data.gov.tw/dataset/25036",
+    "resource_url": "https://mopsfin.twse.com.tw/opendata/t187ap03_O.csv",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": true,
+    "reviewed_at": "2026-11-15",
+    "attribution": "金融監督管理委員會證券期貨局 2026 上櫃公司基本資料；依政府資料開放授權條款第1版釋出。來源及條款請見 dataset_url 與 license_url；本專案的整理與分析不代表提供機關認可。"
+  },
+  {
+    "dataset_id": "tpex_monthly_revenue",
+    "title": "上櫃公司每月營業收入彙總表",
+    "kind": "monthly_revenue",
+    "enabled": false,
+    "format": "csv",
+    "provider": "金融監督管理委員會證券期貨局",
+    "dataset_url": "https://data.gov.tw/dataset/56510",
+    "resource_url": "https://mopsfin.twse.com.tw/opendata/t187ap05_O.csv",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": true,
+    "reviewed_at": "2026-11-15",
+    "attribution": "金融監督管理委員會證券期貨局 2026 上櫃公司每月營業收入彙總表；依政府資料開放授權條款第1版釋出。來源及條款請見 dataset_url 與 license_url；本專案的整理與分析不代表提供機關認可。"
+  }
+]

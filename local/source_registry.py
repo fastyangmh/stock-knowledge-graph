@@ -1,4 +1,4 @@
-"""Dataset-level permission gate. No dataset is enabled by default.
+"""Dataset-level permission gate. Only individually reviewed feeds may be enabled.
 
 Only register official machine-readable resources after checking dataset-specific
 license and attribution. Generic TWSE/MOPS web pages are NOT approved sources.
@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from urllib.parse import urlparse
 
-ALLOWED_HOSTS={"openapi.twse.com.tw","www.tpex.org.tw","data.gov.tw"}
+ALLOWED_HOSTS={"openapi.twse.com.tw","www.tpex.org.tw","data.gov.tw","mopsfin.twse.com.tw"}
 
 def load_approved(registry):
     records=json.loads(Path(registry).read_text(encoding="utf-8"))
@@ -31,5 +31,11 @@ def load_approved(registry):
         url=urlparse(item["resource_url"])
         if url.scheme!="https" or url.hostname not in ALLOWED_HOSTS or url.username or url.password:
             raise ValueError(f"{ident}: resource URL host is not approved")
+        if url.query or url.fragment or url.port not in (None,443):
+            raise ValueError(f"{ident}: unexpected resource URL options")
+        if url.hostname=="mopsfin.twse.com.tw" and url.path not in (
+                "/opendata/t187ap03_L.csv","/opendata/t187ap05_L.csv",
+                "/opendata/t187ap03_O.csv","/opendata/t187ap05_O.csv"):
+            raise ValueError(f"{ident}: resource is not a reviewed MOPS open-data CSV")
         approved.append(item)
     return approved

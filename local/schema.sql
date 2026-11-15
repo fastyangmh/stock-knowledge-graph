@@ -18,3 +18,4 @@ CREATE INDEX IF NOT EXISTS idx_chip_stock_date ON chip_metrics(stock_id,trade_da
 CREATE INDEX IF NOT EXISTS idx_nodes_stock ON graph_nodes(stock_id);
 CREATE INDEX IF NOT EXISTS idx_edges_source ON graph_edges(source_id,relation_type);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON graph_edges(target_id,relation_type);
+CREATE TABLE IF NOT EXISTS similarity_state(model_id TEXT PRIMARY KEY REFERENCES embedding_models(model_id),input_hash TEXT NOT NULL,edge_hash TEXT NOT NULL,stats_json TEXT NOT NULL);

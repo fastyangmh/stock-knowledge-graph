@@ -16,7 +16,7 @@ def main(argv=None):
     parser.add_argument("--input",type=Path,default=ROOT/"local"/"sample_data.json")
     parser.add_argument("--output",type=Path,default=ROOT/"data")
     parser.add_argument("--top-k",type=int,default=10)
-    parser.add_argument("--threshold",type=float,default=0.15)
+    parser.add_argument("--threshold",type=float,default=None)
     parser.add_argument("--model",default=DEFAULT_MODEL,help="Sentence Transformers model ID")
     parser.add_argument("--revision",default=None,help="Pin model revision / commit SHA for reproducibility")
     parser.add_argument("--batch-size",type=int,default=32)
@@ -24,21 +24,12 @@ def main(argv=None):
     parser.add_argument("--as-of",help="Membership date YYYY-MM-DD (defaults to today)")
     parser.add_argument("--lifecycle",action="store_true",help="Prune published graph without deleting SQLite history")
     parser.add_argument("--semantic",action="store_true",help="Use sentence-transformers for all command")
+    parser.add_argument("--lookback-days",type=int,default=None,help="Optional active semantic document window")
+    parser.add_argument("--max-pairs",type=int,default=2_000_000,help="Fail before an excessive exact pair scan")
     args=parser.parse_args(argv)
     if args.command=="validate":
-        # Exporter accepts arbitrary output directories; manifest paths are rooted
-        # at data/ for the browser, not necessarily at the CLI output path.
-        from .validate_release import validate_release
-        if args.output.resolve() == (ROOT/"data").resolve():
-            count=validate_release(ROOT)
-        else:
-            # Validate a preview without moving or publishing it.
-            import tempfile
-            import shutil
-            with tempfile.TemporaryDirectory() as tmp:
-                wrapper=Path(tmp)/"data"
-                shutil.copytree(args.output,wrapper)
-                count=validate_release(Path(tmp))
+        from .validate_release import validate_data_dir
+        count=validate_data_dir(args.output)
         print("Validated",count,"stock graphs")
         return
     with connect(args.db) as conn:
@@ -50,10 +41,10 @@ def main(argv=None):
                 import_payload(conn,json.loads(args.input.read_text(encoding="utf-8")))
             if args.command in ("similarity","all","semantic"):
                 if args.command=="semantic" or (args.command=="all" and args.semantic):
-                    threshold = 0.65 if args.threshold==0.15 else args.threshold
-                    print("Semantic:",compute_semantic(conn,args.model,args.top_k,threshold,args.batch_size,revision=args.revision))
+                    threshold = 0.65 if args.threshold is None else args.threshold
+                    print("Semantic:",compute_semantic(conn,args.model,args.top_k,threshold,args.batch_size,revision=args.revision,lookback_days=args.lookback_days,max_pairs=args.max_pairs))
                 else:
-                    print("Similarity:",compute(conn,args.top_k,args.threshold))
+                    print("Similarity:",compute(conn,args.top_k,0.15 if args.threshold is None else args.threshold))
             if args.command in ("export","all"):
                 universe=load_universe(args.universe,args.as_of) if args.universe else None
                 print("Exported",len(export(conn,args.output,universe=universe,lifecycle=args.lifecycle)["stocks"]),"stocks")

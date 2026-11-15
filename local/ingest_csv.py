@@ -6,6 +6,7 @@ ISO-8601 with timezone offsets. Intended for first real-data integration.
 import argparse
 import csv
 import json
+import math
 from pathlib import Path
 from .core import digest
 
@@ -33,6 +34,8 @@ def read_csv(path,kind):
             if kind in ("financial_metrics","chip_metrics"):
                 try:clean["value"]=float(clean["value"])
                 except ValueError as exc:raise ValueError(f"{kind}:{index}: invalid value") from exc
+            if kind in ("financial_metrics","chip_metrics") and not math.isfinite(clean["value"]):
+                raise ValueError(f"{kind}:{index}: non-finite value")
             rows.append(clean)
         return rows
 

@@ -1,0 +1,53 @@
+"""Local CI: syntax, all tests, isolated SQLite->JSON smoke, full validation.
+
+Invoke with: uv run --locked python -m local.check
+No network requests, model downloads or public data writes. Git publication
+tests use temporary local bare repositories only.
+"""
+import argparse
+import hashlib
+import json
+import platform
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from .core import ROOT, now
+from .safety import private_path
+from .collect_official import atomic_bytes
+
+
+def main(argv=None):
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--report",type=Path,default=ROOT/"local/private/check-report.json")
+    parser.add_argument("--runner",choices=("pytest","unittest"),default="pytest")
+    args=parser.parse_args(argv)
+    report_path=private_path(args.report)
+    report={"started_at":now(),"python":sys.version,"platform":platform.platform(),"checks":[],
+            "scope":"Offline synthetic fixtures and isolated lexical CLI. No live model/API/browser/remote deployment verification.",
+            "source_sha256":{p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
+                             for p in sorted((ROOT/"local").rglob("*.py")) if "private" not in p.parts}}
+    tests=["pytest","-q"] if args.runner=="pytest" else ["unittest","discover","-s","local/tests","-v"]
+    failed=False
+    with tempfile.TemporaryDirectory(prefix="stock-graph-check-") as directory:
+        tmp=Path(directory)
+        steps=[["compileall","-q","local"],tests,
+               ["local.pipeline","all","--db",str(tmp/"test.db"),"--input",str(ROOT/"local/sample_data.json"),
+                "--output",str(tmp/"preview"),"--lifecycle"],
+               ["local.pipeline","validate","--output",str(tmp/"preview")]]
+        for module_args in steps:
+            result=subprocess.run([sys.executable,"-m",*module_args],cwd=ROOT,text=True,capture_output=True)
+            text=result.stdout+result.stderr
+            print(text,end="" if text.endswith("\n") else "\n")
+            report["checks"].append({"command":[sys.executable,"-m",*module_args],"exit_code":result.returncode,"output":text})
+            if result.returncode:
+                failed=True
+                break
+    report.update(finished_at=now(),passed=not failed)
+    atomic_bytes(report_path,(json.dumps(report,ensure_ascii=False,indent=2)+"\n").encode())
+    print("Local test report:",report_path)
+    return 1 if failed else 0
+
+
+if __name__=="__main__":
+    raise SystemExit(main())

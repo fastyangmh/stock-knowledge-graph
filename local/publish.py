@@ -1,51 +1,62 @@
-"""Local after-close release: validate generated JSON, commit only data/, push.
-
-Run only after a successful local ingestion and embedding pipeline.
-Does not fetch real market data and never commits the SQLite database.
-"""
+"""Manually publish validated data only. Never runs from the after-close runner."""
 import argparse
-import json
-import os
+import re
 import subprocess
 from pathlib import Path
 from .core import ROOT
+from .safety import exclusive_lock
 from .validate_release import validate_release
 
-def git(*args):
-    return subprocess.run(["git",*args],cwd=ROOT,check=True,text=True,capture_output=True).stdout.strip()
 
-def publish(dry_run=False):
-    validate_release(ROOT)
-    if git("branch","--show-current")!="main":
-        raise RuntimeError("Publishing requires local main branch")
-    if git("status","--porcelain","--untracked-files=normal").strip():
-        # Allow only generated data/ changes; do not auto-commit unrelated work.
-        status=git("status","--porcelain","--untracked-files=normal").splitlines()
-        if any(not line[3:].strip('"').startswith("data/") for line in status):
-            raise RuntimeError("Unrelated local changes detected; aborting publication")
-    git("fetch","origin","main")
-    if git("rev-parse","HEAD")!=git("rev-parse","origin/main"):
-        raise RuntimeError("Local main differs from origin/main; sync before publishing")
-    if git("diff","--cached","--name-only").strip():
-        raise RuntimeError("Pre-staged changes detected; unstage them before publishing")
-    git("add","-A","--","data/")
-    staged=git("diff","--cached","--name-only")
-    if not staged:
-        return "No changed JSON to publish"
-    if any(not line.startswith("data/") for line in staged.splitlines()):
-        raise RuntimeError("Unexpected staged files; abort")
-    if dry_run:
-        git("reset","--quiet","--","data/")
-        return "Dry run: validated; candidate files:\\n"+staged
-    git("commit","-m","data: publish validated stock graphs")
-    git("push","origin","main")
-    return "Published validated data to main"
+def git(*args, root=ROOT):
+    # Do not strip porcelain output: its leading status column is significant.
+    return subprocess.run(["git",*args],cwd=root,check=True,text=True,capture_output=True).stdout
+
+
+def _allowed(path):
+    return path=="data/manifest.json" or re.fullmatch(r"data/stocks/[A-Za-z0-9_.-]+/graph\.json",path) is not None
+
+
+def publish(dry_run=False, *, root=ROOT):
+    root = Path(root).resolve()
+    with exclusive_lock(root/"data"):
+        validate_release(root)
+        if git("branch","--show-current",root=root).strip() != "main":
+            raise RuntimeError("Publishing requires local main branch")
+        if git("diff","--cached","--name-only","-z",root=root):
+            raise RuntimeError("Pre-staged changes detected; leave your index untouched and review them first")
+        candidates = []
+        for entry in git("status","--porcelain=v1","-z","--untracked-files=all",root=root).split("\0"):
+            if not entry:
+                continue
+            if len(entry)<4 or "R" in entry[:2] or "C" in entry[:2] or not _allowed(entry[3:]):
+                raise RuntimeError("Unrelated/renamed local changes detected; publication aborted")
+            candidates.append(entry[3:])
+        git("fetch","origin","main",root=root)
+        if git("rev-parse","HEAD",root=root).strip()!=git("rev-parse","origin/main",root=root).strip():
+            raise RuntimeError("Local main differs from origin/main; reconcile without force-pushing")
+        if not candidates:
+            return "No changed JSON to publish"
+        if dry_run:
+            return "Dry run; index and working files unchanged:\n"+"\n".join(sorted(candidates))
+        git("add","-A","--","data/",root=root)
+        staged = [p for p in git("diff","--cached","--name-only","-z",root=root).split("\0") if p]
+        if not staged or any(not _allowed(p) for p in staged):
+            raise RuntimeError("Unexpected index contents; inspect manually before committing")
+        git("commit","-m","data: publish validated stock graphs",root=root)
+        try:
+            git("push","origin","main",root=root)
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError("Push failed. Local data commit retained; inspect it before a manual retry") from exc
+        return "Published validated data to main"
+
 
 def main():
-    p=argparse.ArgumentParser()
-    p.add_argument("--dry-run",action="store_true")
-    args=p.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dry-run",action="store_true")
+    args=parser.parse_args()
     print(publish(args.dry_run))
+
 
 if __name__=="__main__":
     main()

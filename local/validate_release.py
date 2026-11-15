@@ -1,12 +1,20 @@
 """Validate all public JSON before publication. Python stdlib only."""
 import argparse
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from .export_json import validate_graph
 
 def validate_release(root):
-    root=Path(root).resolve()
-    data=root/"data"
+    return validate_data_dir(Path(root)/"data")
+
+def validate_data_dir(directory):
+    original=Path(directory)
+    if original.is_symlink():
+        raise ValueError("Symlink output directory is not allowed")
+    data=original.resolve()
+    for item in data.rglob("*"):
+        if item.is_symlink():
+            raise ValueError("Symlink in release")
     manifest=json.loads((data/"manifest.json").read_text(encoding="utf-8"))
     if not isinstance(manifest.get("stocks"),list) or not manifest["stocks"]:
         raise ValueError("manifest requires nonempty stocks list")
@@ -15,7 +23,11 @@ def validate_release(root):
         relative=stock["path"]
         if not isinstance(relative,str) or not relative.startswith("data/") or not relative.endswith("/graph.json"):
             raise ValueError("invalid manifest path")
-        path=(root/relative).resolve()
+        tail=relative.removeprefix("data/")
+        parts=PurePosixPath(tail).parts
+        if ".." in parts or "\\" in tail or tail.startswith("/"):
+            raise ValueError("unsafe manifest path")
+        path=(data/tail).resolve()
         if not path.is_relative_to(data.resolve()):
             raise ValueError("manifest path escapes data directory")
         if path in paths:
