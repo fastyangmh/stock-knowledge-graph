@@ -246,3 +246,11 @@ uv run pytest -q
 2. 執行 `uv lock`，檢查 lockfile diff 後提交 `uv.lock`，再以 `uv sync --locked --extra dev` 驗證可重現環境。
 3. 核對官方台灣 50 成分股名單的資料來源與生效日期；確認授權後建立標準化映射器。
 4. 以真實但**不公開**的資料進行手動驗證；資料品質及公開授權確認前不啟用排程或發布。
+
+## Linux 真實語意模型驗證紀錄（2026-11-15）
+
+使用者在 Linux 測試環境成功執行 `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`，完成首次 `--semantic` 測試：`documents=3`、`encoded=3`、`cache_hits=0`、`document_pairs=2`、`stock_pairs=2`、匯出 3 檔股票圖譜，exit 0；隨後圖譜驗證通過，exit 0。此測試使用虛構資料，沒有發布正式網站。
+
+測試環境透過 SOCKS 代理連線，第一次因缺少 `socksio` 失敗；在測試虛擬環境額外安裝後重跑成功。此為環境特定依賴，尚未加入預設專案依賴。Hugging Face 匿名下載限速提示不影響本次成功。程式已更新為優先使用新的 `get_embedding_dimension()` API，並保留舊版相容回退；這項程式修改仍須重新執行測試。
+
+**尚待驗證：** 在同一 SQLite DB、相同模型與未變動輸入下第二次執行，應看到 `encoded=0`、`cache_hits=3`。此外仍需 `uv.lock`、官方台灣 50 資料、正式授權與端到端發布前測試。
