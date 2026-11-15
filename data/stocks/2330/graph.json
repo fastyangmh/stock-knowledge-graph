@@ -1,0 +1,47 @@
+{
+  "nodes": [
+    {
+      "id": "stock:2330",
+      "label": "2330 台積電",
+      "type": "stock",
+      "description": "示範節點，非即時資料"
+    },
+    {
+      "id": "news:demo",
+      "label": "新聞示例",
+      "type": "news",
+      "description": "占位資料，非真實新聞"
+    },
+    {
+      "id": "financial:demo",
+      "label": "財報示例",
+      "type": "financial",
+      "description": "占位資料，非真實財報"
+    },
+    {
+      "id": "stock:demo",
+      "label": "相關股票示例",
+      "type": "stock",
+      "description": "僅供展示，非真實關聯"
+    }
+  ],
+  "edges": [
+    {
+      "source": "stock:2330",
+      "target": "news:demo",
+      "relation": "contains"
+    },
+    {
+      "source": "stock:2330",
+      "target": "financial:demo",
+      "relation": "contains"
+    },
+    {
+      "source": "stock:2330",
+      "target": "stock:demo",
+      "relation": "semantic_similarity",
+      "score": 0.8,
+      "description": "虛構示例分數，非真實分析"
+    }
+  ]
+}
