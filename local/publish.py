@@ -35,7 +35,8 @@ def publish(dry_run=False):
     if any(not line.startswith("data/") for line in staged.splitlines()):
         raise RuntimeError("Unexpected staged files; abort")
     if dry_run:
-        return "Dry run: validated; staged files:\n"+staged
+        git("reset","--quiet","--","data/")
+        return "Dry run: validated; candidate files:\\n"+staged
     git("commit","-m","data: publish validated stock graphs")
     git("push","origin","main")
     return "Published validated data to main"
