@@ -26,6 +26,8 @@ def publish(dry_run=False):
     git("fetch","origin","main")
     if git("rev-parse","HEAD")!=git("rev-parse","origin/main"):
         raise RuntimeError("Local main differs from origin/main; sync before publishing")
+    if git("diff","--cached","--name-only").strip():
+        raise RuntimeError("Pre-staged changes detected; unstage them before publishing")
     git("add","-A","--","data/")
     staged=git("diff","--cached","--name-only")
     if not staged:
