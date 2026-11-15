@@ -29,19 +29,25 @@
     {
       "source": "stock:2330",
       "target": "news:demo",
-      "relation": "contains"
+      "relation": "contains",
+      "id": "demo-edge-1"
     },
     {
       "source": "stock:2330",
       "target": "financial:demo",
-      "relation": "contains"
+      "relation": "contains",
+      "id": "demo-edge-2"
     },
     {
       "source": "stock:2330",
       "target": "stock:demo",
       "relation": "semantic_similarity",
       "score": 0.8,
-      "description": "虛構示例分數，非真實分析"
+      "description": "虛構示例分數，非真實分析",
+      "id": "demo-edge-3"
     }
-  ]
+  ],
+  "schema_version": "1.0",
+  "stock_id": "TW:2330",
+  "generated_at": "2026-11-15T00:00:00+08:00"
 }
