@@ -4,6 +4,7 @@ Only register official machine-readable resources after checking dataset-specifi
 license and attribution. Generic TWSE/MOPS web pages are NOT approved sources.
 """
 import json
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -17,6 +18,8 @@ def load_approved(registry):
     seen=set()
     for item in records:
         ident=item["dataset_id"]
+        if not isinstance(ident,str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}",ident):
+            raise ValueError("unsafe dataset id")
         if ident in seen:raise ValueError("duplicate dataset id")
         seen.add(ident)
         if not item.get("enabled",False):
