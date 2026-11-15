@@ -226,3 +226,23 @@ uv run pytest -q
 `local/export_json.py` 已改為先在輸出目錄旁建立完整暫存樹，使用 `local.validate_release` 驗證所有股票 JSON 與 manifest，再替換原有輸出目錄。這會移除舊股票名單留下的過期 `graph.json`；SQLite 歷史不受影響。替換採同一檔案系統上的目錄 rename 與備份回復，但**不保證所有平台、斷電情境或讀取中的網站程序都具有完全原子性**。正式發布仍應先在獨立預覽路徑執行測試，並確認 Git 變更內容。
 
 已新增回歸測試，涵蓋股票範圍縮小、過期檔案清理、缺少成分股時拒絕匯出。**這些測試已提交，尚未取得 CI 成功執行紀錄。**
+
+## Linux 實機驗證紀錄（2026-11-15）
+
+使用者在全新 clone 的 `main` commit `6a1f54b` 上執行，環境 Linux x86_64 / Python 3.11.18 / uv 0.13.6：
+
+| 檢查 | 結果 |
+| --- | --- |
+| `uv sync --extra dev` | exit 0，101 packages resolved、67 installed |
+| `uv run pytest -q` | **15 passed in 0.08s**，exit 0 |
+| `uv run python -m local.pipeline all --db /tmp/stock-graph-test.db --input local/sample_data.json --output /tmp/stock-graph-preview --lifecycle` | 3 documents、3 document pairs、3 stock pairs、3 graphs exported，exit 0 |
+| `uv run python -m local.pipeline validate --output /tmp/stock-graph-preview` | 3 stock graphs validated，exit 0 |
+
+**驗證範圍限制：** 使用的是預設 lexical character-bigram baseline，不是 `--semantic` Sentence Transformers；輸入為虛構示範資料。未執行 Git Push、正式發布、官方來源下載或台灣 50 全量處理。此紀錄為使用者提供的實機測試結果，並非 CI 成功狀態聲明。
+
+### 下一階段驗證
+
+1. 使用**獨立的臨時 DB / JSON 路徑**執行 `--semantic`，首次執行可能下載模型。確認首次 encoded > 0，第二次同一 DB 與模型 cache_hits > 0。
+2. 執行 `uv lock`，檢查 lockfile diff 後提交 `uv.lock`，再以 `uv sync --locked --extra dev` 驗證可重現環境。
+3. 核對官方台灣 50 成分股名單的資料來源與生效日期；確認授權後建立標準化映射器。
+4. 以真實但**不公開**的資料進行手動驗證；資料品質及公開授權確認前不啟用排程或發布。
