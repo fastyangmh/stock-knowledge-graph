@@ -26,11 +26,20 @@ def main(argv=None):
     parser.add_argument("--semantic",action="store_true",help="Use sentence-transformers for all command")
     args=parser.parse_args(argv)
     if args.command=="validate":
-        manifest=json.loads((args.output/"manifest.json").read_text(encoding="utf-8"))
-        for stock in manifest["stocks"]:
-            path=ROOT/stock["path"] if args.output==ROOT/"data" else args.output/stock["path"].removeprefix("data/")
-            validate_graph(json.loads(path.read_text(encoding="utf-8")))
-        print("Validated",len(manifest["stocks"]),"stock graphs")
+        # Exporter accepts arbitrary output directories; manifest paths are rooted
+        # at data/ for the browser, not necessarily at the CLI output path.
+        from .validate_release import validate_release
+        if args.output.resolve() == (ROOT/"data").resolve():
+            count=validate_release(ROOT)
+        else:
+            # Validate a preview without moving or publishing it.
+            import tempfile
+            import shutil
+            with tempfile.TemporaryDirectory() as tmp:
+                wrapper=Path(tmp)/"data"
+                shutil.copytree(args.output,wrapper)
+                count=validate_release(Path(tmp))
+        print("Validated",count,"stock graphs")
         return
     with connect(args.db) as conn:
         init_db(conn)
