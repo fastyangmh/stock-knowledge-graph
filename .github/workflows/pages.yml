@@ -19,9 +19,15 @@ jobs:
         run: python -m local.validate_release
       - name: Check HTML entrypoint
         run: test -s index.html
+      - name: Stage public-only site
+        run: |
+          mkdir -p /tmp/stock-pages
+          cp index.html /tmp/stock-pages/
+          cp -R css js data /tmp/stock-pages/
+          touch /tmp/stock-pages/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: /tmp/stock-pages
   deploy:
     needs: validate
     environment:
