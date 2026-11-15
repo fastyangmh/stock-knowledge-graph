@@ -18,7 +18,7 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument("--calendar",type=Path,required=True)
     p.add_argument("--input",type=Path,required=True,help="Normalized private JSON from licensed sources")
-    p.add_argument("--publish",action="store_true",help="Explicitly opt into Git push")
+    p.add_argument("--publish",action="store_true",help="Reserved; publishing is disabled pending approval")
     p.add_argument("--universe",type=Path,required=True,help="Date-effective TW50 CSV")
     p.add_argument("--db",type=Path,default=ROOT/"local"/"stock_graph.db")
     p.add_argument("--preview-output",type=Path,default=ROOT/"local"/"private"/"preview")
