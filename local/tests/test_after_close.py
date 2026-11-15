@@ -19,11 +19,11 @@ class AfterCloseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)
             calendar=p/"calendar.csv"
-            calendar.write_text("date,is_open\\n2026-11-16,1\\n")
+            calendar.write_text("date,is_open\n2026-11-16,1\n")
             normalized=p/"normalized.json"
             normalized.write_text("{}")
             universe=p/"tw50.csv"
-            universe.write_text("stock_id,effective_from,effective_to\\nTW:2330,2026-01-01,\\n")
+            universe.write_text("stock_id,effective_from,effective_to\nTW:2330,2026-01-01,\n")
             class Clock:
                 def date(self):return type("Date",(),{"isoformat":lambda self:"2026-11-16"})()
                 def time(self):return time(19,0)
