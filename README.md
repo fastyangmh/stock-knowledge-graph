@@ -124,3 +124,36 @@ uv run python -m local.trading_calendar --calendar local/private/tw_calendar.csv
 ```
 
 這個交易日檢查尚未串入排程發布入口；正式排程前仍需確定權威行事曆來源、資料更新與作業系統。
+
+## Linux/NAS 盤後排程與官方資料授權閘門
+
+第一階段採用 **Linux/NAS/Server**，以台北時間 18:30 作為可調整的盤後執行門檻；此時間不是任何官方資料保證完成發布的時間。
+
+- `local/source_registry.py`：資料集逐筆授權與公開再散布審查，預設全部停用。
+- `local/official_datasets.json`：目前為空白白名單 `[]`，尚未核准任何 TWSE、TPEx、MOPS 端點。
+- `local/collect_official.py`：只下載經白名單核准的 HTTPS 官方機器可讀資料，保存在本地私有目錄；不自動公開或轉成金融指標。
+- `local/run_after_close.py`：台北時間、交易日與 cutoff 防護；沒有真實標準化輸入時拒絕使用測試資料替代。
+- `local/trading_calendar.py`：要求明確的交易日曆 CSV；缺日期即停止，不以週一至週五猜測交易日。
+
+```bash
+# 授權資料集核准後，才可下載（目前白名單為空）
+uv run python -m local.collect_official
+
+# 需要提供外部交易日曆與真實、已標準化的本地輸入
+uv run python -m local.run_after_close \
+  --calendar local/private/tw_calendar.csv \
+  --input local/private/normalized.json
+
+# 確認驗證通過後，額外加 --publish 才會推送 GitHub
+```
+
+排程可使用 cron 或 systemd timer；目前尚未安裝任何實際排程，也未自動啟用 Git Push。Linux 主機須保持開機、網路連通，且預先配置 Git 寫入憑證。**正式上線前必須逐資料集確認 data.gov.tw 授權與署名條件，並提供官方交易日曆。**
+
+### 官方資料授權注意事項
+
+- TWSE 一般網站條款對未經同意的自動下載有限制；政府開放資料授權的例外需依資料集核對：https://wwwc.twse.com.tw/en/terms/use.html
+- TPEx 部分資料集登錄政府開放資料平台，授權依個別資料集為準：https://data.gov.tw/
+- TWSE/TPEx 即時、延遲行情及商業資訊產品可能另需契約或費用；本專案不預設有權下載或再散布。
+- MOPS 重大訊息介接尚未啟用；不得使用未經確認的網站爬蟲替代正式授權介面。
+
+**目前 collector 只負責安全下載已核准的資料集原始快照，尚未完成官方 API 欄位映射到 SQLite 的轉換器。**
