@@ -79,4 +79,4 @@ def import_payload(conn, payload):
         conn.execute("""INSERT INTO chip_metrics(stock_id,trade_date,metric,value,unit) VALUES(?,?,?,?,?)
         ON CONFLICT(stock_id,trade_date,metric) DO UPDATE SET value=excluded.value,unit=excluded.unit""",
         (m["stock_id"],m["trade_date"],m["metric"],m["value"],m.get("unit")))
-    conn.commit()
+    # The caller owns the transaction: keep imports atomic with later pipeline steps.
