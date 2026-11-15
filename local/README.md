@@ -1,12 +1,19 @@
-# Local Pipeline
+# Local Pipeline｜本地 Python 資料處理
 
-現行架構、指令與限制見 [專案 README](../README.md)。本目錄使用 uv 管理的 Python 環境，不再把 requirements-embedding.txt 或直接 pip 指令當成主要安裝方式；舊 requirements 檔只為相容保留。
+[返回主 README](../README.md) · [完整文件中心](../docs/README.md)
+
+本目錄保存 SQLite、官方資料快照處理、語意向量、圖譜匯出與單元測試。主要運作環境是 Linux/NAS，使用 uv 管理 Python；`local/private/` 為私有輸入／報告目錄，不得發布。
 
 ```bash
 uv sync --locked --extra dev
 uv run --locked python -m local.check
 ```
 
-本地 CI 不下載模型或金融資料、不發布網站。正式資料採手動 `local.collect_official` → `local.official_import` → `local.pipeline all --semantic ... --output local/private/preview`。
+- [開發者指南](../docs/DEVELOPER_GUIDE.md)：測試、開發流程、依賴管理。
+- [資料處理管線](../docs/DATA_PIPELINE.md)：離線示範與核准資料的私有預覽。
+- [資料模型](../docs/DATA_MODEL.md)：SQLite schema／圖譜 JSON。
+- [手動更新與發布](../docs/OPERATIONS.md)：部署、人工核准、安全回復。
+- [資料來源／授權](../docs/DATA_SOURCES.md)：官方資料集狀態與限制。
+- [最新離線測試紀錄](../docs/VERIFICATION-2026-11-15.md)。
 
-官方資料來源、金額尺度、台灣 50 名單的尚待確認事項見 [DATA_SOURCES](../docs/DATA_SOURCES.md)。發布原則見 [UPDATE_AND_PUBLISH](UPDATE_AND_PUBLISH.md)。
+`local/requirements-embedding.txt` 是相容性遺留檔；正式安裝流程以 `pyproject.toml`／`uv.lock` 為主。**真實台灣50名單授權、官方來源全量線上驗證及每日排程仍未完成。**

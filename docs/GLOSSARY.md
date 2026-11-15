@@ -1,0 +1,34 @@
+# 術語表｜Glossary
+
+[文件中心](README.md) · [使用手冊](USER_MANUAL.md) · [資料模型](DATA_MODEL.md)
+
+| 術語 | 說明 |
+| --- | --- |
+| 股票知識圖譜 | 將公司、文件、事件等資料表示為節點與關聯邊的網路 |
+| Node（節點） | 公司、新聞、財報等實體；用唯一 `id` 識別 |
+| Edge（關聯邊） | 節點之間的關係，含 `source`、`target`、`relation` 等欄位 |
+| Universe（研究股票池） | 某個日期選定的股票集合；目前第一階段規劃為台灣50 |
+| Point-in-time | 按特定日期及資料當時可得狀態分析，避免拿今天資料冒充過去 |
+| Embedding（向量） | 將文本轉為數值向量以比較內容相似性，不是股價預測 |
+| Cosine Similarity | 向量角度相似度；本專案語意分數介於 -1 至 1 |
+| Lexical Baseline | 字元 bigram 的文字相似度測試基準；不等同語意模型 |
+| Sentence Transformers | 本地產生多語言文字向量的模型工具 |
+| Top-K | 只保留相似度較高的 K 個候選；無向聯集後節點最終度數不一定 ≤ K |
+| ANN（Approximate Nearest Neighbor） | 近似最近鄰索引；目前**尚未實作** |
+| Embedding Cache | 以文件 hash／模型識別重用 SQLite 中的向量，不必每次重新編碼 |
+| Graph Lifecycle | 從完整 SQLite 歷史中挑選有限子圖供 GitHub Pages 展示 |
+| `published_at` | 來源聲稱的發布時間 |
+| `available_at` | 研究系統能取得／觀察到資訊的時間；不應用期末日代替 |
+| `ingested_at` | 該資料被匯入本地資料庫的時間 |
+| Provenance（資料溯源） | 來源機關、資料集、下載時間、校驗碼、授權與證據 |
+| SHA256 | 內容校驗雜湊，用於識別來源快照／資料完整性 |
+| JSON Manifest | `data/manifest.json`，列出網站可載入的股票圖譜與來源 |
+| SQLite | 本地檔案式主資料庫；不放進公開 Repository |
+| GitHub Pages | 免費靜態網站託管；本專案維持 `main / root` 分支發布 |
+| uv / `uv.lock` | Python 套件與環境管理；lockfile 不會鎖定遠端模型權重 |
+| TWSE / TPEx / MOPS | 臺灣證交所／櫃買中心／公開資訊觀測站；不同資料集有不同取得與授權條件 |
+| 台灣50指數 | 研究股票池的目標指數；其成分股名單權利須獨立核對 |
+| Survivorship Bias | 只看現在仍存在或仍在指數內的股票，導致回測失真 |
+| Look-ahead Bias | 回測使用當時尚未可得的未來資料，導致結果失真 |
+
+進一步了解：[System Design](SYSTEM_DESIGN.md) · [官方來源與授權](DATA_SOURCES.md)。

@@ -13,7 +13,7 @@ uv run --locked python -m local.check
 
 ## 真實資料的私有預覽
 
-先依 [來源文件](../docs/DATA_SOURCES.md) 準備有權使用、含有效期間的台灣 50 名單；取得當日官方快照後，以 `local.official_import` 產生私有 normalized.json。再使用 `local.pipeline all --semantic`、`--universe`、`--lifecycle` 與 `--output local/private/preview`。完整範例見主 README。
+先依 [來源文件](../docs/DATA_SOURCES.md) 準備有權使用、含有效期間的台灣 50 名單；取得當日官方快照後，以 `local.official_import` 產生私有 normalized.json。再使用 `local.pipeline all --semantic`、`--universe`、`--lifecycle` 與 `--output local/private/preview`。完整範例見 [資料處理管線](../docs/DATA_PIPELINE.md)；維運準則見 [部署與維運](../docs/OPERATIONS.md)。
 
 `local.run_after_close` 是手動盤後入口，需交易日曆與名單；只生成私有預覽，`--publish` 仍明確拒絕。不能用缺乏名單或舊資料的空輸入冒充成功更新。
 
