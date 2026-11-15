@@ -19,6 +19,9 @@ def main():
     p.add_argument("--calendar",type=Path,required=True)
     p.add_argument("--input",type=Path,required=True,help="Normalized private JSON from licensed sources")
     p.add_argument("--publish",action="store_true",help="Explicitly opt into Git push")
+    p.add_argument("--universe",type=Path,required=True,help="Date-effective TW50 CSV")
+    p.add_argument("--db",type=Path,default=ROOT/"local"/"stock_graph.db")
+    p.add_argument("--preview-output",type=Path,default=ROOT/"local"/"private"/"preview")
     p.add_argument("--cutoff",default="18:30")
     args=p.parse_args()
     current=datetime.now(TZ)
@@ -30,10 +33,15 @@ def main():
         raise FileNotFoundError("Normalized input not found; refuse sample fallback")
     def run(*cmd):
         subprocess.run([sys.executable,"-m",*cmd],cwd=ROOT,check=True)
-    run("local.pipeline","all","--semantic","--input",str(args.input),"--threshold","0.65")
-    run("local.validate_release")
     if args.publish:
-        run("local.publish")
+        raise RuntimeError("Automatic publication is not enabled: first validate the private preview, then use local.publish manually")
+    if args.preview_output.resolve()==(ROOT/"data").resolve() or args.preview_output.resolve().is_relative_to((ROOT/"data").resolve()):
+        raise ValueError("Preview output must not be the public data directory")
+    run("local.pipeline","all","--semantic","--input",str(args.input),
+        "--db",str(args.db),"--output",str(args.preview_output),
+        "--universe",str(args.universe),"--as-of",current.date().isoformat(),
+        "--lifecycle","--threshold","0.65")
+    print("Private preview exported and validated by the exporter:",args.preview_output)
     else:
         print("Validated locally; no push (use --publish to opt in)")
 
