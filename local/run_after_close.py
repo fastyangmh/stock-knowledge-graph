@@ -29,12 +29,12 @@ def main():
     if not ready(args.calendar,current.date().isoformat(),current.time(),time(hh,mm)):
         print("Market closed: skip")
         return
+    if args.publish:
+        raise RuntimeError("Automatic publication is not enabled: use local.publish only after manual review")
     if not args.input.is_file():
         raise FileNotFoundError("Normalized input not found; refuse sample fallback")
     def run(*cmd):
         subprocess.run([sys.executable,"-m",*cmd],cwd=ROOT,check=True)
-    if args.publish:
-        raise RuntimeError("Automatic publication is not enabled: first validate the private preview, then use local.publish manually")
     if args.preview_output.resolve()==(ROOT/"data").resolve() or args.preview_output.resolve().is_relative_to((ROOT/"data").resolve()):
         raise ValueError("Preview output must not be the public data directory")
     run("local.pipeline","all","--semantic","--input",str(args.input),
@@ -42,8 +42,6 @@ def main():
         "--universe",str(args.universe),"--as-of",current.date().isoformat(),
         "--lifecycle","--threshold","0.65")
     print("Private preview exported and validated by the exporter:",args.preview_output)
-    else:
-        print("Validated locally; no push (use --publish to opt in)")
 
 if __name__=="__main__":
     main()
