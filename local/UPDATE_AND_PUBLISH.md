@@ -1,10 +1,10 @@
-# Local after-close updates and validated GitHub Pages deployment
+# Local after-close updates and branch-based GitHub Pages publication
 
 ## Architecture
 
-Local SQLite is the source of truth. Run collectors locally (not included yet), normalize data to JSON, compute embeddings locally, export to `data/`, validate, then push only `data/`. GitHub Actions checks the public JSON before deploying Pages.
+Local SQLite is the source of truth. Run collectors locally (not included yet), normalize data to JSON, compute embeddings locally, export to `data/`, validate, then push only `data/`. Local validation runs before Git push. GitHub Pages publishes directly from main/root; GitHub Actions test.yml provides independent CI tests but does not gate deployment.
 
-**Important:** To enforce validation *before* publishing, switch repository Settings → Pages → Build and deployment → Source to **GitHub Actions**. If left on "Deploy from a branch", GitHub Pages can publish a push before this validation completes.
+**Chosen deployment mode:** Settings → Pages → Source = **Deploy from a branch**, branch = main, folder = / (root). Do not switch to GitHub Actions deployment. Any direct push to main can still publish without waiting for CI; use the local validator and publisher.
 
 ## First-time setup
 
@@ -25,7 +25,7 @@ uv run python -m local.validate_release
    uv run python -m local.publish --dry-run
    uv run python -m local.publish
    ```
-4. Monitor GitHub Actions "Validate and deploy GitHub Pages" for success.
+4. Verify the Pages site after GitHub branch deployment and review the independent Python pipeline test workflow.
 
 The publish command checks local main equals origin/main, refuses unrelated uncommitted changes, stages only `data/`, and pushes the validated export. It does not automatically collect data or know exchange holidays.
 
