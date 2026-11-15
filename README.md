@@ -96,9 +96,31 @@ uv run python -m local.publish
 - [x] 本地 JSON 驗證與手動發布工具
 - [x] 移除與分支部署衝突的 Pages Actions workflow
 - [ ] uv.lock、CI 成功結果、正式模型端到端測試
-- [ ] 真實金融資料來源、授權審查與蒐集器
-- [ ] 台灣交易日行事曆與本地排程安裝
+- [x] Local CSV 正規化匯入介面（不含資料供應商 API）
+- [ ] 真實金融資料來源、授權審查與自動蒐集器
+- [x] 可讀取外部交易日曆 CSV 的交易日判斷器（缺資料時拒絕執行）
+- [ ] 台灣交易日曆資料來源與本地排程安裝
 - [ ] 發布完整原子性、增量索引與大型資料效能
 - [ ] 異常訊號模型與量化研究／回測
 
 本地資料庫與模型只在本地執行；GitHub Repository 內容不代表已在使用者電腦完成測試。
+
+## 新增：金融資料匯入介面與交易日防護
+
+可將經授權、已標準化的本地 CSV 放在 `local/inputs/`（已加入 .gitignore），使用以下指令轉成 SQLite Pipeline 所需 JSON：
+
+```bash
+uv run python -m local.ingest_csv --input-dir local/inputs --output local/private/normalized.json
+uv run python -m local.pipeline all --semantic --input local/private/normalized.json --threshold 0.65
+uv run python -m local.validate_release
+```
+
+CSV 檔名可為 `stocks.csv`、`sources.csv`、`documents.csv`、`financial_metrics.csv`、`chip_metrics.csv`。其中 stocks.csv 必填；documents.csv 的多檔股票關係使用 `stock_ids` 欄位，以分號分隔股票 ID。詳細欄位參考 [local/ingest_csv.py](local/ingest_csv.py)。目前僅支援本地匯入，**不會自動向台灣證交所或其他網站下載資料**。
+
+交易日檢查採外部 `date,is_open` CSV（1/0），缺少日期時直接報錯，避免誤把休市日當交易日：
+
+```bash
+uv run python -m local.trading_calendar --calendar local/private/tw_calendar.csv --date 2026-11-16
+```
+
+這個交易日檢查尚未串入排程發布入口；正式排程前仍需確定權威行事曆來源、資料更新與作業系統。
