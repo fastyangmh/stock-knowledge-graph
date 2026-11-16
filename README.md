@@ -4,7 +4,7 @@
 
 **研究原型，公開網站仍為虛構示範資料。** 不是即時行情或投資建議；真實名單、使用權利及公開發布尚未完成。
 
-[展示網站](https://fastyangmh.github.io/stock-knowledge-graph/) · [文件中心](docs/README.md)
+[展示網站](https://fastyangmh.github.io/stock-knowledge-graph/) · [文件中心](docs/README.md) · [事件後描述統計](docs/EVENT_STUDY.md)
 
 ## 系統概覽
 

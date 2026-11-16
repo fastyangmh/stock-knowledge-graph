@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>事件後觀察統計｜Stock Knowledge Graph</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <script src="./js/event-study.js" defer></script>
+</head>
+<body>
+<header><p class="eyebrow">STOCK KNOWLEDGE GRAPH / PRIVATE DESCRIPTIVE RESEARCH</p>
+  <h1>事件後觀察統計</h1>
+  <p>價量提醒與月營收提醒分開分析。觀察變化，不假設買賣。</p>
+  <p class="notice">這不是投資報酬、策略回測或因果效果。後續報價筆數不等於連續交易日；缺資料不當成零。事件可能重疊且樣本有選擇偏誤。</p>
+</header>
+<main>
+  <p id="event-status" role="status" aria-live="polite">讀取本機已驗證研究版本的觀察報告…</p>
+  <section id="event-overview" aria-label="研究範圍"></section>
+  <section id="event-results" hidden aria-label="兩類事件獨立統計"></section>
+  <noscript>需啟用JavaScript。此頁應由 local.event_study --serve 提供資料。</noscript>
+</main>
+<footer>僅以已保存的展示數值研究；未知尺度不換算，不補齊未保存的歷史。來源授權及真實資料品質另行核對。</footer>
+</body>
+</html>

@@ -19,6 +19,7 @@
 | --- | --- |
 | [System Design](SYSTEM_DESIGN.md) | 需求、設計取捨與驗收 |
 | [Architecture](ARCHITECTURE.md) | 元件與資料流 |
+| [事件後變化統計](EVENT_STUDY.md) | 價量與營收分開，已保存事件的描述統計，非策略回測 |
 | [雙來源研究股票池](RESEARCH_UNIVERSE.md) | TW50＋009816 聯集定義與輸入契約 |
 | [Data Model](DATA_MODEL.md) | SQLite 與 JSON |
 | [Developer Guide](DEVELOPER_GUIDE.md) | uv、測試、提交流程 |
@@ -55,4 +56,6 @@
 - [研究提醒規則、設定與操作](RESEARCH_ALERTS.md)
 - [完整本地驗證紀錄（2026-11-16）](VERIFICATION-2026-11-16-ALERTS.md)
 
-最新本地驗證：[歷史版本與品質檢查](VERIFICATION-2026-11-16-HISTORY.md)。
+前一輪本地驗證：[歷史版本與品質檢查](VERIFICATION-2026-11-16-HISTORY.md)。
+
+最新驗證：[事件後描述統計（2026-11-16）](VERIFICATION-2026-11-16-EVENTS.md)。

@@ -7,3 +7,9 @@
 .history-run h2{font-size:1.1rem}.history-stock h3{margin-top:0}.history-stock section{margin:1rem 0}
 #comparison pre,#run-list pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto;font-size:.85rem}
 #before-run,#after-run{max-width:min(100%,30rem)}#run-list a,header a{color:#8fc7ff;display:inline-block;margin:.4rem}
+
+/* Descriptive event study: independent groups, bounded incremental rendering. */
+[data-event-category]{margin:1.5rem 0;padding:1rem;border:1px solid #33475e;border-radius:10px;min-width:0}
+[data-study-group]{padding:.75rem;margin:.7rem 0;border:1px solid #33475e;border-radius:8px;overflow-wrap:anywhere}
+#event-results pre,#event-overview pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:28rem;overflow:auto}
+#event-results select{max-width:100%;min-width:0;width:100%}#event-results details{margin:.5rem 0}#event-results summary{cursor:pointer;overflow-wrap:anywhere}

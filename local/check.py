@@ -63,7 +63,7 @@ def main(argv=None):
         report["frontend_sha256"]={p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
                                     for p in sorted((ROOT/"js").rglob("*.js"))}
     report["site_sha256"]={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
-                           for name in ("index.html","history.html","css/style.css")}
+                           for name in ("index.html","history.html","event-study.html","css/style.css")}
     report.update(finished_at=now(),passed=not failed)
     atomic_bytes(report_path,(json.dumps(report,ensure_ascii=False,indent=2)+"\n").encode())
     print("Local test report:",report_path)
