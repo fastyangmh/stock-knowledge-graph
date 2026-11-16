@@ -11,7 +11,7 @@
     etf_009816: '009816（含重疊）', both: '兩者皆有',
     tw50_only: '僅臺灣50', etf_009816_only: '僅009816', unknown: '未標示'});
   const RELATIONS = Object.freeze({semantic_similarity: '語意相似', lexical_similarity: '字元相似（測試基準）',
-    industry: '產業關聯', contains: '資訊關聯'});
+    industry: '產業關聯', contains: '資訊關聯', has_market_price: '盤後行情', has_financial_metric: '財務數值'});
   function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
   function day(value) {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

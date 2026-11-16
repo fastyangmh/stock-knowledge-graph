@@ -39,3 +39,7 @@ uv run --locked python -m local.preview --data-dir local/private/combined-previe
 ## 尚未提供
 
 目前沒有即時行情、自動交易、登入／訂閱、歷史時間軸、載入更多或量化回測。資料層存在的欄位不代表已完成金融品質驗證。進度與後續工作見 [ROADMAP](ROADMAP.md)。
+
+## 私有行情與財務數值
+
+新版私有研究版本可顯示「盤後行情」及「財務數值」關係。點選數值節點可看 OHLC、成交股數、期末日、單位、觀察／登錄時間與快照 SHA256。`source_reported` 表示尺度仍待確認；資料值不是相似度，也不是投資訊號。公開網站仍使用原示範資料，完整操作見 [私有研究手冊](PRIVATE_RESEARCH.md)。

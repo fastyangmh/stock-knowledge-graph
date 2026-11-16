@@ -2,7 +2,7 @@
 
 [文件中心](README.md) · [資料模型](DATA_MODEL.md) · [官方資料來源](DATA_SOURCES.md)
 
-本文件描述從可用來源到展示 JSON 的工程步驟；**示範資料與正式資料分開**。目前正式台灣50名單的使用權未確認，官方端點尚未完成線上全量驗證。
+本文件保留向後相容的 TW50-only 流程；**示範資料與正式資料分開**。不依賴名單的現行入口請先看 [私有研究流程](PRIVATE_RESEARCH.md)，可直接指定代碼，無須等待指數名單。官方端點尚未完成線上全量驗證。
 
 ## 1. 資料流
 
@@ -75,7 +75,7 @@ uv run --locked python -m local.pipeline validate --output local/private/preview
 - 每份來源要有 provider、資料集與授權連結、擷取時間；下載以 SHA256 內容雜湊命名，成功才更新 retrieval manifest。
 - 公司和月營收 CSV adapter 會核對官方欄位、民國日期、資料年月、千分位、空值、重複紀錄和 50 檔覆蓋。
 - `available_at` 使用資料**實際觀察到可得**的時間；不把月份期末日當成公告時間。當日快照不應被當作歷史當時已可見的資料。
-- 金額在單位未核對前以 `source_reported` 保存；零與缺值意義不同。尚未整合價格／籌碼／季報／重大訊息的正式 adapter。
+- 金額在單位未核對前以 `source_reported` 保存；零與缺值意義不同。價格已由獨立 `market_prices` 及 `research` 模組整合；籌碼／季報／重大訊息的正式 adapter 仍未完成。
 - 一篇文件可以對應多檔股票；文件更新以 ID／內容雜湊配合 SQLite 快取。資料不是每天全量重複造節點。
 
 ## 5. 向量與關聯的重算條件
@@ -91,3 +91,7 @@ uv run --locked python -m local.pipeline validate --output local/private/preview
 在開放資料集、授權證明、股票涵蓋、公告／擷取時間、日期合法性、單位、原始快照與 JSON 端點完整性均確認前，僅允許私有預覽。若資料集失敗或不完整，**停止，不用昨天資料或示範資料偽裝今天的成功更新**。
 
 正式發布作業詳見 [部署與維運](OPERATIONS.md)，權利與來源限制詳見 [安全與資料授權](SECURITY_AND_LICENSING.md)。
+
+## 不依賴指數名單的現行入口
+
+上方 `--universe` 流程仍保留；現在也可 `local.official_import --symbols <代碼...> --as-of <實際快照日期>`。公司／月營收資料不再強制提供50檔名單。新版 adapter 為每筆財務指標保留 `source_id`，在 metadata 保存來源快照 SHA256／擷取時間；接續 `local.research` 產生私有版本。完整契約、行情驗證與重跑方式見 [PRIVATE_RESEARCH](PRIVATE_RESEARCH.md)。舊 `local.pipeline` 不會自動啟用新的 observation ledger，不要把兩個入口的歷史保證混為一談。

@@ -43,3 +43,7 @@ uv run --locked python -m local.check --frontend
 | [不依賴名單的盤後行情](docs/MARKET_PRICES.md) | [行情模組驗證](docs/VERIFICATION-2026-11-16-MARKET.md) |
 
 全部文件及歷史驗證紀錄見 [docs/README.md](docs/README.md)。真實雙來源名單及公開使用範圍保留為獨立待辦；技術測試通過不代表正式來源下載、資料品質或公開發布已驗收。
+
+## 不等待名單的私有研究流程
+
+[公司／月營收＋行情＋修訂歷史＋備份操作](docs/PRIVATE_RESEARCH.md)已提供 `local.official_import --symbols` 與 `local.research`。自選代碼不推定指數歸屬；只產生新私有研究版本，不改公開金融資料。下一階段的異常訊號與回測規則尚待產品決策，不把數值觀察當成買賣訊號。

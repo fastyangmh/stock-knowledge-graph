@@ -20,7 +20,7 @@ import tempfile
 import threading
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from local.core import ROOT, connect, init_db, import_payload
+from local.core import ROOT, connect, init_db, import_payload, upsert_node, upsert_edge
 from local.export_json import export
 from local.preview import make_server, snapshot
 from local.similarity import compute
@@ -46,6 +46,10 @@ def fixture(root):
     with connect(root/'test.db') as conn:
         init_db(conn);import_payload(conn,{"stocks":stocks,"documents":documents,
             "sources":[{"source_id":"fixture","provider":"Synthetic provider","url":"https://example.org/dataset","license_type":"test only"}]})
+        upsert_node(conn, "price:synthetic", "market_price", "Synthetic price 1002", stock_id="TW:1002",
+                    props={"close":"11.00","volume_shares":1000,"trade_date":"2026-11-15",
+                           "source_id":"fixture","price_unit":"source_reported","raw_snapshot_verified":False})
+        upsert_edge(conn, "stock:TW:1002", "price:synthetic", "has_market_price", "synthetic_fixture")
         compute(conn,threshold=0);export(conn,root/'preview',lifecycle=True)
 
 
@@ -76,6 +80,11 @@ async def load_page(browser, data, js, in_memory, errors):
             };
         }''',fixture_files)
         await page.add_script_tag(content=js)
+        await page.evaluate("""() => {
+          const original=window.cytoscape;
+          function capture(options) { const cy=original(options); window.__testCy=cy; return cy; }
+          Object.assign(capture,original); window.cytoscape=capture;
+        }""")
         await page.add_script_tag(content=(ROOT/'js/graph-utils.js').read_text())
         await page.add_script_tag(content=(ROOT/'js/app.js').read_text())
     else:
@@ -143,6 +152,12 @@ async def run(args):
                 assert await page.locator('#sources img').count()==0
                 assert not await page.evaluate('Boolean(window.injected)')
                 report['checks'].append('search, dates, provenance and text-safe rendering')
+                await page.select_option('#relation','has_market_price')
+                if args.in_memory:
+                    await page.evaluate("() => { __testCy.getElementById('price:synthetic').emit('tap'); }")
+                    assert '收盤（來源尺度）' in await page.locator('#details').inner_text()
+                    assert '11.00' in await page.locator('#details').inner_text()
+                report['checks'].append('numeric market relation and price detail labels')
                 await page.select_option('#relation','contains');await page.click('#fit')
                 report['checks'].append('relation filter and fit view')
                 await page.fill('#search','')

@@ -22,6 +22,7 @@
 | [雙來源研究股票池](RESEARCH_UNIVERSE.md) | TW50＋009816 聯集定義與輸入契約 |
 | [Data Model](DATA_MODEL.md) | SQLite 與 JSON |
 | [Developer Guide](DEVELOPER_GUIDE.md) | uv、測試、提交流程 |
+| [私有研究與觀察歷史](PRIVATE_RESEARCH.md) | 自選代碼、數值圖譜、版本、備份與還原 |
 | [Data Pipeline](DATA_PIPELINE.md) | 官方快照、正規化與圖譜 |
 | [官方盤後行情](MARKET_PRICES.md) | 不依賴指數名單的股價／成交量私有匯入、版本保存 |
 | [Operations](OPERATIONS.md) | 人工更新、驗證、發布與復原 |
@@ -44,3 +45,5 @@
 [本地程式入口](../local/README.md) · [既有發布註記](../local/UPDATE_AND_PUBLISH.md)
 
 > 公開金融資料仍為示範；來源篩選可用不代表真實名單已核准或正式下載成功。名單先暫緩，不阻塞行情等獨立模組。沒有啟用排程／自動金融資料發布。
+
+本輪驗證：[私有研究整合（2026-11-16）](VERIFICATION-2026-11-16-RESEARCH.md)。

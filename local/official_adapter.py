@@ -154,7 +154,7 @@ def normalize_records(datasets, universe, *, as_of):
                 if key in metrics:
                     raise ValueError("Conflicting metric source")
                 metrics[key] = {"stock_id":stock_id,"metric":metric,"period_end":period,"period_type":"month",
-                    "value":val,"unit":unit,"available_at":observed.isoformat()}
+                    "value":val,"unit":unit,"available_at":observed.isoformat(),"source_id":sid}
             text = f"{row['公司名稱']} {period[:7]} 月營收：{value}（來源原始數值，未換算幣別與倍率）。"
             documents[doc_id] = {"document_id":doc_id,"external_id":doc_id,"doc_type":"financial",
                 "title":f"{code} {period[:7]} 月營收","content":text,"stock_ids":[stock_id],
@@ -195,4 +195,8 @@ def from_snapshots(directory, registry, universe, *, as_of):
         if len(body) != entry["bytes"] or hashlib.sha256(body).hexdigest() != entry["sha256"]:
             raise ValueError("Snapshot checksum/length mismatch")
         datasets.append((source,csv_rows(body),entry["retrieved_at"]))
-    return normalize_records(datasets,universe,as_of=as_of)
+    payload = normalize_records(datasets,universe,as_of=as_of)
+    payload["metadata"]["source_snapshots"] = [
+        {k: entry[k] for k in ("dataset_id", "sha256", "bytes", "retrieved_at", "resource_url")}
+        for entry in manifest["datasets"]]
+    return payload

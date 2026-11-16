@@ -83,7 +83,7 @@ def import_payload(conn, payload):
         did=d["document_id"]
         available=conn.execute("SELECT available_at FROM documents WHERE document_id=?",(did,)).fetchone()[0]
         props={"published_at":d["published_at"],"available_at":available,"description":content[:240],"source_id":d.get("source_id")}
-        for key in ("source_url","license_url","attribution","period_end","unit","availability_basis","source_report_date"):
+        for key in ("source_url","license_url","attribution","period_end","unit","availability_basis","source_report_date","registered_at","input_snapshot_sha256"):
             if key in d:
                 props[key]=d[key]
         upsert_node(conn,"doc:"+did,d["doc_type"],d["title"],document_id=did,props=props)

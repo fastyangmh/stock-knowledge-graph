@@ -46,7 +46,12 @@
     const labels = {type:'類型',relation:'關係',score:'相似度（非報酬預測）',method:'計算方法',model_id:'模型識別',
       as_of:'關聯計算時間',universe_as_of:'名單觀察日期',available_at:'資訊可得時間',published_at:'來源時間',
       description:'說明',evidence_ids:'證據文件 ID',universe_memberships:'股票池來源與生效日期',attribution:'來源署名',
-      source_url:'資料集來源',license_url:'授權條款'};
+      source_url:'資料集來源',license_url:'授權條款',trade_date:'行情交易日期',observed_at:'來源觀察時間',
+      registered_at:'本地首次登錄時間',raw_sha256:'原始 CSV SHA256',input_snapshot_sha256:'正規化快照 SHA256',
+      open:'開盤（來源尺度）',high:'最高（來源尺度）',low:'最低（來源尺度）',close:'收盤（來源尺度）',
+      volume_shares:'成交股數',turnover_raw:'成交金額（來源尺度）',trades:'成交筆數',price_basis:'價格基準',
+      price_unit:'價格單位',turnover_unit:'金額單位',value:'來源報告數值',unit:'數值單位',metric:'指標',
+      period_end:'資料期末日',period_type:'期間類型',acquisition:'取得方式',raw_snapshot_verified:'已比對原始快照'};
     const dl = element('dl', undefined, ui.details);
     for (const [key,value] of Object.entries(data)) {
       if (['id','label'].includes(key) || value === null || value === undefined) continue;
@@ -111,6 +116,8 @@
         {selector:'node[type="stock"]',style:{'background-color':'#19b9a6',width:54,height:54,'font-weight':'bold'}},
         {selector:'node[type="news"]',style:{'background-color':'#df9a4d'}},
         {selector:'node[type="financial"]',style:{'background-color':'#986de0'}},
+        {selector:'node[type="market_price"]',style:{shape:'roundrectangle','background-color':'#3986d8'}},
+        {selector:'node[type="financial_metric"]',style:{shape:'diamond','background-color':'#986de0'}},
         {selector:'edge',style:{width:2,'line-color':'#6583aa','curve-style':'bezier','target-arrow-shape':'none',label:'data(relation)','font-size':9,color:'#9db0cc','text-rotation':'autorotate'}},
         {selector:'edge[relation="contains"]',style:{'target-arrow-shape':'triangle','target-arrow-color':'#6583aa'}},
         {selector:':selected',style:{'border-width':3,'border-color':'#fff','line-color':'#fff'}}

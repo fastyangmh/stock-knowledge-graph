@@ -42,6 +42,20 @@ def prune(graph, max_information_nodes=100, max_related_stocks=15,
     def order(node):
         return (-scores.get(node["id"], 0), node["id"])
     information.sort(key=order)
+    # Reserve up to ten slots WITHIN the existing information cap for the
+    # primary stock's latest structured observations. Pure fact edges have no
+    # cosine score and would otherwise always lose against scored documents.
+    direct = {e["target"] for e in graph["edges"] if e["source"] == primary}
+    structured = [n for n in information if n["id"] in direct and n["type"] in ("market_price", "financial_metric")]
+    structured.sort(key=lambda n:(n.get("trade_date", n.get("period_end", "")),
+                                  n.get("available_at", ""), n["id"]), reverse=True)
+    # Only the most recent market node needs a reserved slot; older ones can
+    # still compete under the normal cap. This is display policy, not a signal.
+    quotes = [n for n in structured if n["type"] == "market_price"][:1]
+    metrics = [n for n in structured if n["type"] == "financial_metric"][:9]
+    reserved = (quotes + metrics)[:min(10, max_information_nodes)]
+    reserved_ids = {n["id"] for n in reserved}
+    information = reserved + [n for n in information if n["id"] not in reserved_ids]
     stocks.sort(key=order)
     keep = {primary} | {n["id"] for n in information[:max_information_nodes]} | {n["id"] for n in stocks[:max_related_stocks]}
     edges, degree = [], {}

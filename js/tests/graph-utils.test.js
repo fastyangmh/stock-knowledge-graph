@@ -65,3 +65,9 @@ test('related stock membership must also be valid before rendering', () => {
   const malformed = {nodes:[{id:'a',type:'stock',universe_group:'both'}],edges:[]};
   assert.throws(() => U.graph(malformed), /歸屬資料不完整/);
 });
+
+
+test('numeric relations are facts, not cosine or trading signals', () => {
+  assert.equal(U.RELATIONS.has_market_price, '盤後行情');
+  assert.equal(U.RELATIONS.has_financial_metric, '財務數值');
+});

@@ -4,6 +4,8 @@
 
 > **目前部署決策：** GitHub Pages = `Deploy from a branch`／`main`／根目錄；Linux/NAS **手動執行，不安裝排程**。GitHub Actions 測試不會阻止另一個直接 push 到 `main` 的行為。
 
+目前另有 [不依賴指數名單的私有研究入口](PRIVATE_RESEARCH.md)。下方正式雙來源發布條件仍適用，但不再阻塞自選股票的私有處理。
+
 ## 1. 每次開始前
 
 確認專案更新、依賴與本地測試：
@@ -73,3 +75,7 @@ uv run --locked python -m local.publish
 本專案沒有後端部署、沒有常駐任務服務，GitHub Pages 只讀取公開 JSON。**請勿把 `local/private/`、`*.db`、Token、未授權的新聞全文與模型私有檔案加入 Git**。Repository 為 public，任何被提交的內容可能被他人看到。
 
 相關：[既有維運註記](../local/UPDATE_AND_PUBLISH.md) · [安全／授權](SECURITY_AND_LICENSING.md) · [常見問題](TROUBLESHOOTING.md)。
+
+## 研究版本與備份入口
+
+現行不等待名單的流程見 [PRIVATE_RESEARCH](PRIVATE_RESEARCH.md)。`local.research` 只建立私有不可變 bundle，不改公開 `data/`；最新成功版本由普通 `latest.json` 指向。`local.backup create/verify/restore` 提供手動 SQLite 備份與防覆寫還原，原始 CSV 必須另外保存。這些入口不會啟用排程、購買資料或執行 Git Push。

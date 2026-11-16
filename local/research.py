@@ -1,0 +1,267 @@
+"""Manual private research bundles: normalized financial facts + optional prices.
+
+No downloads, index-membership assumptions, scheduling, orders or Git operations.
+Each success is a new immutable bundle (SQLite + graph JSON + quality report).
+The ledger preserves normalized observations; public data/ is never modified.
+"""
+from __future__ import annotations
+
+import argparse
+from contextlib import closing
+import hashlib
+import json
+import math
+import sqlite3
+import tempfile
+import uuid
+from pathlib import Path
+
+from .core import ROOT, connect, init_db, import_payload, upsert_node, upsert_edge, digest
+from .collect_official import atomic_bytes
+from .dates import iso_date, timestamp
+from .export_json import export
+from .market_graph import read_prices, attach_prices
+from .research_history import (strict_json, canonical, record_snapshot, replay,
+                               validate_symbols, utc_now, MAX_INPUT_BYTES)
+from .safety import private_path, exclusive_lock
+from .semantic import compute_semantic, DEFAULT_MODEL, INPUT_VERSION
+from .similarity import compute
+from .validate_release import validate_data_dir
+
+ENGINE_VERSION = "private-research-1"
+
+
+def file_digest(path):
+    with Path(path).open("rb") as stream:
+        checksum = hashlib.sha256()
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            checksum.update(chunk)
+        return checksum.hexdigest()
+
+
+def guarded(path) -> Path:
+    original = Path(path).absolute()
+    if original.is_symlink() or any(parent.is_symlink() for parent in original.parents):
+        raise ValueError("symlink paths are not accepted for private research")
+    return private_path(original)
+
+
+def attach_metrics(conn, payload):
+    sources = {source["source_id"]: source for source in payload["sources"]}
+    count = 0
+    evidence_by_key = {}
+    for doc in payload["documents"]:
+        for sid in doc.get("stock_ids", []):
+            evidence_by_key.setdefault((doc.get("source_id"), doc.get("period_end"), sid), []).append(doc)
+    for metric in payload["financial_metrics"]:
+        source = sources[metric["source_id"]]
+        key = (metric["stock_id"], metric["source_id"], metric["metric"], metric["period_end"], metric["period_type"])
+        node_id = "metric:" + digest(json.dumps(key, ensure_ascii=False))
+        props = {**metric, "source_url": source.get("url"), "license_type": source.get("license_type"),
+                 "description": "來源報告數值；未知尺度不換算，非語意分數或投資建議。"}
+        evidence = []
+        for doc in evidence_by_key.get((metric["source_id"], metric["period_end"], metric["stock_id"]), []):
+            evidence.append(doc["document_id"])
+            for field in ("license_url", "attribution"):
+                if field in doc:
+                    props[field] = doc[field]
+        upsert_node(conn, node_id, "financial_metric", metric["metric"] + " " + metric["period_end"],
+                    stock_id=metric["stock_id"], props=props)
+        upsert_edge(conn, "stock:" + metric["stock_id"], node_id, "has_financial_metric", "reported_financial_fact", evidence=evidence)
+        count += 1
+    return count
+
+
+def _read_last(root):
+    pointer = root/"latest.json"
+    if not pointer.exists():
+        return None
+    if pointer.is_symlink():
+        raise ValueError("latest pointer is a symlink")
+    obj = strict_json(pointer.read_bytes())
+    name = obj.get("run")
+    if (obj.get("engine") != ENGINE_VERSION or not isinstance(name, str)
+            or len(name) != 32 or any(c not in "0123456789abcdef" for c in name)):
+        raise ValueError("unexpected latest pointer; do not overwrite unrelated files")
+    bundle = root/name
+    report = guarded(bundle/"report.json")
+    database = guarded(bundle/"graph.db")
+    body = report.read_bytes()
+    if hashlib.sha256(body).hexdigest() != obj.get("report_sha256"):
+        raise ValueError("prior bundle report checksum mismatch")
+    info = strict_json(body)
+    if info.get("engine") != ENGINE_VERSION or info.get("run") != name or info.get("status") != "complete":
+        raise ValueError("prior bundle is incomplete")
+    if file_digest(database) != info.get("graph_db_sha256"):
+        raise ValueError("prior graph database changed; refusing unsafe cache reuse")
+    return database
+
+
+def _reuse_cache(conn, prior, model_name, revision):
+    if prior is None:
+        return 0
+    config = json.dumps({"name":model_name, "revision":revision, "input_version":INPUT_VERSION},
+                        sort_keys=True, ensure_ascii=False)
+    model_id = "st:" + digest(config)[:24]
+    with closing(sqlite3.connect(prior.as_uri()+"?mode=ro", uri=True)) as old:
+        old.execute("PRAGMA query_only=ON")
+        old.execute("PRAGMA trusted_schema=OFF")
+        model = old.execute("SELECT * FROM embedding_models WHERE model_id=?", (model_id,)).fetchone()
+        if model is None:
+            return 0
+        if model[3] != config:
+            raise ValueError("prior model identity differs from requested cache")
+        conn.execute("INSERT INTO embedding_models VALUES(?,?,?,?)", model)
+        nodes = {r[0] for r in conn.execute("SELECT node_id FROM graph_nodes")}
+        docs = {r[0] for r in conn.execute("SELECT document_id FROM documents")}
+        count = 0
+        for row in old.execute("SELECT * FROM embeddings WHERE model_id=?", (model_id,)):
+            if row[0] in nodes:
+                conn.execute("INSERT INTO embeddings VALUES(?,?,?,?,?)", row)
+                count += 1
+        for edge in old.execute("SELECT * FROM graph_edges WHERE model_id=?", (model_id,)):
+            if edge[1] in nodes and edge[2] in nodes:
+                conn.execute("INSERT INTO graph_edges VALUES(?,?,?,?,?,?,?,?,?)", edge)
+                for evidence in old.execute("SELECT edge_id,document_id FROM edge_evidence WHERE edge_id=?", (edge[0],)):
+                    if evidence[1] in docs:
+                        conn.execute("INSERT INTO edge_evidence VALUES(?,?)", evidence)
+        state = old.execute("SELECT * FROM similarity_state WHERE model_id=?", (model_id,)).fetchone()
+        if state:
+            conn.execute("INSERT INTO similarity_state VALUES(?,?,?,?)", state)
+    return count
+
+
+def run(input_file, symbols, *, history_db, output_root, analysis="none", known_at=None,
+        prices_db=None, trade_date=None, price_market="twse", price_snapshots=None, model=DEFAULT_MODEL, revision=None,
+        top_k=10, threshold=0.65, max_pairs=2_000_000, lookback_days=None, encoder=None):
+    """Materialize an isolated research database from as-recorded observations."""
+    stock_ids = validate_symbols(symbols)
+    if analysis not in ("none", "lexical", "semantic"):
+        raise ValueError("analysis must be none, lexical or semantic")
+    if type(top_k) is not int or top_k < 1 or not isinstance(model, str) or not model.strip():
+        raise ValueError("invalid top_k or model")
+    if type(threshold) not in (int, float) or not math.isfinite(threshold) or not -1 <= threshold <= 1:
+        raise ValueError("invalid threshold")
+    if type(max_pairs) is not int or max_pairs < 0 or (lookback_days is not None and (type(lookback_days) is not int or lookback_days < 0)):
+        raise ValueError("invalid comparison budget/window")
+    root, ledger = guarded(output_root), guarded(history_db)
+    source_path = guarded(input_file)
+    if ledger == source_path or ledger == root or ledger.is_relative_to(root) or source_path.is_relative_to(root):
+        raise ValueError("input, history DB and bundle directory must be separate")
+    if known_at and timestamp(known_at) > timestamp(utc_now()):
+        raise ValueError("known_at must not be in the future")
+    if len({bool(prices_db), bool(trade_date), bool(price_snapshots)}) != 1:
+        raise ValueError("--prices-db, --trade-date and --price-snapshots must be used together")
+    if trade_date:
+        iso_date(trade_date)
+    with source_path.open("rb") as source:
+        body = source.read(MAX_INPUT_BYTES+1)
+    input_payload = strict_json(body)
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with exclusive_lock(root):
+        prior = _read_last(root)
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        with closing(sqlite3.connect(ledger)) as history:
+            with history:
+                history.execute("BEGIN IMMEDIATE")
+                snapshot = record_snapshot(history, input_payload)
+        cutoff = timestamp(known_at or utc_now()).isoformat(timespec="microseconds")
+        # Replay deliberately uses registration time as well as source observation.
+        with closing(sqlite3.connect(ledger.as_uri()+"?mode=ro", uri=True)) as history:
+            payload, quality = replay(history, stock_ids, cutoff)
+        prices = read_prices(guarded(prices_db), price_market, sorted(s[3:] for s in stock_ids), trade_date, cutoff, snapshot_dir=guarded(price_snapshots)) if prices_db else []
+        name = uuid.uuid4().hex
+        final = root/name
+        with tempfile.TemporaryDirectory(prefix=".research-stage-", dir=root) as temporary:
+            stage = Path(temporary)
+            conn = connect(stage/"graph.db")
+            try:
+                init_db(conn)
+                conn.execute("BEGIN IMMEDIATE")
+                import_payload(conn, payload)
+                metric_count = attach_metrics(conn, payload)
+                price_count = attach_prices(conn, prices)
+                cached = _reuse_cache(conn, prior, model, revision) if analysis == "semantic" else 0
+                stats = {"mode": analysis, "encoded": 0, "pairs_evaluated": 0}
+                if analysis == "semantic":
+                    stats.update(compute_semantic(conn, model_name=model, revision=revision, encoder=encoder,
+                                 top_k=top_k, threshold=threshold, max_pairs=max_pairs,
+                                 as_of=cutoff, lookback_days=lookback_days))
+                elif analysis == "lexical":
+                    stats.update(compute(conn, top_k=top_k, threshold=threshold))
+                manifest = export(conn, stage/"data", universe=stock_ids, lifecycle=True)
+                graph_count = validate_data_dir(stage/"data")
+                conn.commit()
+                if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                    raise ValueError("research SQLite integrity check failed")
+            except BaseException:
+                conn.rollback()
+                raise
+            finally:
+                conn.close()
+            missing_prices = sum(bool(p["record"]["missing_price_fields"]) for p in prices)
+            warnings = list(quality["warnings"])
+            if prices:
+                warnings.append("unadjusted_prices: no returns, trading signals or cross-source unit comparisons")
+            if any(p["acquisition"] == "local_file_unverified" for p in prices):
+                warnings.append("market_input_is_unverified_local_file")
+            if missing_prices:
+                warnings.append("missing_OHLC_fields_in_selected_prices")
+            if analysis == "semantic" and not revision:
+                warnings.append("model_revision_not_pinned: mutable remote model names are not fully reproducible")
+            if analysis == "lexical":
+                warnings.append("lexical_baseline_is_not_an_AI_semantic_model")
+            report = {"engine": ENGINE_VERSION, "status": "complete", "run": name,
+                      "completed_at": utc_now(), "known_at": cutoff,
+                      "selection": {"mode": "explicit_symbols", "stock_ids": sorted(stock_ids),
+                                    "index_membership_inferred": False},
+                      "input_sha256": hashlib.sha256(body).hexdigest(), "registered_snapshot": snapshot,
+                      "quality": {**quality, "warnings": sorted(set(warnings))},
+                      "analysis": {**stats, "cached_vectors_copied": cached},
+                      "counts": {"graphs": graph_count, "financial_metric_nodes": metric_count,
+                                 "market_nodes": price_count, "market_missing_OHLC": missing_prices},
+                      "market_observations": [{"source_id": p["source"]["source_id"], "symbol": p["record"]["symbol"],
+                          "trade_date": p["record"]["trade_date"], "observed_at": p["observed_at"],
+                          "raw_sha256": p["raw_sha256"], "acquisition": p["acquisition"],
+                          "raw_snapshot_verified": p["raw_snapshot_verified"]} for p in prices],
+                      "graph_db_sha256": file_digest(stage/"graph.db"),
+                      "manifest_sha256": hashlib.sha256((stage/"data/manifest.json").read_bytes()).hexdigest(),
+                      "public_publish": False,
+                      "scope": "private as-recorded research bundle; no historical-market backtest or license certification"}
+            report_body = canonical(report)
+            atomic_bytes(stage/"report.json", report_body)
+            stage.rename(final)
+            # A pointer failure leaves a complete but unreferenced bundle, never corrupts the old one.
+            atomic_bytes(root/"latest.json", canonical({"engine": ENGINE_VERSION, "run": name,
+                         "report_sha256": hashlib.sha256(report_body).hexdigest()}))
+        return report
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--input", required=True, type=Path, help="Normalized private JSON with metadata.observed_at and metric source_id")
+    p.add_argument("--symbols", required=True, nargs="+")
+    p.add_argument("--history-db", type=Path, default=ROOT/"local/private/research-history.db")
+    p.add_argument("--output-root", type=Path, default=ROOT/"local/private/research-runs")
+    p.add_argument("--known-at", help="Timezone-aware local knowledge cutoff; default is now")
+    p.add_argument("--prices-db", type=Path)
+    p.add_argument("--price-snapshots", type=Path, help="Required raw snapshot directory when including market observations")
+    p.add_argument("--trade-date", help="Explicit price date, never relabel stale data")
+    p.add_argument("--price-market", choices=("twse", "tpex"), default="twse")
+    p.add_argument("--analysis", choices=("none", "lexical", "semantic"), default="none")
+    p.add_argument("--model", default=DEFAULT_MODEL)
+    p.add_argument("--revision")
+    p.add_argument("--top-k", type=int, default=10)
+    p.add_argument("--threshold", type=float, default=0.65)
+    p.add_argument("--max-pairs", type=int, default=2_000_000)
+    p.add_argument("--lookback-days", type=int)
+    args = p.parse_args(argv)
+    options = vars(args).copy()
+    options["input_file"] = options.pop("input")
+    result = run(**options)
+    print("Private research bundle:", args.output_root/result["run"])
+    print("Graphs:", result["counts"]["graphs"], "Warnings:", len(result["quality"]["warnings"]), "No publication.")
+
+
+if __name__ == "__main__":
+    main()
