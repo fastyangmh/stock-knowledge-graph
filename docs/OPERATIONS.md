@@ -79,3 +79,7 @@ uv run --locked python -m local.publish
 ## 研究版本與備份入口
 
 現行不等待名單的流程見 [PRIVATE_RESEARCH](PRIVATE_RESEARCH.md)。`local.research` 只建立私有不可變 bundle，不改公開 `data/`；最新成功版本由普通 `latest.json` 指向。`local.backup create/verify/restore` 提供手動 SQLite 備份與防覆寫還原，原始 CSV 必須另外保存。這些入口不會啟用排程、購買資料或執行 Git Push。
+
+## 本機版本容量與完整性巡檢
+
+`local.bundle_audit`預設只檢查50個版本／合計256MiB，超額明確停止；可人工調整預算，不會自動刪除舊版本。毀損bundle及暫存殘留列入報告。`local.research_archive`只以loopback提供已驗證圖譜和摘要，保留同機使用者可存取的警告。沒有新增排程或遠端服務。操作與exit code見[研究歷史](RESEARCH_HISTORY.md)。

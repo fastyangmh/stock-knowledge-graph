@@ -47,3 +47,7 @@ uv run --locked python -m local.preview --data-dir local/private/combined-previe
 ## 研究提醒
 
 新版私有圖譜可在圖下方分別顯示價量與月營收提醒；點選「計算方法、設定與來源證據」查看比較期間與數值。達門檻不代表買進／賣出，未達門檻與無法評估是不同狀態；舊資料會明確標示尚未計算。詳見[研究提醒手冊](RESEARCH_ALERTS.md)。
+
+## 查看本機歷史版本
+
+維護者可啟動`local.research_archive`，在本機歷史頁選兩個已通過稽核的版本，分開查看價量與月營收提醒變化。設定改變、缺資料與移出股票都不稱作風險解除。此頁不是公開Pages上的歷史資料服務，必須有本機已儲存的研究版本。見[歷史手冊](RESEARCH_HISTORY.md)。

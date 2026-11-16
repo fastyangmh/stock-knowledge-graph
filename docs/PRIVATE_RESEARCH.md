@@ -102,3 +102,7 @@ uv run --locked python -m local.backup restore \
 ## 價量及月營收研究提醒
 
 加入 `--alerts` 可在同一私有版本產生兩類獨立提醒；設定使用 `--alerts-config`。提醒與語意模型獨立，不自動下載或發布，不合成交易分數。詳見[規則與驗收範圍](RESEARCH_ALERTS.md)。
+
+## 已儲存版本的稽核與比較
+
+執行`local.bundle_audit --root local/private/research-runs`確認整包資料，再以`local.research_archive --root local/private/research-runs`開啟本機歷史頁；不需要把私有輸出搬到公開data/。新版報告記錄計算設定，重用上一版快取前也先稽核manifest、圖譜及提醒。詳見[研究歷史](RESEARCH_HISTORY.md)與[財務抽檢](FINANCIAL_REVIEW.md)。

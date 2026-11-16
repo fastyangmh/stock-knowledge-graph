@@ -67,7 +67,11 @@ def snapshot(directory, *, root=ROOT, max_bytes=MAX_BYTES):
 
 
 def make_server(directory, *, port=8765, root=ROOT):
-    files = snapshot(directory, root=root)
+    return server_from_files(snapshot(directory, root=root), port=port)
+
+
+def server_from_files(files, *, port=8765, resolver=None):
+    """Serve an already captured allowlist, with optional in-memory JSON routes."""
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass  # Do not expose private paths or parameters in logs.
@@ -80,12 +84,21 @@ def make_server(directory, *, port=8765, root=ROOT):
             if self.headers.get("Host") not in allowed_hosts:
                 self.send_error(403, "Host not allowed")
                 return
+            if len(self.path) > 8192:
+                self.send_error(414, "Request path too long")
+                return
             parsed = urlsplit(self.path)
             if parsed.scheme or parsed.netloc:
                 self.send_error(400, "Origin-form path required")
                 return
             path = unquote(parsed.path)
             entry = files.get(path)
+            if entry is None and resolver is not None:
+                try:
+                    entry = resolver(parsed)
+                except ValueError:
+                    self.send_error(400, "Invalid request parameters")
+                    return
             if entry is None:
                 self.send_error(404, "Not found")
                 return

@@ -6,6 +6,9 @@
   const ui = Object.fromEntries(['universe','search','stock','relation','fit','reload','coverage','status','graph-layout','cy','details','sources','alerts'].map(id => [id, $(id)]));
   let manifest = null, cy = null, activePath = null, graph = null, requestID = 0, controller = null;
   const baseURL = new URL('./', document.baseURI);
+  const requestedRuns = new URLSearchParams(window.location.search).getAll('run');
+  const savedRun = requestedRuns.length === 1 && /^[0-9a-f]{32}$/.test(requestedRuns[0]) ? requestedRuns[0] : null;
+  const invalidRun = requestedRuns.length > 0 && savedRun === null;
   function element(tag, text, parent) {
     const node = document.createElement(tag);
     if (text !== undefined) node.textContent = String(text);
@@ -25,7 +28,7 @@
     return {id: ++requestID, signal: controller.signal};
   }
   async function fetchJSON(path, req, sha) {
-    const response = await fetch(new URL(path, baseURL), {signal: req.signal, cache: 'no-store', credentials: 'same-origin'});
+    const response = await fetch(new URL((savedRun ? `versions/${savedRun}/` : '') + path, baseURL), {signal: req.signal, cache: 'no-store', credentials: 'same-origin'});
     if (!response.ok) throw new Error(`讀取失敗（HTTP ${response.status}）`);
     const bytes = await response.arrayBuffer();
     await U.verifyBytes(bytes, sha);
@@ -216,6 +219,11 @@
   }
   if (typeof ResizeObserver === 'function') new ResizeObserver(resized).observe(ui.cy);
   else window.addEventListener('resize', resized);
-  ui.reload.addEventListener('click', loadManifest);
-  if (!U) message('介面程式未完整載入，請重新載入頁面。', true); else loadManifest();
+  ui.reload.addEventListener('click', () => { if (!invalidRun) loadManifest(); });
+  if (savedRun) {
+    const banner = element('p', `已儲存研究版本 ${savedRun.slice(0,8)}；不是即時資料。`, document.querySelector('header'));
+    const link = element('a', '返回本機研究歷史', banner); link.href = 'history.html';
+  }
+  if (invalidRun) message('研究版本識別碼錯誤；沒有載入任何資料。', true);
+  else if (!U) message('介面程式未完整載入，請重新載入頁面。', true); else loadManifest();
 })();

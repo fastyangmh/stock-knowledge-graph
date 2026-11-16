@@ -101,3 +101,7 @@ erDiagram
 ## 可選的研究提醒欄位
 
 每股graph可含 `research_alerts`（`schema_version=research-alerts-1.0`），內容包含該股 `known_at`、完整config及兩個categories：`price_volume`、`monthly_revenue`。6項checks各有status、value、threshold、formula、baseline、evidence及內容ID；不使用graph edge的cosine score。新欄位受完整圖檔SHA256及Python提醒驗證保護，舊圖沒有欄位仍可讀取。完整契約及限制見[研究提醒](RESEARCH_ALERTS.md)。
+
+## 私有歷史與比較契約（2026-11-16）
+
+研究bundle報告新增向後相容的`configuration`，保存計算模式、模型版本、門檻與展示政策。`research-catalog-1.0`是經整包稽核後的版本摘要；`research-comparison-1.0`記錄前後run-ID、截止時間、股票範圍及各自獨立的提醒狀態變化；`financial-review-1.0`是兩個正規化快照的數值差異報告。沒有新增SQLite schema或將歷史版本提交公開data/。詳見[歷史版本](RESEARCH_HISTORY.md)及[財務抽檢](FINANCIAL_REVIEW.md)。

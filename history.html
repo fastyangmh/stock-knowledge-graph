@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>研究歷史與比較｜Stock Knowledge Graph</title>
+  <link rel="stylesheet" href="./css/style.css">
+  <script src="./js/history-utils.js" defer></script>
+  <script src="./js/history.js" defer></script>
+</head>
+<body>
+<header><p class="eyebrow">STOCK KNOWLEDGE GRAPH / LOCAL RESEARCH</p>
+  <h1>研究歷史與版本比較</h1>
+  <p>比較已儲存的本地研究版本，不是還原完整市場歷史。</p>
+  <p class="notice">價量與月營收各自呈現；資料不足不是風險解除，提醒不是買賣指令。此頁須由本機研究歷史工具提供資料。</p>
+</header>
+<main>
+  <p id="history-status" role="status" aria-live="polite">正在讀取已驗證版本…</p>
+  <section id="history-overview" aria-label="版本稽核摘要"></section>
+  <section class="toolbar" aria-label="比較版本選擇">
+    <label>較早可得時間的版本<select id="before-run" disabled></select></label>
+    <label>較晚可得時間的版本<select id="after-run" disabled></select></label>
+    <button id="compare-runs" disabled type="button">比較兩個版本</button>
+  </section>
+  <section id="run-list" aria-label="研究版本清單"></section>
+  <section id="comparison" aria-label="價量與月營收獨立比較" hidden></section>
+  <noscript>需啟用JavaScript；資料只在本機唯讀快照中，不下載金融資料。</noscript>
+</main>
+<footer>雜湊只確認內部一致性，不是數位簽章、資料真實性或使用權證明。沒有自動刪除、發布、排程或交易。</footer>
+</body>
+</html>

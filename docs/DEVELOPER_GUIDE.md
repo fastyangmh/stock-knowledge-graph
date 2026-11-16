@@ -57,3 +57,7 @@ uv run --locked python -m local.check --runner unittest
 - **發布：** GitHub Pages 仍從 main/root 發布，GitHub CI 不是強制發布閘門；未經人工核准不要更新金融資料。
 
 離線綠燈不代表官方 API、原生產 CDN、最新真實模型、資料授權或 NAS 災難復原已驗收。操作與回復見 [OPERATIONS](OPERATIONS.md)，安全界線見 [SECURITY_AND_LICENSING](SECURITY_AND_LICENSING.md)。
+
+## 歷史與抽檢測試
+
+本地`local.check --frontend`會發現所有`js/tests/*.test.js`，不再只執行單一JS檔。Python新增整包稽核、版本比較、真實loopback歷史HTTP及財務抽檢測試。瀏覽器另可用`python scripts/history_browser_smoke.py --chromium /path/to/chromium --report local/private/history-browser.json`執行純記憶體的合成DOM案例（需另備Playwright／Chromium）；不更動uv.lock或以瀏覽器測試代替正式來源驗收。

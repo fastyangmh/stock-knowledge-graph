@@ -32,6 +32,10 @@ uv run --locked python -m local.check --frontend
 
 已加入[價量＋月營收獨立研究提醒](docs/RESEARCH_ALERTS.md)：在私有研究指令加 `--alerts`，分開顯示門檻、比較基準與來源證據；資料不足不補零，不合成總分，也不產生買賣指令。
 
+## 本機研究歷史與品質檢查
+
+[研究版本稽核／歷史比較](docs/RESEARCH_HISTORY.md)可查看已儲存版本、比較兩類提醒與展示圖譜；[財務抽檢](docs/FINANCIAL_REVIEW.md)可核對獨立正規化資料，拒絕混用未知尺度及不同報表定義。均為本機私有工具，不改公開資料。
+
 ## 文件目錄
 
 | 使用與設計 | 資料與維運 |

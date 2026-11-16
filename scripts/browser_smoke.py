@@ -59,16 +59,21 @@ def fixture(root):
         compute(conn,threshold=0);export(conn,root/'preview',lifecycle=True,research_alerts=alerts)
 
 
-async def load_page(browser, data, js, in_memory, errors):
+async def load_page(browser, data, js, in_memory, errors, saved_run=None):
     context=await browser.new_context(viewport={'width':1280,'height':900})
     page=await context.new_page();page.on('pageerror',lambda error:errors.append(str(error)))
     server=thread=None
     if in_memory:
+        if saved_run is not None:
+            from urllib.parse import urlencode
+            await page.goto('about:blank?'+urlencode({'run':saved_run}))
         files=snapshot(data)
         manifest=json.loads(files['/data/manifest.json'][0])
         for item in manifest['stocks']:item.pop('sha256',None)
         fixture_files={path:body.decode() for path,(body,mime) in files.items() if path.startswith('/data/')}
         fixture_files['/data/manifest.json']=json.dumps(manifest)
+        if saved_run is not None:
+            fixture_files={'/versions/'+saved_run+path:body for path,body in fixture_files.items()}
         html=re.sub(r'<script\b[^>]*>.*?</script>','',files['/index.html'][0].decode(),flags=re.S)
         html=re.sub(r'<link\b[^>]*>','',html)
         html=html.replace('<head>','<head><base href="https://example.invalid/stock-knowledge-graph/">')
@@ -209,7 +214,24 @@ async def run(args):
                 assert await page.locator('#cy canvas').count()>0
                 assert '尚未計算研究提醒' in await page.locator('#alerts').inner_text()
                 report['checks'].append('existing public demo renders without fabricated membership')
-            finally:await cleanup();await browser.close()
+            finally:await cleanup()
+            if args.in_memory:
+                page,cleanup=await load_page(browser,root/'preview',js,True,errors,saved_run='a'*32)
+                try:
+                    await page.wait_for_function("document.querySelector('#status').textContent.includes('節點')")
+                    assert await page.evaluate("__fixtureRequests.every(path=>path.startsWith('/versions/'+'a'.repeat(32)+'/data/'))")
+                    assert '已儲存研究版本' in await page.locator('header').inner_text()
+                    assert await page.locator('header a[href="history.html"]').count()==1
+                    report['checks'].append('selected saved run routes all graph requests to its version prefix')
+                finally:await cleanup()
+                page,cleanup=await load_page(browser,root/'preview',js,True,errors,saved_run='../private')
+                try:
+                    await page.wait_for_function("document.querySelector('#status').classList.contains('error')")
+                    assert await page.evaluate('__fixtureRequests.length')==0
+                    await page.click('#reload');assert await page.evaluate('__fixtureRequests.length')==0
+                    report['checks'].append('invalid saved-run ID fails before data requests, including reload')
+                finally:await cleanup()
+            await browser.close()
     report['page_errors']=errors;report['passed']=not errors
     report['finished_at']=datetime.now(timezone.utc).isoformat()
     args.report.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')

@@ -91,7 +91,9 @@ def _market_ref(item):
             "period":record["trade_date"], "observed_at":item["observed_at"],
             "raw_sha256":item["raw_sha256"], "acquisition":item["acquisition"],
             "raw_snapshot_verified":item["raw_snapshot_verified"],
-            "close":record["close"], "volume_shares":record["volume_shares"]}
+            "close":record["close"], "volume_shares":record["volume_shares"],
+            "market":record.get("market"), "price_unit":record.get("price_unit"),
+            "price_basis":record.get("price_basis")}
 
 
 def _price_checks(items, sid, target, cutoff, config):

@@ -27,6 +27,8 @@
 | [官方盤後行情](MARKET_PRICES.md) | 不依賴指數名單的股價／成交量私有匯入、版本保存 |
 | [Operations](OPERATIONS.md) | 人工更新、驗證、發布與復原 |
 | [Security & Licensing](SECURITY_AND_LICENSING.md) | 資料權利與私密資訊界線 |
+| [研究歷史與整包稽核](RESEARCH_HISTORY.md) | 本機版本清單、價量／營收提醒差異與完整性檢查 |
+| [財務抽檢](FINANCIAL_REVIEW.md) | 獨立快照數值核對、單位／期別／報表範圍防護 |
 | [Roadmap](ROADMAP.md) | P0–P4 與未解依賴 |
 
 ## 來源與驗證紀錄
@@ -52,3 +54,5 @@
 
 - [研究提醒規則、設定與操作](RESEARCH_ALERTS.md)
 - [完整本地驗證紀錄（2026-11-16）](VERIFICATION-2026-11-16-ALERTS.md)
+
+最新本地驗證：[歷史版本與品質檢查](VERIFICATION-2026-11-16-HISTORY.md)。

@@ -1,0 +1,18 @@
+const test=require('node:test'),assert=require('node:assert/strict');
+const U=require('../history-utils.js');
+const a='a'.repeat(32),b='b'.repeat(32);
+const row={run:a,status:'valid',known_at:'2020-01-01T00:00:00Z',stock_ids:['TW:1000'],counts:{graphs:1},warnings:[]};
+const catalog=()=>({schema_version:'research-catalog-1.0',latest:a,runs:[structuredClone(row)]});
+const comparison=()=>({schema_version:'research-comparison-1.0',combined_score:false,before:{run:a},after:{run:b},stocks:[{stock_id:'TW:1000',categories:{price_volume:[{category:'price_volume',transition:'activated'}],monthly_revenue:[]}}]});
+test('run URLs only use hex identities',()=>{assert.equal(U.viewLink(a),`index.html?run=${a}`);assert.equal(U.comparePath(a,b),`api/compare?before=${a}&after=${b}`);});
+test('path, credentials and script URLs rejected',()=>{for(const s of ['../secret','https://a','javascript:alert(1)','f'.repeat(31),null,'G'.repeat(32)])assert.throws(()=>U.runID(s));});
+test('catalog accepts valid and disabled invalid bundles',()=>{const c=catalog();c.runs.push({run:b,status:'invalid',error:'database_checksum_mismatch'});assert.equal(U.validateCatalog(c).runs.length,2);});
+test('duplicate runs rejected',()=>{const c=catalog();c.runs.push(structuredClone(row));assert.throws(()=>U.validateCatalog(c));});
+test('latest pointer not silently invented',()=>{const c=catalog();c.latest=null;assert.equal(U.validateCatalog(c).latest,null);c.latest=b;assert.throws(()=>U.validateCatalog(c));});
+test('invalid time, stock identity and counts rejected',()=>{for(const edit of [r=>r.known_at='tomorrow',r=>r.stock_ids=['cash'],r=>r.counts.graphs=2,r=>r.warnings='secret']){const c=catalog();edit(c.runs[0]);assert.throws(()=>U.validateCatalog(c));}});
+test('response IDs must match selected request',()=>{assert.equal(U.validateComparison(comparison(),a,b).after.run,b);assert.throws(()=>U.validateComparison(comparison(),b,a));});
+test('combined scores rejected',()=>{const c=comparison();c.combined_score=true;assert.throws(()=>U.validateComparison(c,a,b));});
+test('unknown transitions fail closed',()=>{const c=comparison();c.stocks[0].categories.price_volume[0].transition='buy';assert.throws(()=>U.validateComparison(c,a,b));});
+test('categories cannot be merged or crossed',()=>{const c=comparison();c.stocks[0].categories.price_volume[0].category='monthly_revenue';assert.throws(()=>U.validateComparison(c,a,b));});
+test('duplicated comparison stock rejected',()=>{const c=comparison();c.stocks.push(structuredClone(c.stocks[0]));assert.throws(()=>U.validateComparison(c,a,b));});
+test('labels distinguish missing data from reduced alert',()=>{assert.match(U.TRANSITIONS.became_unavailable,/資料不足/);assert.match(U.TRANSITIONS.no_longer_triggered,/非風險解除/);assert.match(U.TRANSITIONS.became_evaluable,/不是新訊號/);assert.match(U.TRANSITIONS.definition_changed,/不直接比較/);});

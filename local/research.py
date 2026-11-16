@@ -94,6 +94,9 @@ def _read_last(root):
         raise ValueError("prior bundle is incomplete")
     if file_digest(database) != info.get("graph_db_sha256"):
         raise ValueError("prior graph database changed; refusing unsafe cache reuse")
+    # Validate all saved evidence, not only the database used for vector reuse.
+    from .bundle_audit import audit_bundle
+    audit_bundle(root, name, expected_report_sha=obj["report_sha256"])
     return database
 
 
@@ -230,6 +233,10 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
                       "input_sha256": hashlib.sha256(body).hexdigest(), "registered_snapshot": snapshot,
                       "quality": {**quality, "warnings": sorted(set(warnings))},
                       "analysis": {**stats, "cached_vectors_copied": cached},
+                      "configuration": {"analysis": {"mode": analysis, "model": model if analysis == "semantic" else None,
+                          "revision": revision if analysis == "semantic" else None, "top_k": top_k,
+                          "threshold": threshold, "max_pairs": max_pairs, "lookback_days": lookback_days},
+                          "lifecycle": "display-caps-v1", "engine": ENGINE_VERSION},
                       "counts": {"graphs": graph_count, "financial_metric_nodes": metric_count,
                                  "market_nodes": price_count, "market_missing_OHLC": missing_prices},
                       "market_observations": [{"source_id": p["source"]["source_id"], "symbol": p["record"]["symbol"],
