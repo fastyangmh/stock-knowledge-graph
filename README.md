@@ -15,6 +15,8 @@
 
 研究股票池為 [臺灣50指數成分股＋009816 ETF 普通股持股聯集](docs/RESEARCH_UNIVERSE.md)，保留來源及日期；不混成同一指數。使用 Python/uv、本地 SQLite、Sentence Transformers 與 Cytoscape.js；目前只手動運行，不啟用每日排程。
 
+**名單確認先暫緩，不阻塞其他開發。** 已新增[官方盤後行情私有匯入](docs/MARKET_PRICES.md)，可指定股票代碼獨立處理價格／成交量，不要求先寄授權詢問信，也不把代碼清單冒稱為正式指數名單。
+
 ## 開發驗收
 
 ```bash
@@ -35,8 +37,9 @@ uv run --locked python -m local.check --frontend
 | [Architecture](docs/ARCHITECTURE.md) | [來源／使用條件](docs/DATA_SOURCES.md) |
 | [Developer Guide](docs/DEVELOPER_GUIDE.md) | [安全／資料授權](docs/SECURITY_AND_LICENSING.md) |
 | [雙來源股票池](docs/RESEARCH_UNIVERSE.md) | [部署與維運](docs/OPERATIONS.md) |
-| [前端篩選／私有預覽](docs/FRONTEND_AND_PREVIEW.md) | [台灣50授權詢問](docs/TW50_LICENSE_INQUIRY.md) |
+| [前端篩選／私有預覽](docs/FRONTEND_AND_PREVIEW.md) | [台灣50授權詢問（暫緩）](docs/TW50_LICENSE_INQUIRY.md) |
 | [常見問題](docs/TROUBLESHOOTING.md) | [Roadmap](docs/ROADMAP.md) |
-| [術語表](docs/GLOSSARY.md) | [本次整合驗證](docs/VERIFICATION-2026-11-16-FRONTEND.md) |
+| [術語表](docs/GLOSSARY.md) | [前端整合驗證](docs/VERIFICATION-2026-11-16-FRONTEND.md) |
+| [不依賴名單的盤後行情](docs/MARKET_PRICES.md) | [行情模組驗證](docs/VERIFICATION-2026-11-16-MARKET.md) |
 
-全部文件及歷史驗證紀錄見 [docs/README.md](docs/README.md)。目前外部依賴為**具適用權利、同日的兩份名單與真實官方來源驗收**；技術測試通過不代表已完成此驗收。
+全部文件及歷史驗證紀錄見 [docs/README.md](docs/README.md)。真實雙來源名單及公開使用範圍保留為獨立待辦；技術測試通過不代表正式來源下載、資料品質或公開發布已驗收。
