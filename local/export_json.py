@@ -21,7 +21,7 @@ def write_json(path,data):
         name=tmp.name
     os.replace(name,path)
 
-def export(conn, output=None, universe=None, lifecycle=False, as_of=None):
+def export(conn, output=None, universe=None, lifecycle=False, as_of=None, research_alerts=None):
     output=Path(output) if output else ROOT/"data"
     destination=output.resolve()
     if output.is_symlink() or destination==ROOT or ROOT.is_relative_to(destination):
@@ -41,9 +41,9 @@ def export(conn, output=None, universe=None, lifecycle=False, as_of=None):
                         raise ValueError("Refusing to replace unrelated file: "+relative)
         output.parent.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(prefix=".stock-graph-stage-",dir=output.parent) as staging:
-            return _export(conn, output, universe, lifecycle, Path(staging), as_of)
+            return _export(conn, output, universe, lifecycle, Path(staging), as_of, research_alerts)
 
-def _export(conn, output, universe, lifecycle, stage_root, as_of):
+def _export(conn, output, universe, lifecycle, stage_root, as_of, research_alerts):
     output=Path(output) if output else ROOT/"data"
     if output.resolve()==ROOT.resolve() or output.resolve()==(ROOT/'local').resolve():
         raise ValueError('Unsafe export directory')
@@ -54,6 +54,8 @@ def _export(conn, output, universe, lifecycle, stage_root, as_of):
         raise ValueError("No stocks selected for export")
     if universe is not None and {s["stock_id"] for s in stocks} != set(universe):
         raise ValueError("Universe contains stocks missing from SQLite; refuse partial export")
+    if research_alerts is not None and set(research_alerts) != {s["stock_id"] for s in stocks}:
+        raise ValueError("research alert coverage differs from exported stocks")
     node_rows={r["node_id"]:dict(r) for r in conn.execute("SELECT * FROM graph_nodes")}
     edges=[dict(r) for r in conn.execute("SELECT * FROM graph_edges ORDER BY edge_id")]
     evidence={}
@@ -94,6 +96,8 @@ def _export(conn, output, universe, lifecycle, stage_root, as_of):
         graph={"schema_version":"1.0","stock_id":sid,"generated_at":now(),"nodes":nodes,"edges":out_edges}
         if lifecycle:
             graph=prune(graph,max_information_nodes=100,max_related_stocks=15,max_semantic_per_node=5,news_days=90,as_of=as_of)
+        if research_alerts is not None:
+            graph["research_alerts"] = research_alerts[sid]
         validate_graph(graph)
         for node in graph["nodes"]:
             if node.get("source_id") in source_rows:
@@ -132,6 +136,9 @@ def _export(conn, output, universe, lifecycle, stage_root, as_of):
     return manifest
 
 def validate_graph(graph):
+    if isinstance(graph, dict) and "research_alerts" in graph:
+        from .alerts import validate
+        validate(graph["research_alerts"], graph.get("stock_id"))
     if not isinstance(graph,dict) or not isinstance(graph.get("nodes"),list) or not isinstance(graph.get("edges"),list):
         raise ValueError("graph requires nodes and edges arrays")
     if any(not isinstance(n,dict) or not isinstance(n.get("id"),str) or not n["id"] for n in graph["nodes"]):

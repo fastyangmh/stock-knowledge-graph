@@ -24,6 +24,7 @@ from local.core import ROOT, connect, init_db, import_payload, upsert_node, upse
 from local.export_json import export
 from local.preview import make_server, snapshot
 from local.similarity import compute
+from local.alerts import evaluate
 
 
 def props(ids):
@@ -50,7 +51,12 @@ def fixture(root):
                     props={"close":"11.00","volume_shares":1000,"trade_date":"2026-11-15",
                            "source_id":"fixture","price_unit":"source_reported","raw_snapshot_verified":False})
         upsert_edge(conn, "stock:TW:1002", "price:synthetic", "has_market_price", "synthetic_fixture")
-        compute(conn,threshold=0);export(conn,root/'preview',lifecycle=True)
+        metrics=[{"stock_id":"TW:1002","source_id":"fixture","metric":"monthly_revenue_yoy_pct",
+            "period_type":"month","period_end":"2026-10-31","value":40,"unit":"percent",
+            "available_at":"2026-11-15T00:00:00Z"}]
+        alerts=evaluate({"financial_metrics":metrics,"sources":[{"source_id":"fixture","url":"https://example.org/dataset"}]},
+                        {}, {s['stock_id'] for s in stocks}, "2026-11-16T00:00:00+08:00")
+        compute(conn,threshold=0);export(conn,root/'preview',lifecycle=True,research_alerts=alerts)
 
 
 async def load_page(browser, data, js, in_memory, errors):
@@ -152,6 +158,13 @@ async def run(args):
                 assert await page.locator('#sources img').count()==0
                 assert not await page.evaluate('Boolean(window.injected)')
                 report['checks'].append('search, dates, provenance and text-safe rendering')
+                assert await page.locator('[data-alert-category="price_volume"]').count()==1
+                assert await page.locator('[data-alert-category="monthly_revenue"]').count()==1
+                assert await page.locator('#alerts [data-alert-status="triggered"]').count()==1
+                assert '資料不足，無法評估' in await page.locator('#alerts').inner_text()
+                assert '不合併評分' in await page.locator('#alerts').inner_text()
+                assert await page.locator('#alerts .alert-check').count()==6
+                report['checks'].append('independent price/volume and revenue cards; trigger distinguished from insufficient data')
                 await page.select_option('#relation','has_market_price')
                 if args.in_memory:
                     await page.evaluate("() => { __testCy.getElementById('price:synthetic').emit('tap'); }")
@@ -186,6 +199,7 @@ async def run(args):
                 await page.select_option('#stock','data/stocks/1000/graph.json')
                 await page.wait_for_function("document.querySelector('#status').classList.contains('error')")
                 assert await page.locator('#graph-layout').is_hidden()
+                assert await page.locator('#alerts').is_hidden()
                 report['checks'].append('invalid graph hides stale visualization and exposes reload')
             finally:await cleanup()
             page,cleanup=await load_page(browser,root/'legacy',js,args.in_memory,errors)
@@ -193,6 +207,7 @@ async def run(args):
                 await page.wait_for_function("document.querySelector('#status').textContent.includes('節點')")
                 assert '未標示' in await page.locator('#status').inner_text()
                 assert await page.locator('#cy canvas').count()>0
+                assert '尚未計算研究提醒' in await page.locator('#alerts').inner_text()
                 report['checks'].append('existing public demo renders without fabricated membership')
             finally:await cleanup();await browser.close()
     report['page_errors']=errors;report['passed']=not errors

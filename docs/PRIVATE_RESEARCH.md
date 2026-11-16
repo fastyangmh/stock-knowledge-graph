@@ -98,3 +98,7 @@ uv run --locked python -m local.backup restore \
 ```
 
 使用 SQLite backup API 建立一致性單檔備份，含已提交 WAL 內容；驗證 SHA256、大小及 SQLite integrity。還原目標**必須不存在**，不提供覆寫／force。Linux/NAS 若不支援同檔案系統 hard link，還原會失敗，不降級成不安全覆寫。這個工具只備份 SQLite，**原始 CSV 快照、模型及憑證要另行備份**；未宣稱實測 NAS 斷電或異地復原。
+
+## 價量及月營收研究提醒
+
+加入 `--alerts` 可在同一私有版本產生兩類獨立提醒；設定使用 `--alerts-config`。提醒與語意模型獨立，不自動下載或發布，不合成交易分數。詳見[規則與驗收範圍](RESEARCH_ALERTS.md)。

@@ -133,9 +133,15 @@ def _reuse_cache(conn, prior, model_name, revision):
 
 def run(input_file, symbols, *, history_db, output_root, analysis="none", known_at=None,
         prices_db=None, trade_date=None, price_market="twse", price_snapshots=None, model=DEFAULT_MODEL, revision=None,
-        top_k=10, threshold=0.65, max_pairs=2_000_000, lookback_days=None, encoder=None):
+        top_k=10, threshold=0.65, max_pairs=2_000_000, lookback_days=None, encoder=None,
+        alerts=False, alerts_config=None):
     """Materialize an isolated research database from as-recorded observations."""
     stock_ids = validate_symbols(symbols)
+    from .alerts import evaluate, policy
+    from .alert_inputs import load_price_history
+    if type(alerts) is not bool or (alerts_config is not None and not alerts):
+        raise ValueError("alerts configuration requires alerts=True")
+    rules = policy(alerts_config) if alerts else None
     if analysis not in ("none", "lexical", "semantic"):
         raise ValueError("analysis must be none, lexical or semantic")
     if type(top_k) is not int or top_k < 1 or not isinstance(model, str) or not model.strip():
@@ -170,6 +176,11 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
         with closing(sqlite3.connect(ledger.as_uri()+"?mode=ro", uri=True)) as history:
             payload, quality = replay(history, stock_ids, cutoff)
         prices = read_prices(guarded(prices_db), price_market, sorted(s[3:] for s in stock_ids), trade_date, cutoff, snapshot_dir=guarded(price_snapshots)) if prices_db else []
+        alert_report = None
+        if alerts:
+            history = load_price_history(guarded(prices_db), price_market, sorted(s[3:] for s in stock_ids),
+                trade_date, cutoff, guarded(price_snapshots), rules) if prices_db else {}
+            alert_report = evaluate(payload, history, stock_ids, cutoff, trade_date=trade_date, config=rules)
         name = uuid.uuid4().hex
         final = root/name
         with tempfile.TemporaryDirectory(prefix=".research-stage-", dir=root) as temporary:
@@ -189,7 +200,8 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
                                  as_of=cutoff, lookback_days=lookback_days))
                 elif analysis == "lexical":
                     stats.update(compute(conn, top_k=top_k, threshold=threshold))
-                manifest = export(conn, stage/"data", universe=stock_ids, lifecycle=True)
+                export_options = {"research_alerts": alert_report} if alerts else {}
+                manifest = export(conn, stage/"data", universe=stock_ids, lifecycle=True, **export_options)
                 graph_count = validate_data_dir(stage/"data")
                 conn.commit()
                 if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
@@ -228,6 +240,14 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
                       "manifest_sha256": hashlib.sha256((stage/"data/manifest.json").read_bytes()).hexdigest(),
                       "public_publish": False,
                       "scope": "private as-recorded research bundle; no historical-market backtest or license certification"}
+            if alerts:
+                alerts_body = canonical({"schema_version":"research-alerts-1.0", "stocks":alert_report})
+                atomic_bytes(stage/"alerts.json", alerts_body)
+                report["research_alerts"] = {"enabled":True, "sha256":hashlib.sha256(alerts_body).hexdigest(),
+                    "config":rules, "path":"alerts.json", "combined_score":False,
+                    "triggered_by_category":{category:sum(c["status"] == "triggered"
+                        for r in alert_report.values() for c in r["categories"][category])
+                        for category in ("price_volume", "monthly_revenue")}}
             report_body = canonical(report)
             atomic_bytes(stage/"report.json", report_body)
             stage.rename(final)
@@ -255,9 +275,18 @@ def main(argv=None):
     p.add_argument("--threshold", type=float, default=0.65)
     p.add_argument("--max-pairs", type=int, default=2_000_000)
     p.add_argument("--lookback-days", type=int)
+    p.add_argument("--alerts", action="store_true", help="Independent price/volume and revenue reminders; no trading instructions")
+    p.add_argument("--alerts-config", type=Path, help="Optional private JSON threshold overrides; requires --alerts")
     args = p.parse_args(argv)
     options = vars(args).copy()
     options["input_file"] = options.pop("input")
+    if args.alerts_config:
+        if not args.alerts:
+            p.error("--alerts-config requires --alerts")
+        with guarded(args.alerts_config).open("rb") as f:
+            options["alerts_config"] = strict_json(f.read(65537))
+        if args.alerts_config.stat().st_size > 65536:
+            p.error("alerts config exceeds 64 KiB")
     result = run(**options)
     print("Private research bundle:", args.output_root/result["run"])
     print("Graphs:", result["counts"]["graphs"], "Warnings:", len(result["quality"]["warnings"]), "No publication.")

@@ -71,3 +71,41 @@ test('numeric relations are facts, not cosine or trading signals', () => {
   assert.equal(U.RELATIONS.has_market_price, '盤後行情');
   assert.equal(U.RELATIONS.has_financial_metric, '財務數值');
 });
+
+function alertFixture() {
+  const categories={price_volume:[],monthly_revenue:[]};
+  for(const [rule,group] of Object.entries({price_change:'price_volume',volume_ratio:'price_volume',
+      revenue_yoy:'monthly_revenue',revenue_mom:'monthly_revenue',revenue_yoy_change:'monthly_revenue',revenue_yoy_trend:'monthly_revenue'})) {
+    categories[group].push({rule_id:rule,category:group,title:rule,status:'insufficient_data',reason:'missing_history',
+      value:null,unit:'percent',threshold:5,formula:'synthetic',target_period:'2020-07-31',baseline:{},evidence:[],id:'a'.repeat(64)});
+  }
+  return {schema_version:'research-alerts-1.0',stock_id:'TW:1000',known_at:'2020-08-15T20:00:00+08:00',config:{},warnings:[],categories};
+}
+test('independent alert groups retain missing-data states',()=>{
+  const a=alertFixture();assert.equal(U.alerts(a,'TW:1000'),a);
+  assert.equal(U.ALERT_STATUS.insufficient_data,'資料不足，無法評估');assert.equal(a.score,undefined);
+});
+test('old graph without alerts remains supported',()=>assert.doesNotThrow(()=>U.graph({nodes:[{id:'a'}],edges:[]})));
+test('alert stock and category mismatch fail closed',()=>{
+  assert.throws(()=>U.alerts(alertFixture(),'TW:9999'));
+  const a=alertFixture();a.categories.price_volume[0].category='monthly_revenue';assert.throws(()=>U.alerts(a,'TW:1000'));
+});
+test('evaluated alert requires finite textual value',()=>{
+  for(const value of [null,true,'NaN','Infinity','']) {
+    const a=alertFixture();Object.assign(a.categories.price_volume[0],{status:'triggered',value});
+    assert.throws(()=>U.alerts(a,'TW:1000'));
+  }
+  const a=alertFixture();Object.assign(a.categories.price_volume[0],{status:'triggered',value:'-5.000000'});
+  assert.doesNotThrow(()=>U.alerts(a,'TW:1000'));
+});
+test('alert checks cannot disappear or use unknown recommendation status',()=>{
+  const a=alertFixture();a.categories.monthly_revenue.pop();assert.throws(()=>U.alerts(a,'TW:1000'));
+  const b=alertFixture();b.categories.price_volume[0].status='buy';assert.throws(()=>U.alerts(b,'TW:1000'));
+});
+test('alert evidence future timestamps are rejected',()=>{
+  const a=alertFixture();a.categories.price_volume[0].evidence=[{observed_at:'2021-01-01T00:00:00Z'}];
+  assert.throws(()=>U.alerts(a,'TW:1000'));
+});
+test('malformed graph alert extension cannot silently render',()=>{
+  assert.throws(()=>U.graph({stock_id:'TW:1000',nodes:[{id:'a'}],edges:[],research_alerts:{}}));
+});

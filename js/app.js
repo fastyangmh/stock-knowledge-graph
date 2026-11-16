@@ -3,7 +3,7 @@
   'use strict';
   const U = window.StockGraph;
   const $ = id => document.getElementById(id);
-  const ui = Object.fromEntries(['universe','search','stock','relation','fit','reload','coverage','status','graph-layout','cy','details','sources'].map(id => [id, $(id)]));
+  const ui = Object.fromEntries(['universe','search','stock','relation','fit','reload','coverage','status','graph-layout','cy','details','sources','alerts'].map(id => [id, $(id)]));
   let manifest = null, cy = null, activePath = null, graph = null, requestID = 0, controller = null;
   const baseURL = new URL('./', document.baseURI);
   function element(tag, text, parent) {
@@ -17,6 +17,7 @@
     if (cy) { cy.destroy(); cy = null; }
     graph = null; activePath = null; ui.fit.disabled = true; ui['graph-layout'].hidden = true;
     ui.details.replaceChildren(); element('h2', '詳細資訊', ui.details);
+    ui.alerts.replaceChildren(); ui.alerts.hidden = true;
   }
   function beginRequest() {
     if (controller) controller.abort();
@@ -89,6 +90,42 @@
     if (!seen.size) element('p', '這份資料未提供來源署名。舊版示範資料不視為正式金融資料。', ui.sources);
     element('p', '來源標示不取代授權審查；ETF 持股與指數成分股是不同觀察。', ui.sources);
   }
+  function showAlerts() {
+    ui.alerts.replaceChildren(); ui.alerts.hidden = false;
+    element('h2', '研究提醒：價量與月營收分開判讀', ui.alerts);
+    const report = graph?.research_alerts;
+    if (!report) {
+      element('p','此圖尚未計算研究提醒；不代表沒有異常。',ui.alerts); return;
+    }
+    element('p',`可得時間截止：${report.known_at}。門檻為可調研究設定，尚未經投資績效校準；不合併評分，不提供買賣指令。`,ui.alerts);
+    const reasons = {missing_history:'歷史觀察不足',price_input_not_requested:'未提供行情資料',
+      target_price_missing_at_cutoff:'截止時間前缺少指定日行情',
+      mixed_source_basis_or_unverified_snapshot:'來源、價格基準不同或原始快照未驗證',
+      observation_gap_exceeds_policy:'觀察日期間隔超過設定',missing_or_nonpositive_close:'收盤價缺漏或不為正數',
+      zero_volume_baseline:'歷史平均成交量為零，無法計算倍數',
+      missing_consecutive_months_or_latest_percentage:'最新期百分比或連續月份不足',
+      percentage_unit_or_source_mismatch:'百分比單位或來源不一致',threshold_met:'達到設定門檻',
+      threshold_not_met:'未達設定門檻',increasing:'年增率連續上升',decreasing:'年增率連續下降',mixed_or_flat:'非連續同方向變化'};
+    for (const [category,label] of [['price_volume','價量提醒'],['monthly_revenue','月營收提醒']]) {
+      const block = element('article',undefined,ui.alerts); block.dataset.alertCategory = category;
+      element('h3',label,block);
+      element('p',category==='price_volume' ? '比較同來源的已觀察報價，非確認連續交易日；未還原價格可能受除權息、分割等影響。' :
+        '使用來源提供的年增／月增百分比；未知金額尺度不重算成長率。連續上升不等於營收為正成長。',block);
+      for (const check of report.categories[category]) {
+        const card=element('div',undefined,block); card.className='alert-check'; card.dataset.alertStatus=check.status;
+        element('h4',`${check.title} — ${U.ALERT_STATUS[check.status]}`,card);
+        element('p',`期別：${check.target_period || '未提供'}｜觀察值：${check.value ?? '無法計算'} ${{percent:'%',ratio:'倍',percentage_points:'百分點',steps:'次'}[check.unit] || check.unit}｜門檻：${check.threshold}`,card);
+        element('p',reasons[check.reason] || check.reason,card);
+        const details=element('details',undefined,card); element('summary','計算方法、設定與來源證據',details);
+        element('p',check.formula,details);
+        element('pre',JSON.stringify({baseline:check.baseline,config:report.config},null,2),details);
+        for (const evidence of check.evidence) {
+          const item=element('div',undefined,details); safeLink(item,evidence.source_url,'來源');
+          element('pre',JSON.stringify(evidence,null,2),item);
+        }
+      }
+    }
+  }
   function updateRelation() {
     if (!cy || !graph) return;
     const value = ui.relation.value;
@@ -126,7 +163,7 @@
       ui.fit.disabled = false; updateRelation();
       const primary = data.nodes.find(n => n.id === 'stock:' + data.stock_id) || data.nodes.find(n => n.type === 'stock');
       if (primary) showDetails(primary);
-      showSources();
+      showSources(); showAlerts();
       const group = U.groupOf(entry), date = entry.universe_as_of || '未標示';
       message(`${entry.label}｜${U.GROUPS[group]}｜名單日期：${date}｜節點 ${data.nodes.length} · 關係 ${data.edges.length}｜產生時間：${data.generated_at || manifest.generated_at || '未標示'}`);
     } catch (error) {

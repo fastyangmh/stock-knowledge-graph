@@ -97,3 +97,7 @@ erDiagram
 `research_snapshots` 在獨立 history DB 保存 canonical SHA256、來源 `observed_at`、本地 `recorded_at` 與不可變 `payload_json`，不修改既有 schema 表。市場價格沿用獨立 `market_price_observations` 表。研究 bundle 的衍生 `graph.db` 才把已核對行情連入 `market_price` 節點，把來源財務指標連入 `financial_metric` 節點，關係分別為 `has_market_price`／`has_financial_metric`、score 為 null；兩者不加入文字模型。
 
 每次建立獨立版本與報告，觀察查詢遵守本地首次登錄時間；不是完整歷史市場資料或企業行為還原。詳見 [私有研究契約](PRIVATE_RESEARCH.md)。
+
+## 可選的研究提醒欄位
+
+每股graph可含 `research_alerts`（`schema_version=research-alerts-1.0`），內容包含該股 `known_at`、完整config及兩個categories：`price_volume`、`monthly_revenue`。6項checks各有status、value、threshold、formula、baseline、evidence及內容ID；不使用graph edge的cosine score。新欄位受完整圖檔SHA256及Python提醒驗證保護，舊圖沒有欄位仍可讀取。完整契約及限制見[研究提醒](RESEARCH_ALERTS.md)。

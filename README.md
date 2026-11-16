@@ -28,6 +28,10 @@ uv run --locked python -m local.check --frontend
 
 測試使用隔離的虛構資料，不下載真實名單或推送金融資料。[私有預覽工具](docs/FRONTEND_AND_PREVIEW.md)不會把整個 Repository 當成網站根目錄。
 
+## 研究提醒（初版）
+
+已加入[價量＋月營收獨立研究提醒](docs/RESEARCH_ALERTS.md)：在私有研究指令加 `--alerts`，分開顯示門檻、比較基準與來源證據；資料不足不補零，不合成總分，也不產生買賣指令。
+
 ## 文件目錄
 
 | 使用與設計 | 資料與維運 |
@@ -46,4 +50,4 @@ uv run --locked python -m local.check --frontend
 
 ## 不等待名單的私有研究流程
 
-[公司／月營收＋行情＋修訂歷史＋備份操作](docs/PRIVATE_RESEARCH.md)已提供 `local.official_import --symbols` 與 `local.research`。自選代碼不推定指數歸屬；只產生新私有研究版本，不改公開金融資料。下一階段的異常訊號與回測規則尚待產品決策，不把數值觀察當成買賣訊號。
+[公司／月營收＋行情＋修訂歷史＋備份操作](docs/PRIVATE_RESEARCH.md)已提供 `local.official_import --symbols` 與 `local.research`。自選代碼不推定指數歸屬；只產生新私有研究版本，不改公開金融資料。價量與月營收提醒已依選定的雙類別方案實作；完整回測仍在後續規劃，不把研究提醒當成買賣訊號。

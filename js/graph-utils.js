@@ -104,6 +104,51 @@
         }
       }
     }
+    if (value.research_alerts !== undefined) alerts(value.research_alerts, value.stock_id);
+    return value;
+  }
+  const ALERT_RULES = Object.freeze({price_change:'price_volume', volume_ratio:'price_volume',
+    revenue_yoy:'monthly_revenue', revenue_mom:'monthly_revenue',
+    revenue_yoy_change:'monthly_revenue', revenue_yoy_trend:'monthly_revenue'});
+  const ALERT_STATUS = Object.freeze({triggered:'達到研究門檻',not_triggered:'已評估，未達門檻',
+    insufficient_data:'資料不足，無法評估',not_comparable:'資料不可比較'});
+  function alerts(value, stockID) {
+    if (!object(value) || value.schema_version !== 'research-alerts-1.0' || value.stock_id !== stockID ||
+        !object(value.config) || !object(value.categories) || !Array.isArray(value.warnings) ||
+        typeof value.known_at !== 'string' || !/(Z|[+-]\d{2}:\d{2})$/.test(value.known_at) ||
+        !Number.isFinite(Date.parse(value.known_at))) throw new Error('研究提醒格式或股票不一致');
+    const categories = Object.keys(value.categories).sort();
+    if (categories.join(',') !== 'monthly_revenue,price_volume') throw new Error('研究提醒類別不完整');
+    const seen = new Set();
+    for (const category of categories) {
+      const list = value.categories[category];
+      if (!Array.isArray(list) || list.length > 6) throw new Error('研究規則數量錯誤');
+      for (const check of list) {
+        if (!object(check) || !Object.hasOwn(ALERT_RULES,check.rule_id) || seen.has(check.rule_id) ||
+            ALERT_RULES[check.rule_id] !== category || check.category !== category ||
+            !Object.hasOwn(ALERT_STATUS,check.status) || !/^[0-9a-f]{64}$/.test(check.id) ||
+            !['title','reason','formula','unit'].every(k=>typeof check[k]==='string') ||
+            !object(check.baseline) || !Array.isArray(check.evidence) || check.evidence.length > 253 ||
+            typeof check.threshold !== 'number' || !Number.isFinite(check.threshold) || check.threshold <= 0) {
+          throw new Error('研究規則欄位錯誤');
+        }
+        seen.add(check.rule_id);
+        if (check.value !== null && (typeof check.value !== 'string' || !/^-?\d+(?:\.\d+)?$/.test(check.value) ||
+            !Number.isFinite(Number(check.value)))) throw new Error('研究觀察值無效');
+        if (['triggered','not_triggered'].includes(check.status) && check.value === null) throw new Error('已評估規則缺數值');
+        if (check.target_period !== null && !day(check.target_period)) throw new Error('研究期別無效');
+        for (const evidence of check.evidence) {
+          if (!object(evidence)) throw new Error('研究證據無效');
+          for (const key of ['observed_at','available_at','registered_at']) {
+            if (evidence[key] != null && (typeof evidence[key] !== 'string' ||
+                !Number.isFinite(Date.parse(evidence[key])) || Date.parse(evidence[key]) > Date.parse(value.known_at))) {
+              throw new Error('研究證據超過可得時間');
+            }
+          }
+        }
+      }
+    }
+    if (seen.size !== 6) throw new Error('研究提醒規則不完整');
     return value;
   }
   async function verifyBytes(bytes, expected) {
@@ -113,5 +158,5 @@
     const actual = Array.from(new Uint8Array(digest), x => x.toString(16).padStart(2, '0')).join('');
     if (actual !== expected) throw new Error('圖譜與索引版本不一致，請重新載入');
   }
-  return Object.freeze({GROUPS, MODES, RELATIONS, groupOf, graphPath, externalURL, manifest, counts, select, graph, verifyBytes});
+  return Object.freeze({GROUPS, MODES, RELATIONS, groupOf, graphPath, externalURL, manifest, counts, select, graph, verifyBytes, alerts, ALERT_STATUS});
 });
