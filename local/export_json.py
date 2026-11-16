@@ -6,6 +6,8 @@ import shutil
 import re
 import math
 import uuid
+import hashlib
+from .view_metadata import membership_summary, universe_counts
 from .safety import exclusive_lock
 from pathlib import Path
 from .core import ROOT, now
@@ -102,7 +104,15 @@ def _export(conn, output, universe, lifecycle, stage_root, as_of):
             raise ValueError("Unsafe stock output path")
         relative=f"stocks/{folder}/graph.json"
         write_json(stage/relative,graph)
-        manifest["stocks"].append({"label":s["ticker"]+" "+s["name"],"path":"data/"+relative})
+        primary=next(n for n in graph["nodes"] if n["id"]=="stock:"+sid)
+        summary=membership_summary(primary)
+        manifest["stocks"].append({"stock_id":sid,"ticker":s["ticker"],
+            "label":s["ticker"]+" "+s["name"],"path":"data/"+relative,
+            "node_count":len(graph["nodes"]),"edge_count":len(graph["edges"]),
+            "sha256":hashlib.sha256((stage/relative).read_bytes()).hexdigest(),**summary})
+    manifest["research_universe"]={"counts":universe_counts(manifest["stocks"]),
+        "as_of_dates":sorted({s["universe_as_of"] for s in manifest["stocks"] if "universe_as_of" in s}),
+        "scope":"exported primary stock graphs only; not a certified index or current holdings list"}
     manifest["sources"]=[source_rows[sid] for sid in sorted(used_sources)]
     write_json(stage/"manifest.json",manifest)
     # Validate staged tree before touching current public data.
@@ -137,7 +147,7 @@ def validate_graph(graph):
             raise ValueError("self-loop is not allowed")
         if edge["source"] not in idset or edge["target"] not in idset:
             raise ValueError("edge endpoint missing: "+edge["id"])
-        if edge["id"] in edge_ids:raise ValueError("duplicate edge id")
+        if edge["id"] in edge_ids or edge["id"] in idset:raise ValueError("duplicate graph element id")
         edge_ids.add(edge["id"])
         score=edge.get("score")
         if score is not None and (type(score) not in (int,float) or not math.isfinite(score) or not -1<=score<=1):

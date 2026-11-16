@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import platform
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -21,6 +22,7 @@ def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report",type=Path,default=ROOT/"local/private/check-report.json")
     parser.add_argument("--runner",choices=("pytest","unittest"),default="pytest")
+    parser.add_argument("--frontend",action="store_true",help="Also require Node.js syntax and offline browser-logic tests")
     args=parser.parse_args(argv)
     report_path=private_path(args.report)
     report={"started_at":now(),"python":sys.version,"platform":platform.platform(),"checks":[],
@@ -43,6 +45,25 @@ def main(argv=None):
             if result.returncode:
                 failed=True
                 break
+    if args.frontend and not failed:
+        node=shutil.which("node")
+        commands=([[node,"--check",str(p)] for p in sorted((ROOT/"js").glob("*.js"))]
+                  + [[node,"--test",str(ROOT/"js/tests/graph-utils.test.js")]]) if node else []
+        if not node:
+            report["checks"].append({"command":["node"],"exit_code":1,"output":"--frontend requires Node.js; no silent skip"})
+            failed=True
+        for command in commands:
+            result=subprocess.run(command,cwd=ROOT,text=True,capture_output=True)
+            text=result.stdout+result.stderr
+            print(text,end="" if text.endswith("\n") else "\n")
+            report["checks"].append({"command":command,"exit_code":result.returncode,"output":text})
+            if result.returncode:
+                failed=True
+                break
+        report["frontend_sha256"]={p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
+                                    for p in sorted((ROOT/"js").rglob("*.js"))}
+    report["site_sha256"]={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest()
+                           for name in ("index.html","css/style.css")}
     report.update(finished_at=now(),passed=not failed)
     atomic_bytes(report_path,(json.dumps(report,ensure_ascii=False,indent=2)+"\n").encode())
     print("Local test report:",report_path)

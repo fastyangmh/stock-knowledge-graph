@@ -2,48 +2,43 @@
 
 [返回專案首頁](../README.md)
 
-本目錄是 Stock Knowledge Graph 的主要說明文件。**現行程式行為以 source code、測試及實際執行結果為準**；文件中的「規劃中」不代表已經上線。
+文件分開記錄已實作、離線驗證及尚待正式資料驗收的部分；程式碼／實測為實際行為依據。
 
-> **2026-11-16 股票池更新：** 使用者選定 TW50 指數成分股與 009816 ETF 持股聯集。各來源獨立追溯、聯集去重；舊文件中的「50 檔」是 TW50 單來源規格，不是合併後總數上限。雙來源實作與操作以[研究股票池](RESEARCH_UNIVERSE.md)為準。
-
-## 一般使用者
+## 使用者
 
 | 文件 | 內容 |
 | --- | --- |
-| [使用者手冊](USER_MANUAL.md) | 開啟網站、切換股票、篩選連線、查看資訊與限制 |
-| [常見問題與排錯](TROUBLESHOOTING.md) | 網頁無法載入、資料未更新、環境與管線錯誤 |
-| [術語表](GLOSSARY.md) | Embedding、Top-K、來源證據與金融資料時間定義 |
+| [User Manual](USER_MANUAL.md) | 股票池、搜尋、關聯圖、來源與日期 |
+| [前端與私有預覽](FRONTEND_AND_PREVIEW.md) | 索引契約、SHA256、僅本機只讀預覽及限制 |
+| [Troubleshooting](TROUBLESHOOTING.md) | 環境、來源、資料與發布排錯 |
+| [Glossary](GLOSSARY.md) | 名詞定義 |
 
-## 開發者與維護者
-
-| 文件 | 內容 |
-| --- | --- |
-| [System Design](SYSTEM_DESIGN.md) | 需求、系統邊界、關鍵取捨、可靠性與驗收準則 |
-| [Architecture](ARCHITECTURE.md) | 元件架構圖、執行位置、目錄結構與資料流 |
-| [雙來源研究股票池](RESEARCH_UNIVERSE.md) | TW50＋009816 聯集、歸屬、日期、CLI 及新增測試 |
-| [資料模型與 JSON 契約](DATA_MODEL.md) | SQLite 實體關係、股票與文件 ID、JSON 格式 |
-| [開發者指南](DEVELOPER_GUIDE.md) | uv 環境、本地測試、修改流程與品質門檻 |
-| [資料處理管線](DATA_PIPELINE.md) | 官方快照、標準化、Embedding、相似度與圖譜匯出 |
-| [部署與維運](OPERATIONS.md) | Linux/NAS 手動操作、預覽、發布、回復與備份 |
-| [安全與資料授權](SECURITY_AND_LICENSING.md) | 資料能否公開、憑證、授權白名單與權限界線 |
-| [開發路線圖](ROADMAP.md) | P0–P4 完成項目、待辦、外部依賴及決策點 |
-
-## 資料來源、權利與驗證紀錄（保留既有文件）
+## 開發與維運
 
 | 文件 | 內容 |
 | --- | --- |
-| [官方資料來源清單](DATA_SOURCES.md) | 已核對資料集、連結、授權條件、來源尺度與限制 |
-| [新增候選來源核對（2026-11-16）](SOURCE_REVIEW_2026-11-16.md) | 009816 與 TW50 差異、官方／富邦／FinMind／Yahoo 介接與使用範圍 |
-| [台灣50授權詢問](TW50_LICENSE_INQUIRY.md) | 對權利人的預定詢問、目前尚未取得的使用許可 |
-| [本地測試紀錄（2026-11-15）](VERIFICATION-2026-11-15.md) | 離線測試環境、實測結果、尚未驗證事項 |
+| [System Design](SYSTEM_DESIGN.md) | 需求、設計取捨與驗收 |
+| [Architecture](ARCHITECTURE.md) | 元件與資料流 |
+| [雙來源研究股票池](RESEARCH_UNIVERSE.md) | TW50＋009816 聯集定義與輸入契約 |
+| [Data Model](DATA_MODEL.md) | SQLite 與 JSON |
+| [Developer Guide](DEVELOPER_GUIDE.md) | uv、測試、提交流程 |
+| [Data Pipeline](DATA_PIPELINE.md) | 官方快照、正規化與圖譜 |
+| [Operations](OPERATIONS.md) | 人工更新、驗證、發布與復原 |
+| [Security & Licensing](SECURITY_AND_LICENSING.md) | 資料權利與私密資訊界線 |
+| [Roadmap](ROADMAP.md) | P0–P4 與未解依賴 |
 
-另有 [本地程式簡介](../local/README.md) 與 [既有發布操作紀錄](../local/UPDATE_AND_PUBLISH.md)；新讀者請優先閱讀本目錄的開發、資料管線及維運文件。
+## 來源與驗證紀錄
 
-## 建議閱讀順序
+| 文件 | 內容 |
+| --- | --- |
+| [官方來源](DATA_SOURCES.md) | 逐資料集核對 |
+| [候選來源評估](SOURCE_REVIEW_2026-11-16.md) | 009816／TW50、富邦、FinMind、Yahoo |
+| [台灣50權利詢問](TW50_LICENSE_INQUIRY.md) | 尚未取得的使用範圍 |
+| [2026-11-15 本地驗證](VERIFICATION-2026-11-15.md) | 前次 69 項離線測試及界線 |
+| [2026-11-16 前端整合驗證](VERIFICATION-2026-11-16-FRONTEND.md) | 全部 Python、前端、HTTP 與瀏覽器測試 |
 
-- **第一次使用網站**：使用者手冊 → 常見問題 → 術語表。
-- **第一次接手開發**：System Design → Architecture → 研究股票池 → 開發者指南 → 資料模型 → 資料管線。
-- **負責資料與發布**：資料來源 → 安全與資料授權 → 部署與維運 → 驗證紀錄。
-- **規劃下一階段**：開發路線圖 → 台灣50授權詢問。
+新使用者先看手冊；新開發者先看設計、架構、研究股票池、開發指南；資料維護者先看來源與授權，再看管線及維運。舊的單一 TW50 指令仍有相容性，雙來源以研究股票池文件為準。
 
-> 狀態備註：正式網站仍為虛構示範資料；兩份真實名單的適用使用權、官方資料線上下載驗收、每日排程及正式資料公開發布均尚未完成。
+[本地程式入口](../local/README.md) · [既有發布註記](../local/UPDATE_AND_PUBLISH.md)
+
+> 公開金融資料仍為示範；來源篩選可用不代表真實名單已核准或正式下載成功。沒有啟用排程／自動金融資料發布。
