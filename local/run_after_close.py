@@ -20,10 +20,15 @@ def main():
     p.add_argument("--input",type=Path,required=True,help="Normalized private JSON from licensed sources")
     p.add_argument("--publish",action="store_true",help="Reserved; publishing is disabled pending approval")
     p.add_argument("--universe",type=Path,required=True,help="Date-effective TW50 CSV")
+    p.add_argument("--etf-holdings",type=Path,help="Same-day 009816 holdings CSV, optional")
+    p.add_argument("--universe-source",help="HTTPS provenance URL of TW50 membership file")
     p.add_argument("--db",type=Path,default=ROOT/"local"/"stock_graph.db")
     p.add_argument("--preview-output",type=Path,default=ROOT/"local"/"private"/"preview")
     p.add_argument("--cutoff",default="18:30")
     args=p.parse_args()
+    if args.etf_holdings and not args.universe_source:
+        p.error("--etf-holdings requires --universe-source")
+    extra=["--etf-holdings",str(args.etf_holdings),"--universe-source",args.universe_source] if args.etf_holdings else []
     current=datetime.now(TZ)
     hh,mm=map(int,args.cutoff.split(":"))
     if not ready(args.calendar,current.date().isoformat(),current.time(),time(hh,mm)):
@@ -40,7 +45,7 @@ def main():
     run("local.pipeline","all","--semantic","--input",str(args.input),
         "--db",str(args.db),"--output",str(args.preview_output),
         "--universe",str(args.universe),"--as-of",current.date().isoformat(),
-        "--lifecycle","--threshold","0.65")
+        "--lifecycle","--threshold","0.65",*extra)
     print("Private preview exported and validated by the exporter:",args.preview_output)
 
 if __name__=="__main__":
