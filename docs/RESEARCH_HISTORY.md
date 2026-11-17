@@ -70,3 +70,30 @@ uv run --locked python -m local.research_compare \
 ```
 
 只讀取已驗證版本，輸出JSON到stdout；不覆寫來源。較早版本的known_at晚於較後版本時拒絕；同一截止時間可比較不同版本設定。同版自比不會捏造新事件。若需要保存輸出，請自行導向 `local/private/`，勿提交私有資料到公開Issue。
+
+## 真實 HTTP 瀏覽器驗收
+
+另備 Playwright／Chromium 後，可執行兩個 opt-in 模式（不改 `uv.lock`）：
+
+```bash
+python scripts/history_browser_smoke.py --live-http \
+  --chromium /path/to/chromium --report local/private/history-live.json
+python scripts/event_browser_smoke.py --live-http \
+  --chromium /path/to/chromium --report local/private/event-live.json
+```
+
+成功路徑由固定合成輸入產生真實 SQLite／研究 bundle，直接啟動
+`research_archive.make_server` 或 `event_study.make_server`，以原生 `fetch`
+實際導航 loopback HTTP。歷史頁返回版本圖譜時仍由原 HTTPS CDN 載入
+Cytoscape 3.30.4；不允許替換 CDN、略過憑證或修改瀏覽器政策。
+
+兩頁涵蓋桌機與390px手機、比較／事件證據／分母、錯誤後恢復、惡意文字與
+HTTP allowlist。延遲、404及非法 JSON 由合成 HTTP server 的已捕捉 bytes
+注入，未替換 `window.fetch`。空研究目錄與格式損壞的 `latest.json` 沿用
+啟動前拒絕；缺 pointer 時個別有效版本仍可比較，但不供應預設最新圖檔。
+空摘要的 UI 另外以合成 HTTP 回應驗證。
+
+報告包含 Commit、dirty狀態、環境、來源 SHA256、實際回應 status／bytes／hash、
+page errors、情境與 exit code；失敗也保存報告。未加 `--live-http` 時保留原有
+記憶體 DOM smoke，兩種模式的證據分開記錄。金融輸入均為合成，並非正式金融
+來源或投資有效性驗收。實測見[2026-11-17歷史／事件HTTP驗證](VERIFICATION-2026-11-17-HISTORY-EVENT-HTTP.md)。

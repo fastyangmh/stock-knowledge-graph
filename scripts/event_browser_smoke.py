@@ -1,4 +1,7 @@
-"""Offline DOM verification of the actual event UI; synthetic report, no network."""
+"""Event UI smoke: memory by default; --live-http uses production private HTTP.
+
+Both modes use synthetic financial data and never publish research artifacts.
+"""
 import argparse
 import asyncio
 import hashlib
@@ -48,7 +51,7 @@ async def run(args):
         checks.append('usable/unavailable denominators visible, no zero average for missing samples')
         assert '後第5筆報價觀察' in content and '後3個曆月' in content
         checks.append('observation horizons not mislabeled as trading sessions')
-        await page.locator('#event-overview details summary').click()
+        await page.get_by_text('分析設定與資料限制', exact=True).click()
         assert '<img src=x' in await page.locator('#event-overview').inner_text()
         assert await page.locator('#event-overview img').count()==0 and not await page.evaluate('Boolean(window.injected)')
         checks.append('untrusted strings rendered as text; no HTML execution')
@@ -94,7 +97,13 @@ async def run(args):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--chromium',type=Path,required=True);p.add_argument('--report',type=Path,required=True)
-    args=p.parse_args();args.report=private_path(args.report);asyncio.run(run(args))
+    p.add_argument('--live-http', action='store_true', help='Use production private HTTP servers and native browser fetch')
+    args=p.parse_args();args.report=private_path(args.report)
+    if args.live_http:
+        from history_event_live_smoke import run_live
+        asyncio.run(run_live(args, 'event'))
+    else:
+        asyncio.run(run(args))
 
 
 if __name__=='__main__':main()
