@@ -1,6 +1,8 @@
 """Canonical financial definition aliases, without inferring missing values."""
 from __future__ import annotations
 
+DEFINITION_KEYS = ('normalization_version', 'statement_scope', 'report_basis', 'currency')
+
 
 def unverified_definition(value):
     return not isinstance(value, str) or value.strip().lower() in (

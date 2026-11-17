@@ -20,6 +20,8 @@ from .bundle_audit import catalog, _require
 from .core import ROOT
 from .dates import iso_date, timestamp
 from .event_outcomes import STATES, METRICS, baseline_facts, basis, measure, saved_facts
+from .financial_definitions import DEFINITION_KEYS as FINANCIAL_DEFINITION_KEYS
+from .market_units import DEFINITION_KEYS as MARKET_DEFINITION_KEYS
 from .preview import server_from_files
 from .research import guarded
 from .research_compare import CONFIG_KEYS
@@ -70,12 +72,22 @@ def _id(value):
 def _definition(report, check):
     rule = check["rule_id"]
     sources = sorted({(row.get("source_id") or "", row.get("source_url") or "") for row in check["evidence"]})
-    source_basis = sorted({canonical({k:r.get(k) for k in ("market", "price_unit", "price_basis")}).decode()
+    legacy_keys = ("market", "price_unit", "price_basis")
+    # Absent/null additions must not change legacy event identities.
+    source_basis = sorted({canonical({**{k:r.get(k) for k in legacy_keys},
+                                     **{k:r[k] for k in MARKET_DEFINITION_KEYS
+                                        if k not in legacy_keys and r.get(k) is not None}}).decode()
                            for r in check["evidence"]}) if check["category"] == "price_volume" else []
-    return {"version": report["schema_version"], "rule_id": rule,
+    definition = {"version": report["schema_version"], "rule_id": rule,
             "config": {k: report["config"][k] for k in CONFIG_KEYS[rule]},
             "formula": check["formula"], "threshold": check["threshold"], "unit": check["unit"],
             "sources": [list(pair) for pair in sources], "price_bases": source_basis}
+    if check["category"] == "monthly_revenue":
+        financial_bases = [{k:r[k] for k in FINANCIAL_DEFINITION_KEYS if r.get(k) is not None}
+                           for r in check["evidence"]]
+        if any(financial_bases):
+            definition["financial_bases"] = sorted({canonical(row).decode() for row in financial_bases})
+    return definition
 
 
 def summarize(events):

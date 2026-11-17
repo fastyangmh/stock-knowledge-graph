@@ -28,7 +28,8 @@ def main(argv=None):
     report={"started_at":now(),"python":sys.version,"platform":platform.platform(),"checks":[],
             "scope":"Offline synthetic fixtures and isolated lexical CLI. No live model/API/browser/remote deployment verification.",
             "source_sha256":{p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
-                             for p in sorted((ROOT/"local").rglob("*.py")) if "private" not in p.parts}}
+                             for p in sorted((ROOT/"local").rglob("*.py"))
+                             if p.relative_to(ROOT).parts[:2] != ("local", "private")}}
     probes=[]
     def probe(command):
         try:

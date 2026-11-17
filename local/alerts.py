@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 from .market_units import DEFINITION_KEYS
 from .dates import iso_date, timestamp
-from .financial_definitions import financial_definition
+from .financial_definitions import DEFINITION_KEYS as FINANCIAL_DEFINITION_KEYS, financial_definition
 from .research_history import canonical
 
 VERSION = "research-alerts-1.0"
@@ -208,7 +208,7 @@ def _revenue_checks(payload, sid, cutoff, config):
         if len(source_ids) != 1 or any(r.get("unit") != "percent" or r["source_id"] not in sources for r in rows):
             check.update(status="not_comparable", reason="percentage_unit_or_source_mismatch")
             continue
-        definitions = {tuple(r.get(k) for k in ('normalization_version','statement_scope','report_basis','currency')) for r in rows}
+        definitions = {tuple(r.get(k) for k in FINANCIAL_DEFINITION_KEYS) for r in rows}
         if len(definitions) != 1:
             check.update(status="not_comparable", reason="financial_definition_mismatch")
             continue

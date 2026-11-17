@@ -25,6 +25,10 @@ def main(argv=None):
     parser.add_argument("--unit-evidence",type=Path,help="Private, hash-bound monthly unit review; requires a separate versioned research ledger")
     args = parser.parse_args(argv)
     output = private_path(args.output)
+    inputs = (args.registry, args.universe, args.etf_holdings, args.unit_evidence)
+    if (output.is_relative_to(args.snapshot_dir.resolve()) or
+            any(output == path.resolve() for path in inputs if path is not None)):
+        raise ValueError('output must not overwrite an input or unit evidence')
     if args.etf_holdings and not (args.universe and args.universe_source):
         parser.error("--etf-holdings requires --universe and --universe-source")
     combined = (load_combined_universe(args.universe,args.etf_holdings,args.as_of,args.universe_source)
@@ -32,6 +36,13 @@ def main(argv=None):
     universe = (validate_symbols(args.symbols) if args.symbols else
                 (combined.stock_ids if combined else load_universe(args.universe,args.as_of,expected_count=50)))
     payload = from_snapshots(args.snapshot_dir,args.registry,universe,as_of=args.as_of,unit_evidence=args.unit_evidence)
+    if args.unit_evidence:
+        # Use only references already validated and bound to the raw snapshots.
+        references = (reference for row in payload['financial_metrics']
+                      for reference in row.get('normalization', {}).get('references', []))
+        if any(output == (args.unit_evidence.resolve().parent/reference['path']).resolve()
+               for reference in references):
+            raise ValueError('output must not overwrite unit evidence references')
     if combined:
         payload = combined.annotate_payload(payload)
     elif args.symbols:

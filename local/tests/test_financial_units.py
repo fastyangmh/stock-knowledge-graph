@@ -84,3 +84,33 @@ class FinancialUnitsTests(unittest.TestCase):
         self.proof.write_bytes(canonical(self.evidence))
         with self.assertRaisesRegex(ValueError,'raw snapshot mismatch'):
             self.normalize()
+
+    def test_import_rejects_evidence_output_collision_before_any_bytes_change(self):
+        before = {p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        with self.assertRaisesRegex(ValueError, 'output.*input|output.*evidence'):
+            import_main(['--snapshot-dir',str(self.root/'raw'),'--symbols','2330',
+                         '--as-of','2026-11-15','--unit-evidence',str(self.proof),
+                         '--output',str(self.proof)])
+        self.assertEqual({p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}, before)
+
+    def test_import_preserves_references_snapshots_and_selection_inputs(self):
+        registry = self.root/'registry.json'
+        registry.write_bytes(Path(REGISTRY).read_bytes())
+        universe, holdings = self.root/'universe.csv', self.root/'holdings.csv'
+        universe.write_text('retained selection input')
+        holdings.write_text('retained holdings input')
+        snapshot_files = [p for p in (self.root/'raw').rglob('*') if p.is_file()]
+        targets = [self.root/'statement.txt', registry, universe, holdings, *snapshot_files]
+        before = {p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
+        for target in targets:
+            for path, body in before.items():
+                path.write_bytes(body)
+            with self.subTest(target=target.name):
+                selection = (['--universe',str(universe),'--etf-holdings',str(holdings),
+                              '--universe-source','https://example.org/universe']
+                             if target in (universe, holdings) else ['--symbols','2330'])
+                with self.assertRaisesRegex(ValueError, 'output.*input|output.*evidence'):
+                    import_main(['--snapshot-dir',str(self.root/'raw'),'--registry',str(registry),
+                                 *selection,'--as-of','2026-11-15','--unit-evidence',str(self.proof),
+                                 '--output',str(target)])
+                self.assertEqual({p: p.read_bytes() for p in self.root.rglob('*') if p.is_file()}, before)

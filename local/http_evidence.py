@@ -53,3 +53,13 @@ def capture_response(response, requested_url, max_bytes):
         error.error_category = 'response_size' if oversized else 'response_length'
         raise error
     return captured
+
+
+def capture_failure_response(response, requested_url, max_bytes):
+    """Retain bounded error bytes without replacing the original HTTP error."""
+    try:
+        return capture_response(response, requested_url, max_bytes)
+    except ValueError as exc:
+        if not hasattr(exc, 'response_body'):
+            raise
+        return exc.response_body

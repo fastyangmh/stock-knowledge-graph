@@ -5,11 +5,91 @@ from unittest.mock import patch
 
 from local.event_study import analyze, policy, summarize, DEFAULTS
 from local.event_outcomes import month_end_offset
-from test_alerts import payload, SID
-from event_fixtures import bundle, revenue, outcome, event
+from local.alerts import evaluate
+from test_alerts import payload, prices, SID, CUTOFF, TARGET
+from event_fixtures import bundle, complete_bundle, revenue, outcome, event
 
 ASOF='2020-12-31T23:59:59+08:00'
 CONFIG={'quote_horizons':[1,2],'revenue_horizons':[1,3]}
+
+
+def defined_bundle(n, category, key, value, *, complete=True):
+    data, history = payload(), prices()
+    rows = ([item['record'] for item in history] if category == 'price_volume'
+            else data['financial_metrics'])
+    for row in rows:
+        row[key] = value
+    result = (complete_bundle if complete else bundle)(
+        n, data=data, completed=f'2020-08-{15+n:02}T20:01:00+08:00')
+    saved = result.facts['facts'] if complete else result.graphs[SID]['nodes']
+    kind = 'market_price' if category == 'price_volume' else 'financial_metric'
+    for row in saved:
+        if row.get('kind',row.get('type')) == kind:
+            row[key] = value
+    result.alerts = {'stocks':evaluate(data, {SID:history}, {SID}, CUTOFF, trade_date=TARGET)}
+    return result
+
+
+class EventDefinitionTests(unittest.TestCase):
+    def test_changed_definitions_preserve_events_and_separate_summary_denominators(self):
+        cases = [('price_volume', key, first, second, 4) for key,first,second in (
+            ('market','TWSE','TPEX'), ('price_unit','source_reported','TWD'),
+            ('price_basis','source_unadjusted','adjusted'), ('price_currency','TWD','USD'),
+            ('volume_unit','shares','lots'), ('turnover_unit','TWD','USD'),
+            ('turnover_currency','TWD','USD'), ('trades_unit','trades','other'),
+            ('trading_scope','regular_only','regular_oddlot_afterhours'),
+            ('normalization_version','market-v1','market-v2'))]
+        cases += [('monthly_revenue',key,first,second,8) for key,first,second in (
+            ('normalization_version','revenue-v1','revenue-v2'), ('currency','TWD','USD'),
+            ('statement_scope','consolidated','separate'), ('report_basis','single_period','cumulative'),
+            ('consolidation','consolidated','separate'), ('value_basis','single_period','cumulative'))]
+        for category,key,first,second,total in cases:
+            with self.subTest(category=category, key=key):
+                a = defined_bundle(1,category,key,first)
+                b = defined_bundle(2,category,key,second)
+                result = analyze([a,b],ASOF,CONFIG)['categories'][category]
+                self.assertEqual(len(result['events']),total)
+                self.assertEqual(len({e['definition_id'] for e in result['events']}),total)
+                self.assertTrue(all(e['repeated_captures']==0 for e in result['events']))
+                self.assertTrue(all(s['n_total']==1 for s in result['summaries']))
+
+    def test_changed_definition_is_not_excluded_as_an_earlier_legacy_trigger(self):
+        old = defined_bundle(1,'monthly_revenue','statement_scope','separate',complete=False)
+        new = defined_bundle(2,'monthly_revenue','statement_scope','consolidated')
+        result = analyze([old,new],ASOF,CONFIG,cohort='unpruned_facts')
+        self.assertEqual(len(result['categories']['monthly_revenue']['events']),4)
+        self.assertEqual({e['rule_id'] for e in result['excluded_events']},{'price_change','volume_ratio'})
+
+    def test_new_provenance_with_same_definition_remains_a_repeat(self):
+        first = defined_bundle(1,'price_volume','trading_scope','regular_only')
+        data, history = payload(), prices()
+        for item in history:
+            item['record']['trading_scope'] = 'regular_only'
+            item['raw_sha256'] = 'f'*64
+            item['observed_at'] = '2020-08-15T19:00:00+08:00'
+        for row in data['financial_metrics']:
+            row['input_snapshot_sha256'] = 'f'*64
+        second = complete_bundle(2,completed='2020-08-18T20:01:00+08:00')
+        second.alerts = {'stocks':evaluate(data,{SID:history},{SID},CUTOFF,trade_date=TARGET)}
+        result = analyze([first,second],ASOF,CONFIG)
+        self.assertEqual(result['counts']['events'],6)
+        self.assertEqual(result['counts']['duplicate_period_events_suppressed'],6)
+
+    def test_legacy_event_identity_hashes_remain_unchanged_with_absent_definitions(self):
+        # Captured through public analyze at pre-fix 0b21300, not recomputed expectations.
+        expected = {
+            'price_change':('7abcd4c5982281fd8b3971db734d58ebcaa395389b2e81caf12ea01f027788c8','24534c862cec88ffb3abf1f8ed8d55a430ef07e66a3aa2bf0f0bc753946df830'),
+            'volume_ratio':('47dacaae87e656ec626994c4a0fa736ac3ce6baeaee41eb20edbea9db0f5ab0a','441fa9627228b67105f119e8f9464b84e54e483e5ccfd404a9192302cdd0718b'),
+            'revenue_mom':('c9a7462a604c411a6877df92d92601cee5961e62404d7e2f1b8f645a239004dd','4476051f5c0f12df5fe32e6f2bb4936b3fef5a6c81b63f43561d7ab47bd83e27'),
+            'revenue_yoy':('c43b0516bce57fba864e4f286527feed83035e87eb3004d5b491d0a69088e638','f7dc118b4bc35cd3ebf249b16fcd8497b7c22c9e4ef43241bc220ee62336a727'),
+            'revenue_yoy_change':('2e309c7c2b3055e08c7827fdb8336fa9be0d46b520770a92f5184f53ef3af85c','5c05f3a59714c2b7c0abc2d9905058af8dfbcebd1e586791878b2e631b78f913'),
+            'revenue_yoy_trend':('2836c75fbe5dcd5966205c5b59e7644530ae89de571479ddaec2f4e6368bbf5d','e44c59c9088b1bc7a97b764d9669b4045bf0ea744fe4fe7e9cb4fc1e3a22e2a4'),
+        }
+        for legacy in (bundle(alerts=True),defined_bundle(1,'monthly_revenue','currency',None,complete=False)):
+            with self.subTest(run=legacy.report['run']):
+                result = analyze([legacy],ASOF)
+                self.assertEqual({e['rule_id']:(e['event_id'],e['definition_id'])
+                    for category in result['categories'].values() for e in category['events']},expected)
 
 class EventStudyTests(unittest.TestCase):
     def setUp(self):
