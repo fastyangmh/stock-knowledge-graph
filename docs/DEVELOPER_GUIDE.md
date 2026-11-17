@@ -14,6 +14,10 @@ uv run --locked python -m local.check
 
 首次需自行準備 Git/uv 和可用套件索引。`local.check` 在隔離 SQLite/臨時 JSON 上測試，不下載模型或官方資料，不更新公開 `data/`。報告存於 `local/private/check-report.json`，不提交。
 
+報告記錄 Git Commit／dirty 狀態、實際 OS／架構、Python patch／執行檔、uv／Node 版本、runner、`uv.lock` SHA256，以及每項檢查的命令、退出碼與輸出。版本探測另存 `environment_probes`；工具不存在或探測失敗時，版本／Commit／dirty 記為 `null`，不冒稱乾淨或已知。`--frontend` 缺 Node 仍會失敗。`uv sync` 是檢查前的獨立步驟，須另外保留其命令、輸出與 exit code；報告不宣稱替你執行過同步。
+
+macOS 可做補充驗證，但不替代 Linux 目標驗收。若暫存目錄含 `/var` → `/private/var` symlink，請用 `TMPDIR=/private/tmp` 避免私有路徑防護拒絕測試產物；保留防護本身。HTTP 整合測試需要允許 loopback socket，權限受限時記錄受阻，依執行環境的正常權限流程重跑。
+
 ## 前端與完整本地驗收
 
 ```bash
