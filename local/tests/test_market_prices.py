@@ -307,8 +307,9 @@ class StorageTests(unittest.TestCase):
                 inp = self.root/(name + '.csv')
                 inp.write_bytes(body)
                 prior = set(self.out.glob('retrieval-failure-*.json'))
+                symbols = ['1000'] if name == 'duplicate_unselected' else ['1000', '1001']
                 with self.assertRaises(ValueError):
-                    main(['--market', 'twse', '--symbols', '1000', '1001', '--expected-date', DAY,
+                    main(['--market', 'twse', '--symbols', *symbols, '--expected-date', DAY,
                           '--input', str(inp), '--db', str(self.db), '--output', str(self.out)])
                 reports = set(self.out.glob('retrieval-failure-*.json')) - prior
                 self.assertEqual(len(reports), 1)
