@@ -1,6 +1,8 @@
 """Optional browser acceptance checks; requires Playwright and local Chromium.
 
-No market downloads or Git operations. Uses a supplied Cytoscape UMD asset.
+No market downloads or Git writes. By default uses a supplied Cytoscape UMD asset.
+--live-cdn uses real private HTTP, the unchanged original HTTPS CDN, and the
+read-only public Pages demo. It neither patches fetch nor intercepts responses.
 --in-memory runs DOM/render tests on about:blank with synthetic fetch responses,
 without navigating to any host; HTTP server tests live in local/tests/test_preview.
 In-memory mode omits optional manifest SHA fields because about:blank has no
@@ -242,13 +244,22 @@ async def run(args):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--chromium',type=Path,required=True)
-    parser.add_argument('--cytoscape-js',type=Path,required=True)
+    parser.add_argument('--cytoscape-js',type=Path)
+    parser.add_argument('--live-cdn',action='store_true',help='Real private preview HTTP, original HTTPS CDN and read-only Pages demo')
     parser.add_argument('--esm-symbol')
     parser.add_argument('--in-memory',action='store_true')
     parser.add_argument('--report',type=Path,default=ROOT/'local/private/browser-check.json')
     args=parser.parse_args()
+    if args.live_cdn and (args.in_memory or args.cytoscape_js or args.esm_symbol):
+        parser.error('--live-cdn cannot replace fetch or supply a local Cytoscape asset')
+    if not args.live_cdn and not args.cytoscape_js:
+        parser.error('--cytoscape-js is required unless --live-cdn is used')
     from local.safety import private_path
     args.report=private_path(args.report)
-    asyncio.run(run(args))
+    if args.live_cdn:
+        from browser_live_smoke import run_live
+        asyncio.run(run_live(args))
+    else:
+        asyncio.run(run(args))
 
 if __name__=='__main__':main()

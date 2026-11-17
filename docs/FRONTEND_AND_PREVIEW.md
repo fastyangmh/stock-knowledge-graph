@@ -71,3 +71,28 @@ uv run --locked python scripts/browser_smoke.py \
 需要先在執行環境具備 Playwright。受限環境可選 `--in-memory` 跑 about:blank DOM 與合成 fetch；它不測試真實 HTTP 導航，並因安全 context 限制略去 fixture 的可選 checksum。SHA256 分支由 Node 真實 WebCrypto 測試，HTTP 行為由 Python loopback 測試。不可把不同測試的通過合稱為已完成生產部署驗收。
 
 完整實測範圍見 [本次驗證紀錄](VERIFICATION-2026-11-16-FRONTEND.md)。
+
+### 真實 HTTP／CDN 驗收
+
+`--live-cdn` 以現有 private preview allowlist 提供合成 SQLite 匯出的圖檔，瀏覽器
+直接載入原本 `https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js`，並另外
+只讀開啟現有 Pages 示範。成功路徑不替換 `window.fetch`、不攔截 CDN，也不變更
+CSP、憑證檢查或瀏覽器安全政策；不需要 `--cytoscape-js`。
+
+```bash
+# 使用已備妥 Playwright 的 Python；macOS 暫存路徑使用 /private/tmp
+TMPDIR=/private/tmp python scripts/browser_smoke.py \
+  --live-cdn --chromium /path/to/chromium \
+  --report local/private/graph-live.json
+```
+
+報告分列 private preview 與 Pages 結果，包含 Commit／dirty、程式檔 hash、環境、
+瀏覽器版本、實際回應 URL／status／Content-Type／bytes／SHA256／TLS 與檢查項目。
+原生 WebCrypto 正常載圖後，測試 server 才注入延遲、404、錯 hash、錯股票及損壞
+JSON；每種失敗確認舊 canvas 清除與重新載入恢復。另測來源惡意文字、安全連結、
+手機與 DB／raw／repository 路徑拒絕。故障資料不寫回公開 `data/`。
+
+兩部分皆通過才 exit 0；網路／CDN／瀏覽器受阻或斷言失敗仍保存部分報告並 exit 1。
+本模式不能和 `--in-memory`、`--cytoscape-js` 或 `--esm-symbol` 混用。原本提供本地
+Cytoscape 的 loopback 模式仍會攔截 CDN，不算本模式的真實 CDN 證據。
+結果見 [2026-11-17 圖譜驗證](VERIFICATION-2026-11-17-GRAPH-LIVE.md)。
