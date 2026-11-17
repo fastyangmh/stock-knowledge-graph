@@ -2,7 +2,7 @@
 
 [文件中心](README.md) · [待開發與驗收清單](DEVELOPMENT_BACKLOG.md) · [路線圖](ROADMAP.md)
 
-整理日期：**2026-11-17（Asia/Taipei）**。本輪固定實測候選：`3834c19bce622dccc85a127119d77663c595a5c2`；證據見[整合驗證索引](VERIFICATION-2026-11-17-M1.md)。其後文件提交不代表重新執行產品測試；最終 code-review、修復與推送由整合流程另行記錄。
+整理日期：**2026-11-17（Asia/Taipei）**。最新審查修復實測候選：`ecd176b3069a62aaa98c7a641496af45b8c415f2`；證據見[審查與重驗](VERIFICATION-2026-11-17-REVIEW.md)。原 `3834c19` 的[整合驗證](VERIFICATION-2026-11-17-M1.md)保留為歷史；其後文件提交不代表重新執行產品測試，推送由整合流程處理。
 
 ## 1. 接手時先知道的事
 
@@ -51,7 +51,7 @@ Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/pri
 
 ## 4. 測試證據與限制
 
-同一候選版本的[整合驗證](VERIFICATION-2026-11-17-M1.md)：完整 `local.check --frontend` exit 0，482 pytest、220 subtests、55 Node tests；未另跑 unittest。真實模型四情境及四份 audit 通過。既有合成瀏覽器回歸圖譜12、歷史9、事件7、新版事實9組通過，另完成只讀 Pages 與兩市場真實研究三頁的桌機／手機驗收。使用原 Cytoscape 3.30.4 CDN、原生 fetch／WebCrypto，沒有替換成功路徑。
+最新候選 `ecd176b` 的[審查修復重驗](VERIFICATION-2026-11-17-REVIEW.md)：完整 `local.check --frontend` exit 0，490 pytest、246 subtests、55 Node tests；未另跑 unittest。來源 hash 已修正，在 `/private/tmp` 留存81個正確來源雜湊且排除私有產物。真實模型四情境及四份 audit 引用未變模型模組於 `3834c19` 的驗證；本候選另重跑兩市場首次與全快取。既有合成瀏覽器回歸圖譜12、歷史9、事件7、新版事實9組通過，另完成只讀 Pages 與兩市場真實研究三頁的桌機／手機驗收。使用原 Cytoscape 3.30.4 CDN、原生 fetch／WebCrypto，沒有替換成功路徑。
 
 05／06／07 的原始官方擷取證據仍保留。本輪重讀其 bytes、重新正規化財務且與08已核對輸入相同，在全新 ledger／runs 合併財務新版與未確認行情原值。每市場兩版、每版8筆完整 facts；首次編碼2文件／1配對，重跑 encoded=0、pairs=0、loader=0。各市場一個營收事件，後續數值均為 insufficient_data 或 pending，沒有真實 observed 結果。完整金融／模型 bytes、報告與截圖只留私有。
 
