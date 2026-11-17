@@ -38,6 +38,8 @@ uv run --locked python -m local.check --frontend
 
 ## 文件目錄
 
+接手開發先讀 [交接文件](docs/HANDOFF.md)；可執行任務、相依關係與完成條件見 [待開發與驗收清單](docs/DEVELOPMENT_BACKLOG.md)。
+
 | 使用與設計 | 資料與維運 |
 | --- | --- |
 | [User Manual](docs/USER_MANUAL.md) | [資料模型](docs/DATA_MODEL.md) |
