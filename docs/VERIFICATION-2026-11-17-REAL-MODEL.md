@@ -45,6 +45,8 @@
 與 `exercise/scenarios.json` 包含四份 run、audit、向量 hash、關係與 loader 測量；原始輸入與 SQLite 同目錄保存。
 最終整合證據為 `integrated/report.json` 與 `check-integrated.json`；兩份報告記錄乾淨 Commit，所有檢查 exit 0。
 
+整合審查發現既有 `local.check` 以絕對路徑排除 `private`，在 `/private/tmp` 工作樹使 `source_sha256` 為空；本票不把該欄視為有效 source hashes。另保存 `source-sha256-0fb3f08.json`，逐檔比對整合 Commit 的 Git tree 與工作檔後記錄 72 個 Python 檔案 SHA256（清單本身 SHA256：`cd70debff16cf265681a2b4c4b9f3ec82ad49356ff7c2185616d6bda44888337`）。此補充證據不修改原始 check 報告；共用工具缺陷交由整合審查修正。
+
 | 私有檔案 | SHA256 |
 | --- | --- |
 | `integrated/report.json` | `b031a50426a886dead87b7f64b4d48689fcd79545356567219579740f6b04fcd` |
