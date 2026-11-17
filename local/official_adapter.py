@@ -6,6 +6,7 @@ Availability is first observed at retrieval, never the revenue period end.
 """
 from __future__ import annotations
 import calendar
+from collections import Counter
 import csv
 import hashlib
 import io
@@ -77,6 +78,56 @@ def number(value: str):
     return int(decimal) if decimal == decimal.to_integral_value() else float(decimal)
 
 
+def dataset_profile(source, rows, retrieved_at, selected=()):
+    """Full-file structural/date gate, distinct from selected numeric validation.
+
+    Each current feed is one dated table (and one revenue month). This is the
+    accepted ingestion contract, not a claim that retrieval equals report date.
+    A newly observed mixed table requires source review before ingestion.
+    """
+    requested = set(selected)
+    present = {"TW:" + row.get("公司代號", "") for row in rows} & requested
+    observed_day = timestamp(retrieved_at).astimezone(ZoneInfo("Asia/Taipei")).date()
+    profile = {"schema_version": "official-profile-v1", "headers": list(rows[0]) if rows else [],
+               "row_count": len(rows), "retrieval_day": observed_day.isoformat(),
+               "raw_report_dates": dict(Counter(row.get("出表日期", "") for row in rows)),
+               "raw_revenue_months": (dict(Counter(row.get("資料年月", "") for row in rows))
+                                      if source["kind"] == "monthly_revenue" else {}),
+               "selection": {"requested": sorted(requested), "present": sorted(present),
+                             "missing": sorted(requested - present),
+                             "status": "checked" if requested else "not_requested"},
+               "date_contract": "single_report_date_and_single_revenue_month_v1"}
+    category = "source_schema"
+    try:
+        required = {"出表日期", "公司代號", "公司名稱"}
+        if source["kind"] == "monthly_revenue":
+            required |= {"資料年月", "營業收入-當月營收"}
+        elif source["kind"] != "companies":
+            raise ValueError("Unsupported official dataset kind")
+        if not rows or any(not required.issubset(row) for row in rows):
+            raise ValueError(f"{source['dataset_id']}: required source fields are missing")
+        category = "date_contract"
+        reports = [report_date(row["出表日期"]) for row in rows]
+        periods = ([month_end(row["資料年月"]) for row in rows]
+                   if source["kind"] == "monthly_revenue" else [])
+        profile["report_dates"] = dict(sorted(Counter(d.isoformat() for d in reports).items()))
+        profile["revenue_months"] = dict(sorted(Counter(p[:7] for p in periods).items()))
+        if any(d > observed_day for d in reports):
+            raise ValueError("Source report date is in the future (full file)")
+        if any(iso_date(p) > d for p, d in zip(periods, reports)):
+            raise ValueError("Revenue period is later than report date (full file)")
+        if len(profile["report_dates"]) != 1 or len(profile["revenue_months"]) > 1:
+            raise ValueError("Mixed source dates/months require explicit source contract review")
+        category = "source_coverage"
+        if requested - present:
+            raise ValueError("Source coverage incomplete: " + ", ".join(sorted(requested - present)))
+    except ValueError as exc:
+        exc.profile = profile
+        exc.error_category = category
+        raise
+    return profile
+
+
 def normalize_records(datasets, universe, *, as_of):
     """datasets = [(reviewed_registry_entry, rows, retrieved_at), ...]. No IO."""
     selected = set(universe)
@@ -106,6 +157,7 @@ def normalize_records(datasets, universe, *, as_of):
             raise ValueError("Unsupported official dataset kind")
         if not rows or any(not required.issubset(row) for row in rows):
             raise ValueError(f"{sid}: required source fields are missing")
+        dataset_profile(source, rows, retrieved_at, selected)
         seen_rows = set()
         for row in rows:
             code = row["公司代號"].strip()
