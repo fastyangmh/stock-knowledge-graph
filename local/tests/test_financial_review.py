@@ -13,7 +13,8 @@ from test_research_history import payload
 
 
 def fixture(unit='TWD',period_type='month'):
-    data=payload();m=data['financial_metrics'][0];m['unit']=unit;m['period_type']=period_type
+    data=payload();m=data['financial_metrics'][0];m['unit']=unit;m['period_type']=period_type;m['currency']='TWD'
+    if period_type == 'month':m.update(statement_scope='consolidated',report_basis='single_period')
     return data
 
 
@@ -100,3 +101,39 @@ class FinancialReviewTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             a=Path(d)/'a.json';a.write_bytes(canonical(fixture()))
             with patch('sys.stderr',io.StringIO()),self.assertRaises(SystemExit):main(['--input',str(a),'--reference',str(a),'--symbols','1000','--output',str(a)])
+
+class CurrencySafetyTests(unittest.TestCase):
+    def test_unknown_currency_never_passes_equal_amounts(self):
+        for currency in (None, '', 'unknown', 'source_reported', 'UNKNOWN', ' unknown ', ' ', 'N/A'):
+            with self.subTest(currency=currency):
+                a = fixture()
+                a['financial_metrics'][0]['currency'] = currency
+                result = review(a, a, ['1000'])
+                self.assertTrue(result['needs_review'])
+                self.assertEqual(result['rows'][0]['status'], 'currency_unverified')
+
+    def test_conflicting_scope_alias_cannot_pass(self):
+        a = fixture()
+        a['financial_metrics'][0].update(statement_scope='consolidated', consolidation='separate',
+                                         report_basis='single_period', value_basis='single_period')
+        with self.assertRaisesRegex(ValueError, 'conflicting.*definition'):
+            review(a, a, ['1000'])
+
+    def test_aliases_resolve_to_the_same_review_definition(self):
+        a, b = fixture(), fixture()
+        a['financial_metrics'][0].update(statement_scope='consolidated', report_basis='single_period')
+        b['financial_metrics'][0].pop('statement_scope');b['financial_metrics'][0].pop('report_basis')
+        b['financial_metrics'][0].update(consolidation='consolidated', value_basis='single_period')
+        self.assertFalse(review(a, b, ['1000'])['needs_review'])
+
+    def test_monthly_scope_and_basis_must_be_verified(self):
+        a = fixture()
+        a['financial_metrics'][0].pop('statement_scope')
+        result = review(a, a, ['1000'])
+        self.assertEqual(result['rows'][0]['status'], 'statement_definition_unverified')
+
+    def test_changed_normalization_version_requires_review(self):
+        a, b = fixture(), fixture()
+        a['financial_metrics'][0]['normalization_version'] = 'units-v2'
+        b['financial_metrics'][0]['normalization_version'] = 'units-v1'
+        self.assertEqual(review(a,b,['1000'])['rows'][0]['status'],'normalization_version_mismatch')

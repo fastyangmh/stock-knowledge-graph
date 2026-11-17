@@ -225,6 +225,13 @@ class EventStudyTests(unittest.TestCase):
         self.assertEqual(row['followup']['value'],-10)
 
 
+    def test_unknown_currency_text_is_not_a_verified_monetary_definition(self):
+        for n in self.first.graphs[SID]['nodes']:
+            if n.get('metric') == 'monthly_revenue': n.update(unit='TWD',currency='unknown')
+        future = bundle(6,'2020-09-10',data=revenue(unit='TWD',currency='unknown'))
+        self.assertEqual(outcome(self.study([self.first,future]),metric='revenue_change_pct')['status'],'not_comparable')
+
+
 class CompleteFactStudyTests(unittest.TestCase):
     def setUp(self):
         from event_fixtures import complete_bundle

@@ -12,6 +12,7 @@ from decimal import Decimal, InvalidOperation, localcontext
 from zoneinfo import ZoneInfo
 
 from .dates import iso_date, timestamp
+from .financial_definitions import financial_definition
 from .research_history import canonical
 
 VERSION = "research-alerts-1.0"
@@ -177,13 +178,14 @@ def _revenue_checks(payload, sid, cutoff, config):
         key = (metric["metric"], metric["period_end"])
         if key in selected:
             raise ValueError("ambiguous revenue metric; replay revisions first")
-        selected[key] = metric
+        selected[key] = financial_definition(metric)
     latest = max((period for _, period in selected), default=None)
     def find(metric, month):
         return next((row for (kind,day),row in selected.items() if kind == metric and _month_key(day) == month), None)
     def ref(row):
         return {k:row.get(k) for k in ("source_id", "period_end", "metric", "value", "unit",
-                "available_at", "registered_at", "input_snapshot_sha256")} | {
+                "available_at", "registered_at", "input_snapshot_sha256", "normalization_version",
+                "statement_scope", "report_basis", "currency")} | {
                     "source_url":sources.get(row["source_id"], {}).get("url")}
     yoy = _check("revenue_yoy", config["revenue_yoy_pct"], "abs(source_reported_yoy_percent) >= threshold", latest)
     mom = _check("revenue_mom", config["revenue_mom_pct"], "abs(source_reported_mom_percent) >= threshold", latest)
@@ -203,6 +205,10 @@ def _revenue_checks(payload, sid, cutoff, config):
         source_ids = {r["source_id"] for r in rows}
         if len(source_ids) != 1 or any(r.get("unit") != "percent" or r["source_id"] not in sources for r in rows):
             check.update(status="not_comparable", reason="percentage_unit_or_source_mismatch")
+            continue
+        definitions = {tuple(r.get(k) for k in ('normalization_version','statement_scope','report_basis','currency')) for r in rows}
+        if len(definitions) != 1:
+            check.update(status="not_comparable", reason="financial_definition_mismatch")
             continue
         values = [number(r["value"]) for r in rows]
         if check is trend:

@@ -22,6 +22,7 @@ def main(argv=None):
     parser.add_argument("--universe-source",help="HTTPS provenance URL for the TW50 membership file")
     parser.add_argument("--as-of",required=True,help="Universe and snapshot day, YYYY-MM-DD")
     parser.add_argument("--output",type=Path,default=ROOT/"local/private/normalized.json")
+    parser.add_argument("--unit-evidence",type=Path,help="Private, hash-bound monthly unit review; requires a separate versioned research ledger")
     args = parser.parse_args(argv)
     output = private_path(args.output)
     if args.etf_holdings and not (args.universe and args.universe_source):
@@ -30,7 +31,7 @@ def main(argv=None):
                 if args.etf_holdings else None)
     universe = (validate_symbols(args.symbols) if args.symbols else
                 (combined.stock_ids if combined else load_universe(args.universe,args.as_of,expected_count=50)))
-    payload = from_snapshots(args.snapshot_dir,args.registry,universe,as_of=args.as_of)
+    payload = from_snapshots(args.snapshot_dir,args.registry,universe,as_of=args.as_of,unit_evidence=args.unit_evidence)
     if combined:
         payload = combined.annotate_payload(payload)
     elif args.symbols:

@@ -217,3 +217,8 @@ class EventIntegrationTests(unittest.TestCase):
     def test_public_data_unchanged(self):
         files={p:p.read_bytes() for p in (ROOT/'data').rglob('*.json')}
         self.study();self.assertEqual(files,{p:p.read_bytes() for p in files})
+
+    def test_complete_financial_event_retains_normalized_source_url(self):
+        report = self.study()
+        row = outcome(report, metric='revenue_yoy_change_pp')
+        self.assertEqual(row['baseline']['source_url'], payload()['sources'][0]['url'])

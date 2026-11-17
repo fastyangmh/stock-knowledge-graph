@@ -181,3 +181,12 @@ class AlertRuleTests(unittest.TestCase):
             if edit=='missing':result['categories']['monthly_revenue'].pop()
             if edit=='stock':result['stock_id']='TW:9999'
             with self.subTest(edit=edit),self.assertRaises(ValueError):validate(result,SID)
+
+    def test_revenue_trend_does_not_mix_normalization_versions(self):
+        data = payload()
+        for row in data['financial_metrics']:
+            row['normalization_version'] = 'v2' if row['period_end']=='2020-07-31' else 'v1'
+        result = checks(compute(data=data))
+        self.assertEqual(result['revenue_yoy_change']['status'],'not_comparable')
+        self.assertEqual(result['revenue_yoy_trend']['status'],'not_comparable')
+        self.assertEqual(result['revenue_yoy']['status'],'triggered')
