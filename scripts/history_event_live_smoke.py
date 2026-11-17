@@ -227,11 +227,16 @@ async def event_checks(browser, root, report, screenshot):
     page = await context.new_page()
     evidence = Evidence(page, report)
     report.update(checks=[], data_kind='report built from audited persisted synthetic CSV/SQLite bundles', passed=False,
-                  study_id=result['study_id'], report_sha256=sha(canonical(result)))
+                  study_id=result['study_id'], report_sha256=sha(canonical(result)),
+                  schema_version=result['schema_version'], fact_scope=result['fact_scope'])
     try:
         async with serving(event_study.make_server(result, port=0)) as origin:
             await page.goto(origin)
             await event_ready(page)
+            assert result['schema_version'] == 'event-study-2.0'
+            assert result['fact_scope'] == 'unpruned_facts'
+            assert 'event-study-2.0 · unpruned_facts' in await page.locator('#event-overview').inner_text()
+            assert '各範圍不合併分母' in await page.locator('#event-overview').inner_text()
             assert await page.locator('[data-event-category]').count() == 2
             content = await page.locator('#event-results').inner_text()
             for label in ('價量提醒事件（2筆）', '月營收提醒事件（4筆）', '事件分母 1｜可計算 1｜尚無可比結果 0',

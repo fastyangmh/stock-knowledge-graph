@@ -1,4 +1,7 @@
-"""Offline DOM verification of the actual event UI; synthetic report, no network."""
+"""Event UI smoke: memory by default; --live-http uses production private HTTP.
+
+Both modes use synthetic financial data and never publish research artifacts.
+"""
 import argparse
 import asyncio
 import hashlib

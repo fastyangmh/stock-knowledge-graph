@@ -70,3 +70,17 @@ uv run --locked python -m local.check --frontend \
 `local.check` 在 `/private/tmp` worktree 的既有 `source_sha256` 掃描缺口另由
 整合審查處理；本票另存 `supplemental-source-sha256.json` 補充來源識別，未將
 空欄位冒稱完整。最新整合後若重驗，以下補充紀錄及私有報告以實際結果為準。
+
+## 合入完整事實契約後重驗
+
+合入 `0de76c113bd9ab4741361563ad01213a27d2c8ce` 後，測試基準為
+`2e7ecf7e4bac2b27a459b9021de325858eda154e` 加本票最終harness調整。
+前版紀錄保留於私有 `pre-12/`，不拿1.0的通過結果冒稱新版驗收。
+
+- 歷史真實HTTP：9組通過，exit 0，page errors 0。
+- 事件真實HTTP：7組通過，exit 0，page errors 0。報告及UI實際確認
+  `event-study-2.0`、`unpruned_facts`、各範圍不合併分母；原6事件與10%結果仍成立。
+- 既有事件記憶體smoke：11組通過，exit 0，證明舊1.0報告仍可呈現。
+- `local.check --frontend`：459 passed、193 subtests passed，Node 55 passed，exit 0。
+- 新／舊／混合cohort更完整的獨立驗收屬
+  [票12驗證紀錄](VERIFICATION-2026-11-17-EVENT-FACTS.md)，本票未另改研究定義。

@@ -37,3 +37,5 @@ research_archive／event_study 既有 server→實際 HTML／JS；沿用 history
 已完成 `--live-http` 模式：成功路徑用 production server＋合成 persisted bundles，不替換 fetch；HTTP/CDN／桌機與手機／故障恢復／allowlist 證據見 [驗證紀錄](../../../docs/VERIFICATION-2026-11-17-HISTORY-EVENT-HTTP.md)。
 
 基準 `8b91af6`；歷史9組、事件7組真實HTTP通過；保留記憶體9／11組通過；`local.check --frontend` 447 tests＋187 subtests及Node53通過。red為新旗標尚不存在exit2；green及source hashes位於私有 `local/private/m1/04/`。空目錄及格式損壞pointer沿用啟動前拒絕；空摘要UI另外經合成HTTP驗證。金融資料均為合成，未改公開資料。parent backlog由整合者集中更新，本票不關閉整個P0-02。
+
+整合補驗：已合入12至 `2e7ecf7`，history9／event7真實HTTP通過；event確認2.0／unpruned_facts與分母揭露，舊memory11組通過。完整檢查459 tests＋193 subtests、Node55通過；整合前證據保留`pre-12/`。

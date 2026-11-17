@@ -1,7 +1,8 @@
-"""Offline history DOM tests using real local assets + synthetic captured responses.
+"""History DOM smoke, with opt-in --live-http production server acceptance.
 
-No browser networking, CDNs, financial providers, Git operations or publication.
-Python's actual HTTP server is independently exercised by test_research_archive.
+Default: local assets and in-memory synthetic responses, no browser networking.
+Live: persisted synthetic bundles, native HTTP and original graph CDN.
+Neither mode publishes data or contacts financial providers.
 """
 import argparse
 import asyncio
