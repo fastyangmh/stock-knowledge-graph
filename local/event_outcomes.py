@@ -1,4 +1,4 @@
-"""Descriptive post-event measurements from already audited saved graph facts.
+"""Descriptive post-event measurements from already audited saved research facts.
 
 No providers, SQL, price adjustment, transactions, causal inference or imputation.
 The event baseline is frozen; future periods use their first saved observation.
@@ -36,7 +36,7 @@ def month_end_offset(value, steps):
 
 
 def saved_facts(bundle, sid):
-    """Only primary-stock numeric nodes; never misidentify related-stock facts.
+    """Prefer the audited complete contract; legacy uses primary-stock nodes.
 
 Audit proves bytes/structure, not market truth. Preserve report and original
 snapshot references, and validate numeric/time contracts before calculation.
@@ -46,15 +46,21 @@ snapshot references, and validate numeric/time contracts before calculation.
     if capture < cutoff:
         raise ValueError("capture is earlier than source knowledge cutoff")
     items, seen = [], set()
-    for node in bundle.graphs[sid]["nodes"]:
-        kind = node.get("type")
+    complete = bundle.facts is not None
+    if complete and bundle.facts.get("schema_version") != "research-facts-1.0":
+        raise ValueError("unsupported research facts schema")
+    rows = bundle.facts["facts"] if complete else bundle.graphs[sid]["nodes"]
+    for node in rows:
+        if complete and node.get("stock_id") != sid:
+            continue
+        kind = node.get("kind") if complete else node.get("type")
         if kind == "market_price" and "TW:" + str(node.get("symbol")) == sid:
             metric, period = "market", node["trade_date"]
             if type(node.get("volume_shares")) is not int or node["volume_shares"] < 0:
                 raise ValueError("invalid saved volume")
             if node.get("close") is not None:
                 number(node["close"])
-            available = node.get("observed_at")
+            available = node.get("available_at") if complete else node.get("observed_at")
             body = {key: node.get(key) for key in (
                 "close", "volume_shares", "market", "price_unit", "price_basis",
                 "raw_sha256", "raw_snapshot_verified", "acquisition")}
@@ -79,11 +85,17 @@ snapshot references, and validate numeric/time contracts before calculation.
         if key in seen:
             raise ValueError("ambiguous same-period numeric facts; reconcile sources first")
         seen.add(key)
+        if complete:
+            body.update({key: copy.deepcopy(node.get(key)) for key in (
+                "source", "source_available_at", "observed_at", "recorded_at", "recorded_at_status",
+                "normalization_version", "normalization", "raw_value", "raw_unit", "statement_scope", "report_basis")})
+        identity = {"fact_id": node["id"]} if complete else {"node_id": node["id"]}
+        source_url = node["source"].get("dataset_url") if complete else node.get("source_url")
         items.append({"metric": metric, "period": period, "stock_id": sid,
-                      "source_id": node["source_id"], "source_url": node.get("source_url"),
+                      "source_id": node["source_id"], "source_url": source_url,
                       "available_at": available, "captured_at": capture.isoformat(),
                       "run": bundle.report["run"], "report_sha256": bundle.report_sha256,
-                      "node_id": node["id"], **body})
+                      **identity, **body})
     return items
 
 
@@ -93,6 +105,8 @@ def basis(fact):
     keys = (("source_id", "source_url", "market", "price_unit", "price_basis")
             if fact["metric"] == "market" else
             ("source_id", "source_url", "unit", "currency", "consolidation", "value_basis", "period_type"))
+    if "fact_id" in fact:
+        keys += ("normalization_version", "statement_scope", "report_basis")
     return {key: fact.get(key) for key in keys}
 
 
@@ -107,14 +121,14 @@ def baseline_facts(facts):
 def _first_saved(facts, metric, event_at):
     """First captured eligible value per period, not final revised history."""
     found = {}
-    for fact in sorted(facts, key=lambda f: (timestamp(f["captured_at"]), f["run"], f["node_id"])):
+    for fact in sorted(facts, key=lambda f: (timestamp(f["captured_at"]), f["run"], f.get("fact_id", f.get("node_id")))):
         if fact["metric"] != metric or timestamp(fact["captured_at"]) <= timestamp(event_at):
             continue
         day = fact["period"]
         if day in found:
             prior = found[day]
             # Equal capture times with conflicting facts have no principled order.
-            ignored = {"run", "report_sha256", "node_id"}
+            ignored = {"run", "report_sha256", "node_id", "fact_id"}
             if (timestamp(prior["captured_at"]) == timestamp(fact["captured_at"])
                     and {k:v for k,v in prior.items() if k not in ignored} !=
                         {k:v for k,v in fact.items() if k not in ignored}):

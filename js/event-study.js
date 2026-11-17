@@ -12,11 +12,34 @@
     revenue_change_pct:'月營收數值變化（%）',revenue_yoy_change_pp:'年增率變化（百分點）'};
   function validNumber(x) {return typeof x==='string' && x.trim()!=='' && Number.isFinite(Number(x));}
   function validate(report) {
-    if (!report || report.schema_version!=='event-study-1.0' || !/^[a-f0-9]{64}$/.test(report.study_id) ||
+    if (!report || !['event-study-1.0','event-study-2.0'].includes(report.schema_version) || !/^[a-f0-9]{64}$/.test(report.study_id) ||
         report.combined_score!==false || report.trade_assumptions!==false || !report.counts ||
         !Number.isInteger(report.counts.events) || report.counts.events<0 || report.counts.events>2000 ||
         !report.categories || Object.keys(report.categories).sort().join(',')!==categories.slice().sort().join(','))
       throw new Error('報告格式或研究界線不符');
+    const scope=report.schema_version==='event-study-2.0'?'unpruned_facts':'display_graph_only';
+    if ((report.fact_scope!==undefined && report.fact_scope!==scope) ||
+        (report.schema_version==='event-study-2.0' && report.fact_scope!==scope))
+      throw new Error('分析版本與資料範圍不一致');
+    if (report.fact_scope!==undefined) {
+      const scopes=['display_graph_only','unpruned_facts'];
+      if (!['explicit','automatic_single_scope'].includes(report.cohort_selection) ||
+          !report.cohorts || !Array.isArray(report.inputs) || !Array.isArray(report.excluded_inputs) ||
+          !Array.isArray(report.excluded_events) || report.inputs.length!==report.counts.included_runs ||
+          report.excluded_inputs.length!==report.counts.runs_after_cutoff+report.counts.runs_excluded_by_cohort ||
+          report.excluded_events.length!==report.counts.events_excluded_by_origin ||
+          report.inputs.some(x=>x.fact_scope!==scope) ||
+          report.excluded_inputs.some(x=>!scopes.includes(x.fact_scope) || !['after_analysis_cutoff','different_fact_scope'].includes(x.reason)))
+        throw new Error('缺少或不一致的 cohort 納入／排除揭露');
+      for (const key of scopes) {
+        const c=report.cohorts[key];
+        if (!c || ['total_runs','included_runs','excluded_runs'].some(k=>!Number.isInteger(c[k]) || c[k]<0) ||
+            c.total_runs!==c.included_runs+c.excluded_runs ||
+            c.included_runs!==report.inputs.filter(x=>x.fact_scope===key).length ||
+            c.excluded_runs!==report.excluded_inputs.filter(x=>x.fact_scope===key).length)
+          throw new Error('跨範圍分母或 cohort 數量不一致');
+      }
+    }
     let total=0;
     const eventIds=new Set();
     for (const category of categories) {
@@ -58,7 +81,12 @@
     return report;
   }
   function horizonLabel(row) {return row.horizon_unit==='calendar_months' ? `後${row.horizon}個曆月` : `後第${row.horizon}筆報價觀察`;}
-  const api={validate,horizonLabel,statusLabels};
+  function scopeLabel(report) {
+    return report.schema_version==='event-study-2.0'
+      ? 'event-study-2.0 · unpruned_facts：使用已稽核的未裁剪研究事實；不代表完整市場歷史。'
+      : 'event-study-1.0 · display_graph_only：僅使用舊版展示圖數值；裁剪或未保存的資料不補齊。';
+  }
+  const api={validate,horizonLabel,statusLabels,scopeLabel};
   if (typeof module!=='undefined' && module.exports) {module.exports=api;return;}
   root.EventStudyUtils=api;
   const el=(tag,text,cls)=>{const e=document.createElement(tag);if(text!==undefined)e.textContent=String(text);if(cls)e.className=cls;return e;};
@@ -67,10 +95,20 @@
     validate(report);
     const overview=document.querySelector('#event-overview'), results=document.querySelector('#event-results');
     overview.replaceChildren();results.replaceChildren();
+    overview.append(el('p',scopeLabel(report),'notice'));
     overview.append(el('p',`分析截止：${report.analysis_at} · 已保存版本 ${report.counts.included_runs} · 去重事件 ${report.counts.events} · 重複提醒未重計 ${report.counts.duplicate_period_events_suppressed}`));
     overview.append(el('p','每列依提醒定義、方向、資料來源、單位與期間分組；沒有整體績效或綜合分數。樣本可能相關，不代表市場普遍行為。','notice'));
-    overview.append(details('分析設定與資料限制',{study_id:report.study_id,configuration:report.configuration,
+    overview.append(details('分析設定與資料限制',{study_id:report.study_id,schema_version:report.schema_version,
+      fact_scope:report.fact_scope || 'display_graph_only',scope:report.scope,configuration:report.configuration,
       event_policy:report.event_policy,followup_policy:report.followup_policy,warnings:report.warnings}));
+    if (report.cohorts) {
+      for (const [scope,c] of Object.entries(report.cohorts))
+        overview.append(el('p',`${scope}：共 ${c.total_runs} 版本，納入 ${c.included_runs}，未納入 ${c.excluded_runs}。`));
+      overview.append(el('p',`未納入原因：分析截止之後 ${report.counts.runs_after_cutoff} 版本；資料範圍不同 ${report.counts.runs_excluded_by_cohort} 版本。`));
+      overview.append(el('p',`因首次觸發已保存在另一範圍，未重建基準的事件 ${report.counts.events_excluded_by_origin} 筆。各範圍不合併分母。`));
+      overview.append(details('納入／未納入版本與理由',{cohort_selection:report.cohort_selection,
+        inputs:report.inputs,excluded_inputs:report.excluded_inputs,excluded_events:report.excluded_events}));
+    }
     for (const category of categories) {
       const group=report.categories[category], section=el('section');section.dataset.eventCategory=category;
       section.append(el('h2',`${labels[category]}（${group.events.length}筆）`));
