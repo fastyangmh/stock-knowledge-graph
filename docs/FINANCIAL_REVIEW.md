@@ -106,3 +106,7 @@ CLI 的絕對容差適用該次全部比較列。金額及百分比分別準備�
 企業 IR 補充比對另採其已顯示精度：整數百萬元為 500,000 元，百分比二位
 四捨五入為 0.005 百分點，原始仟元精確值為 0。完整來源與限制見
 [本輪驗證](VERIFICATION-2026-11-17-FINANCIAL-UNITS.md)。
+
+`official_import --output` 必須與輸入分離：不得指向原始 snapshot 目錄內、registry、
+universe／ETF holdings、`--unit-evidence` manifest 或任何已驗證 reference。
+碰撞會在寫入前拒絕，原始證據 bytes 保留；正常正規化輸出另存私有檔案。

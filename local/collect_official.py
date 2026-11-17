@@ -21,7 +21,7 @@ from zoneinfo import ZoneInfo
 from .dates import timestamp
 from .research_history import validate_symbols
 from .official_adapter import csv_rows, dataset_profile, normalize_records
-from .http_evidence import body_metadata, capture_response
+from .http_evidence import body_metadata, capture_response, capture_failure_response
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -63,11 +63,7 @@ def fetch_csv(url, timeout=20, max_bytes=15_000_000):
             return body
         except HTTPError as exc:
             if exc.code not in (429,500,502,503,504) or attempt == 2:
-                try:
-                    captured = capture_response(exc, url, max_bytes)
-                except ValueError as size_error:
-                    captured = size_error.response_body
-                exc.response_body = captured
+                exc.response_body = capture_failure_response(exc, url, max_bytes)
                 raise
             retry = (exc.headers or {}).get("Retry-After", "")
             delay = min(float(retry),30) if retry.isdigit() else 2**attempt

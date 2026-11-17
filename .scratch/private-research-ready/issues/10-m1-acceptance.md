@@ -40,3 +40,6 @@
 每市場一個營收事件，無後續資料，結果insufficient_data/pending；未捏造事件或未來數值。財務4組review成功；行情兩市場仍exit2、compared_fields=0，09外部證據gate未過，所以本票維持needs-info，01～09全成功條件與resolved條件不勾選。工程完成不代表M1完成；M2～M6其餘項亦未關閉。
 
 完整命令、環境、失敗／成功與私有證據hash見[整合索引](../../../docs/VERIFICATION-2026-11-17-M1.md)。最終code-review／修復／push由後續整合流程另記，本票未push。
+
+
+Post-review：`ecd176b` 修復證據覆寫、事件完整定義 identity、check來源hash並重跑本票受影響串接；最新490 pytest／246 subtests／55 Node及兩市場真實三頁通過。原 `3834c19` 證據不覆寫；09行情仍兩次exit2，本票保持needs-info。詳見[審查修復驗證](../../../docs/VERIFICATION-2026-11-17-REVIEW.md)。

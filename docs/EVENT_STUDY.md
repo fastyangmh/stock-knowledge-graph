@@ -91,3 +91,8 @@ uv run --locked python -m local.event_study \
 驗證紀錄：[原事件後統計](VERIFICATION-2026-11-16-EVENTS.md)、[新版完整事實與 cohort](VERIFICATION-2026-11-17-EVENT-FACTS.md)。
 
 行情比較鍵另包含 `price_currency`、`volume_unit`、`turnover_unit`、`turnover_currency`、`trades_unit`、`trading_scope` 與 `normalization_version`，展示圖與完整事實讀者一致保留；任何定義變更均不可比較。原始 SHA256／逐筆審閱 evidence 不充當分組定義，避免同定義不同日期被拆成不同序列。這項相容性保護不替舊版未知尺度完成官方驗收，且不將 `source_unadjusted` 改稱還原價或總報酬。
+
+上述完整行情定義及財務 `normalization_version`／`currency`／`statement_scope`／`report_basis`
+也參與事件去重與分組 identity；同一期別改變定義會保留不同事件及分母，包含跨 cohort
+首次保存判定。沒有新增定義（欄位缺省或為 null）的舊事件維持原本 event／definition hash；
+raw hash、取得時間及逐筆證據不會單獨產生新事件。已保存報告不就地改寫，重分析請另存新檔。

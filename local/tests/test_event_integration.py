@@ -41,6 +41,32 @@ def research_run(root,n,day,close,volume,*,alerts=False,data=None,cap=100):
                    prices_db=root/'prices.db',price_snapshots=root/'raw',trade_date=day)
 
 
+class EventDefinitionIntegrationTests(unittest.TestCase):
+    def test_audited_unit_versions_keep_both_first_captures_and_summary_denominators(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            reports = []
+            for index,scope in enumerate(('separate','consolidated'),1):
+                data = payload()
+                known = f'2020-08-{15+index:02}T20:00:00+08:00'
+                data['metadata'].update(observed_at=known,normalization_version=f'revenue-v{index}')
+                for row in data['financial_metrics']:
+                    row.update(normalization_version=f'revenue-v{index}',currency='TWD',
+                               statement_scope=scope,report_basis='single_period')
+                path = root/f'input-{index}.json'
+                path.write_bytes(canonical(data))
+                with patch('local.research.utc_now',return_value=known),patch('local.research_history.utc_now',return_value=known):
+                    reports.append(run(path,['1000'],history_db=root/f'ledger-{index}.db',
+                                       output_root=root/'runs',alerts=True))
+            result = build(root/'runs',ASOF,config=CONFIG)
+            events = result['categories']['monthly_revenue']['events']
+            self.assertEqual(len(events),8)
+            self.assertEqual({e['run'] for e in events},{r['run'] for r in reports})
+            self.assertTrue(all(e['repeated_captures']==0 for e in events))
+            self.assertEqual(len({e['definition_id'] for e in events}),8)
+            self.assertTrue(all(s['n_total']==1 for s in result['categories']['monthly_revenue']['summaries']))
+
+
 class EventIntegrationTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)

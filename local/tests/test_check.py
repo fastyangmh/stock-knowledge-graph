@@ -13,6 +13,26 @@ from local import check
 
 
 class CheckReportTests(unittest.TestCase):
+    def test_report_hashes_repo_sources_under_private_ancestor_but_excludes_private_artifacts(self):
+        platform.platform()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)/'private'/'checkout'
+            for name in ('local/example.py','local/private/secret.py','index.html',
+                         'history.html','event-study.html','css/style.css','uv.lock'):
+                path = root/name
+                path.parent.mkdir(parents=True,exist_ok=True)
+                path.write_bytes(b'abc')
+            report_path = root/'report.json'
+            def execute(command, **kwargs):
+                return subprocess.CompletedProcess(command,0,'','')
+            with patch.object(check,'ROOT',root),patch('subprocess.run',side_effect=execute),contextlib.redirect_stdout(io.StringIO()):
+                code = check.main(['--report',str(report_path)])
+            report = json.loads(report_path.read_text())
+        self.assertEqual(code,0)
+        self.assertTrue(report['passed'])
+        self.assertEqual(report['source_sha256'],{
+            'local/example.py':'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'})
+
     def test_report_identifies_source_environment_and_failed_command(self):
         commit = "a" * 40
         platform.platform()  # Resolve macOS platform's own subprocess before the boundary stub.

@@ -27,7 +27,7 @@ from .core import ROOT
 from .dates import iso_date, timestamp
 from .market_units import apply_review
 from .safety import exclusive_lock, private_path
-from .http_evidence import body_metadata, capture_response
+from .http_evidence import body_metadata, capture_response, capture_failure_response
 from .collect_official import save_failure
 
 MAX_BYTES = 20_000_000
@@ -214,11 +214,7 @@ def fetch(feed: str) -> bytes:
                 return capture_response(response, info["resource_url"], MAX_BYTES)
         except HTTPError as exc:
             if exc.code not in (429, 500, 502, 503, 504) or attempt == 2:
-                try:
-                    captured = capture_response(exc, info["resource_url"], MAX_BYTES)
-                except ValueError as size_error:
-                    captured = size_error.response_body
-                exc.response_body = captured
+                exc.response_body = capture_failure_response(exc, info["resource_url"], MAX_BYTES)
                 raise
             retry = (exc.headers or {}).get("Retry-After", "")
             time.sleep(min(int(retry), 30) if retry.isdigit() else 2**attempt)
