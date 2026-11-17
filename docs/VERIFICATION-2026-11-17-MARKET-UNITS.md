@@ -28,3 +28,9 @@ TDD 於已核准的 ingest／read_prices／research→audit／market_review CLI�
 尚需：取得TPEx同日且同no1430範圍的獨立官方參考，逐來源查明 bulk 的一般／盤後定價／盤中及盤後零股／鉅額範圍，並取得明確價格與成交值幣別證據。確認後才以當次 raw hash／日期／股票建立審閱定義，重新產生獨立新版DB、research與audit。未擷取歷史、公司行為還原及多日穩定性也未驗收。
 
 私有證據路徑：`local/private/m1/09/`，含 capture/reconcile 程序、原始參考、兩市場 reference／review、診斷、red 日誌、完整 check 及 source/evidence hashes。`commands.json` 保存可重跑CLI與實際exit code；重抓官方網址可能得到不同時段bytes，應建立新快照，不覆寫本次證據。
+
+## 最後整合重驗
+
+產品提交 `1037fe1`，合併整合分支 `b85a7a5` 後候選 `8205b3c`；`check-final.json` 記錄候選與環境。最後完整 `local.check` 再次 exit 0：470 passed、212 subtests passed；`git diff --check` 無錯誤。
+
+另外以既有06／07真實 normalized input、只讀來源行情DB及CSV，分市場在09目錄新建 ledger／research bundle，兩次 research 與兩次 bundle_audit 全部 exit 0（`integration-commands.json`）。各自兩股、11/17，保留 source_reported，沒有將缺乏證據的真實資料改成新版已確認單位。這只證明實際來源能走新程式且保留舊定義，不改變上述單位抽檢未完成的結論。新版審閱定義的research→audit目前為合成測試，未宣稱真實單位新版驗收。
