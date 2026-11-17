@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 from .alerts import number, text_number
 from .market_units import DEFINITION_KEYS
 from .dates import iso_date, timestamp
+from .financial_definitions import financial_definition, unverified_definition
 
 METRICS = {
     "close_change_pct": ("收盤價觀察變化", "percent", "quote_observations"),
@@ -68,6 +69,7 @@ snapshot references, and validate numeric/time contracts before calculation.
         elif (kind == "financial_metric" and node.get("stock_id") == sid
               and node.get("metric") in REVENUE_KEYS and node.get("period_type") == "month"):
             metric, period = node["metric"], node["period_end"]
+            node = financial_definition(node)
             month_end_offset(period, 0)
             number(node["value"])
             available = node.get("available_at")
@@ -91,7 +93,7 @@ snapshot references, and validate numeric/time contracts before calculation.
                 "source", "source_available_at", "observed_at", "recorded_at", "recorded_at_status",
                 "normalization_version", "normalization", "raw_value", "raw_unit", "statement_scope", "report_basis")})
         identity = {"fact_id": node["id"]} if complete else {"node_id": node["id"]}
-        source_url = node["source"].get("dataset_url") if complete else node.get("source_url")
+        source_url = (node["source"].get("dataset_url") or node["source"].get("url")) if complete else node.get("source_url")
         items.append({"metric": metric, "period": period, "stock_id": sid,
                       "source_id": node["source_id"], "source_url": source_url,
                       "available_at": available, "captured_at": capture.isoformat(),
@@ -213,7 +215,7 @@ def _revenue(event, facts, config, analysis_at):
             result.append(row)
             if base is None:
                 continue
-            if metric == "revenue_change_pct" and (base.get("unit") in (None, "", "source_reported") or not base.get("currency")):
+            if metric == "revenue_change_pct" and (unverified_definition(base.get("unit")) or unverified_definition(base.get("currency"))):
                 row.update(status="not_comparable", reason="monetary_scale_or_currency_unconfirmed")
                 continue
             if metric == "revenue_yoy_change_pp" and base.get("unit") != "percent":

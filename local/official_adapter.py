@@ -226,7 +226,7 @@ def normalize_records(datasets, universe, *, as_of):
                 "unit_policy":"Monetary values retain source numeric scale; not safe for cross-source monetary comparisons."}}
 
 
-def from_snapshots(directory, registry, universe, *, as_of):
+def from_snapshots(directory, registry, universe, *, as_of, unit_evidence=None):
     root = Path(directory).resolve()
     sources = {s["dataset_id"]:s for s in load_approved(registry)}
     manifest = json.loads((root/"retrieval_manifest.json").read_text(encoding="utf-8"))
@@ -251,4 +251,7 @@ def from_snapshots(directory, registry, universe, *, as_of):
     payload["metadata"]["source_snapshots"] = [
         {k: entry[k] for k in ("dataset_id", "sha256", "bytes", "retrieved_at", "resource_url")}
         for entry in manifest["datasets"]]
+    if unit_evidence is not None:
+        from .financial_units import apply_unit_evidence
+        payload = apply_unit_evidence(payload, unit_evidence)
     return payload

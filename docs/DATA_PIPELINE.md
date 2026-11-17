@@ -135,3 +135,10 @@ Content-Type／缺少狀態、完整原始 bytes 的大小／SHA256，以及 `of
 整批及選中值驗證成功後才換成功 manifest。失敗報告不覆寫舊成功快照、研究 bundle
 或 latest pointer；磁碟寫入失敗仍應由 CLI 的非零退出碼辨識。金額尺度另依來源核對，
 本次下載／輪廓功能不改 `source_reported`。
+
+## 月營收證據式單位轉換
+
+`local.official_import --unit-evidence` 支援逐來源／股票／月份、綁定 raw CSV hash 的
+`official-monthly-twd-v1`：已核對 TWD 仟元轉元，增率維持 percent；未核對仍保持
+`source_reported`。格式、獨立參考及新 ledger 遷移方式見
+[財務抽檢](FINANCIAL_REVIEW.md)。原取得時間不改寫；新版本不得寫入舊尺度 ledger。

@@ -9,6 +9,7 @@ import copy
 import hashlib
 
 from .research_history import canonical
+from .financial_definitions import financial_definition
 
 SCHEMA = 'research-facts-1.0'
 PRODUCER = 'private-research-1'
@@ -41,7 +42,7 @@ def build_facts(payload, quality, stock_ids, known_at, prices=(), market=None, t
     facts = []
     for group, kind in (('financial_metrics', 'financial_metric'), ('chip_metrics', 'chip_metric')):
         for record in payload[group]:
-            fact = copy.deepcopy(record)
+            fact = financial_definition(copy.deepcopy(record))
             fact.update(kind=kind, source=copy.deepcopy(sources[record['input_snapshot_sha256']][record['source_id']]),
                         recorded_at=record['registered_at'], recorded_at_status='known')
             for field in ('unit', 'currency', 'consolidation', 'value_basis'):
@@ -160,6 +161,7 @@ def validate_facts(document, report):
         available, observed = timestamp(fact['available_at']), timestamp(fact['observed_at'])
         require(observed <= available <= cutoff, 'future_fact_time')
         if kind != 'market_price':
+            financial_definition(fact)
             require(fact.get('recorded_at_status') == 'known' and isinstance(fact.get('recorded_at'), str), 'unknown_registration')
             recorded, source_available = timestamp(fact['recorded_at']), timestamp(fact['source_available_at'])
             require(available == max(source_available, observed, recorded) and recorded <= cutoff, 'availability_mismatch')

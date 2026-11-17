@@ -14,12 +14,12 @@ import json
 from pathlib import Path
 
 from .collect_official import atomic_bytes
+from .financial_definitions import financial_definition, unverified_definition
 from .research import guarded
 from .research_history import canonical, strict_json, validate_payload, validate_symbols, MAX_INPUT_BYTES
 
-VERSION = "financial-review-1.0"
+VERSION = "financial-review-1.1"
 MAX_ROWS = 20000
-UNKNOWN_UNITS = {None, "", "source_reported", "unknown", "unspecified"}
 KEYS = ("stock_id", "metric", "period_end", "period_type")
 
 
@@ -39,7 +39,7 @@ def _reference(row, sources):
     if row is None:
         return None
     return {**{key: row.get(key) for key in (*KEYS, "value", "unit", "source_id", "available_at", "registered_at",
-                                          "statement_scope", "report_basis", "currency")},
+                                          "statement_scope", "report_basis", "currency", "normalization_version", "normalization", "raw_value", "raw_unit")},
             "source_url": sources.get(row["source_id"], {}).get("url")}
 
 
@@ -54,7 +54,7 @@ def review(left, right, symbols, *, absolute_tolerance="0", relative_tolerance="
     for data, index in zip((left, right), indexes):
         for row in data.get("financial_metrics", []):
             if row["stock_id"] in selected:
-                index[tuple(row[k] for k in KEYS)].append(row)
+                index[tuple(row[k] for k in KEYS)].append(financial_definition(row))
                 if len(index) > max_rows:
                     raise ValueError("financial review row budget exceeded")
     keys = sorted(set(indexes[0]) | set(indexes[1]))
@@ -75,13 +75,18 @@ def review(left, right, symbols, *, absolute_tolerance="0", relative_tolerance="
             first, second = a[0], b[0]
             if any(value is not None and not isinstance(value, str) for value in (first.get("unit"), second.get("unit"))):
                 raise ValueError("financial unit must be text or null")
-            if first.get("unit") in UNKNOWN_UNITS or second.get("unit") in UNKNOWN_UNITS:
+            if unverified_definition(first.get("unit")) or unverified_definition(second.get("unit")):
                 row["status"] = "unit_unverified"
+            elif first.get("unit") not in ("percent", "ratio", "percentage_points") and any(
+                    unverified_definition(r.get("currency")) for r in (first, second)):
+                row["status"] = "currency_unverified"
             elif first.get("unit") != second.get("unit") or first.get("currency") != second.get("currency"):
                 row["status"] = "unit_or_currency_mismatch"
+            elif first.get("normalization_version") != second.get("normalization_version"):
+                row["status"] = "normalization_version_mismatch"
             elif key[3] not in ("month", "quarter", "year", "annual"):
                 row["status"] = "statement_definition_unverified"
-            elif key[3] in ("quarter", "year", "annual") and (
+            elif (
                     first.get("statement_scope") not in ("consolidated", "separate") or
                     second.get("statement_scope") not in ("consolidated", "separate") or
                     first.get("report_basis") not in ("single_period", "cumulative", "point_in_time") or

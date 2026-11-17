@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from .dates import iso_date, timestamp
+from .financial_definitions import financial_definition
 
 MAX_INPUT_BYTES = 32 * 1024 * 1024
 MAX_REPLAY_SNAPSHOTS = 5000
@@ -107,6 +108,7 @@ def validate_payload(payload: dict) -> dict:
     keys = set()
     for group in ("financial_metrics", "chip_metrics"):
         for row in payload.get(group, []):
+            financial_definition(row)
             if row.get("stock_id") not in stocks or row.get("source_id") not in sources:
                 raise ValueError("each metric needs a known stock_id and source_id")
             if not isinstance(row.get("metric"), str) or not row["metric"]:
@@ -150,6 +152,17 @@ def record_snapshot(conn: sqlite3.Connection, payload: dict) -> dict:
     try:
         conn.execute(TABLE)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_research_recorded ON research_snapshots(recorded_at, observed_at)")
+        # Unit migrations use a new ledger. Never rewrite observation times to
+        # make revised definitions win the old ledger's same-time conflict rule.
+        version = payload['metadata'].get('normalization_version')
+        read_bytes = 0
+        for count, (prior_body,) in enumerate(conn.execute("SELECT payload_json FROM research_snapshots"), 1):
+            read_bytes += len(prior_body.encode('utf-8'))
+            if count > MAX_REPLAY_SNAPSHOTS or read_bytes > MAX_REPLAY_BYTES:
+                raise ValueError('normalization ledger inspection budget exceeded')
+            prior = strict_json(prior_body.encode('utf-8'))
+            if prior['metadata'].get('normalization_version') != version:
+                raise ValueError('normalization version changed; use a separate ledger and output root')
         old = conn.execute("SELECT observed_at,recorded_at,payload_json FROM research_snapshots WHERE sha256=?", (checksum,)).fetchone()
         if old:
             if old[0] != quality["observed_at"] or old[2].encode("utf-8") != body:

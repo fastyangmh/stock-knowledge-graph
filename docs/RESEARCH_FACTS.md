@@ -63,3 +63,8 @@ producer 在暫存目錄執行完整 bundle audit，成功才搬成新版本並�
 事件讀者已透過 audit 的 `Bundle.facts` 使用 `event-study-2.0`；純舊維持 `event-study-1.0`／`display_graph_only`。混合目錄必須明確選 cohort，列出未納入版本及原因，不用新契約重建舊事件基準；詳見[事件統計](EVENT_STUDY.md)。SHA256 證明內部一致性，不能證明來源真實性、授權、數位簽章或無偏研究。真實來源結合、Linux/NAS 與大規模效能仍須各自驗收。
 
 行情可明確附 `normalization_version: market-units-2.0`、`raw_values`、`unit_review` 及價格幣別／股數／金額／筆數單位／`trading_scope`；它們是來源快照綁定的審閱定義，不能自行替舊事實補值。Audit 依原有或新版契約重建行情欄位；未知版本或未有版本卻注入新單位拒絕。完整格式與目前未完成的真實尺度驗收見[行情單位抽檢](MARKET_PRICES.md#私有行情單位抽檢與版本)。
+
+財務定義 aliases 由共同契約處理：`statement_scope` 對應 `consolidation`，
+`report_basis` 對應 `value_basis`；兩側提供不同值即拒絕。新建完整 facts 同時保存
+兩個名稱，舊 facts 缺值仍可讀。`official-monthly-twd-v1` 保存原始金額／單位、
+轉換倍率及私有證據引用，採獨立 ledger 重建，詳見[財務抽檢](FINANCIAL_REVIEW.md)。
