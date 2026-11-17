@@ -29,6 +29,26 @@ def main(argv=None):
             "scope":"Offline synthetic fixtures and isolated lexical CLI. No live model/API/browser/remote deployment verification.",
             "source_sha256":{p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest()
                              for p in sorted((ROOT/"local").rglob("*.py")) if "private" not in p.parts}}
+    probes=[]
+    def probe(command):
+        try:
+            result=subprocess.run(command,cwd=ROOT,text=True,capture_output=True,timeout=10)
+            entry={"command":command,"exit_code":result.returncode,"output":result.stdout+result.stderr}
+        except (OSError,subprocess.TimeoutExpired) as exc:
+            entry={"command":command,"exit_code":None,"output":str(exc)}
+        probes.append(entry)
+        return entry["output"].strip() if entry["exit_code"]==0 else None
+
+    commit=probe(["git","rev-parse","HEAD"])
+    status=probe(["git","status","--porcelain"])
+    report.update(repository={"commit":commit,"dirty":bool(status) if status is not None else None},
+                  runner=args.runner,frontend_requested=args.frontend,
+                  lock_sha256=hashlib.sha256((ROOT/"uv.lock").read_bytes()).hexdigest(),
+                  environment={"os":platform.system(),"architecture":platform.machine(),
+                               "python_version":platform.python_version(),"python_executable":sys.executable,
+                               "uv_version":probe(["uv","--version"]),
+                               "node_version":probe(["node","--version"])},
+                  environment_probes=probes)
     tests=["pytest","-q"] if args.runner=="pytest" else ["unittest","discover","-s","local/tests","-v"]
     failed=False
     with tempfile.TemporaryDirectory(prefix="stock-graph-check-") as directory:
