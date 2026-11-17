@@ -11,6 +11,7 @@ import math
 from decimal import Decimal, InvalidOperation, localcontext
 from zoneinfo import ZoneInfo
 
+from .market_units import DEFINITION_KEYS
 from .dates import iso_date, timestamp
 from .research_history import canonical
 
@@ -93,7 +94,8 @@ def _market_ref(item):
             "raw_snapshot_verified":item["raw_snapshot_verified"],
             "close":record["close"], "volume_shares":record["volume_shares"],
             "market":record.get("market"), "price_unit":record.get("price_unit"),
-            "price_basis":record.get("price_basis")}
+            "price_basis":record.get("price_basis"),
+            **{key:record.get(key) for key in DEFINITION_KEYS}}
 
 
 def _price_checks(items, sid, target, cutoff, config):
@@ -129,8 +131,8 @@ def _price_checks(items, sid, target, cutoff, config):
                              "target_excluded":True, "exchange_sessions_verified":False}
         if len(history) < count:
             continue
-        identities = {(r["source"]["source_id"], r["record"].get("price_unit"),
-                       r["record"].get("price_basis"), r["record"].get("market")) for r in used}
+        identities = {(r["source"]["source_id"], r["source"].get("dataset_url"), r["record"].get("market"),
+                       *(r["record"].get(key) for key in DEFINITION_KEYS)) for r in used}
         if len(identities) != 1 or any(r.get("raw_snapshot_verified") is not True for r in used):
             check.update(status="not_comparable", reason="mixed_source_basis_or_unverified_snapshot")
             continue

@@ -73,3 +73,27 @@ uv run --locked python -m local.market_prices \
 ## 下一步（不要求先寄信）
 
 TWSE 與 TPEx 全檔至各市場研究串接已驗證；接續完成單位與交易範圍核查（ticket 09），再擴充官方財務指標與原始公告抽檢。雙來源歷史名單、對外展示、付費服務或簽約各自評估，不阻塞與名單無關的模組。仍維持手動執行，不啟用排程或發布。
+
+## 私有行情單位抽檢與版本
+
+`local.market_review` 對行情做獨立核對，不把價格偽裝為營收。輸入從市場 DB 讀取，必須同時重驗原始 CSV；reference 是另行從官方查詢轉錄、保存原始 bytes 的 JSON。每股固定核對 open／high／low／close／volume_shares／turnover_raw／trades 七欄，預設絕對誤差0。報告列 input raw SHA256、reference evidence SHA256／URL／取得時間／欄位定位、兩側定義、差額、容許誤差與狀態。
+
+```bash
+uv run --locked python -m local.market_review \
+  --db local/private/market-prices.db \
+  --snapshots local/private/market-prices \
+  --market twse --symbols 2330 2454 \
+  --trade-date 2026-11-17 --known-at 2026-11-17T08:00:00Z \
+  --reference local/private/review/reference.json \
+  --output local/private/review/report.json
+```
+
+日期／代碼僅示範命令格式。`--known-at` 不會補下載缺失歷史。Reference 格式是 `market-reference-1.0`：`records` 每筆含 market、symbol、trade_date、上述七欄、下列定義欄位、`evidence_id` 與 `locator`；`evidence` 每筆含唯一 `id`、同目錄原始檔 `path`、SHA256、HTTPS `url`、`retrieved_at`。CLI 驗證原始參考檔 hash，拒絕 symlink／跳出目錄、重複同股同日、同一原始 input hash 作 reference、缺檔及超額。上限為20,000個抽檢欄位、100個參考檔、單檔20 MB／合計128 MiB及32 MiB報告。使用者仍須核對參考是否獨立；不同 hash 不足以證明獨立性或來源真實性。
+
+定義包含 `price_unit`、`price_currency`、`volume_unit`、`turnover_unit`、`turnover_currency`、`trades_unit`、`price_basis`、`trading_scope`。未知幣別／尺度／範圍即 `definition_unverified`；不同定義即 `definition_mismatch`；未提供正確日期參考即 `missing_reference`。缺值、差異及零筆比較都使 `needs_review: true`，CLI exit 2；只有全部必要欄位相符或落在明訂容許誤差內才 exit 0。`--absolute-tolerance` 對本次各欄位共同適用，若參考有不同四捨五入口徑應分次核對，不設大額誤差掩蓋股數或筆數錯誤。
+
+只有完成來源尺度審閱後，才提供 `market_prices --unit-review <private.json>`。這是有證據的明確選用入口，預設仍產生原來的 `source_reported`。審閱檔 `schema_version: market-unit-review-1.0` 必須綁定 `source_id`、實際 CSV `raw_sha256`、`trade_date`、明列 `symbols`，並附 evidence 的 HTTPS URL／SHA256／retrieved_at／locator。它宣告價格 `currency_per_share`、成交量 `share`、金額 `currency`、筆數 `trade`、明確 ISO 幣別、`source_unadjusted` 及已確認交易範圍；不執行股張、匯率、倍率或還原轉換。交易範圍可為 `regular_only`、`regular_oddlot_afterhours`、`regular_oddlot_afterhours_block`，不能從 URL 名稱或數字相等推定。
+
+新 record 保存 `normalization_version: market-units-2.0`、`raw_values` 的原有十進位精度及完整 `unit_review`。建議以獨立 DB 重新產生新版研究；同 timestamp 的矛盾舊新 record 仍拒絕，不修改觀察時間以規避。舊 DB／bundle 不就地升級；market_graph 和完整事實 audit 依 record 宣告重建舊／新版本，未知版本、raw hash／原始數值不一致、未有版本卻注入新版單位都拒絕。提醒與事件比較鍵包括幣別、股數／金額／筆數單位、交易範圍與正規化版本；不能跨定義混成一條數列。舊版來源內的相對描述仍保留原讀取行為，不表示已完成單位驗收。
+
+截至本次[真實抽檢紀錄](VERIFICATION-2026-11-17-MARKET-UNITS.md)，兩市場範圍／幣別證據尚未全部確認，因此**未將任何真實快照升級為已審閱單位，也未完成 ticket 09**。同一官方端點在不同發布時段的註記可能不同，審閱結論須綁當次 bytes，不適用全部日期。

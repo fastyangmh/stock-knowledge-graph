@@ -202,5 +202,7 @@ def _validate_market_fact(fact, feed):
     writer.writerow(FEEDS[feed]['columns'])
     writer.writerow([fact.get(key) if fact.get(key) is not None else '--' for key in FIELDS])
     record = normalize(buffer.getvalue().encode(), feed, [fact['symbol']], fact['trade_date'], fact['observed_at'])['records'][0]
+    from .market_units import reviewed_record
+    record = reviewed_record(record, fact, fact["source_id"], fact["raw_sha256"])
     if any(key not in fact or fact[key] != value or type(fact[key]) != type(value) for key, value in record.items()):
         raise ValueError('facts_market_normalization_mismatch')
