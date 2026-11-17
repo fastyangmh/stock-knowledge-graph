@@ -112,7 +112,13 @@ async def run(args):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--chromium',type=Path,required=True);p.add_argument('--report',type=Path,required=True)
-    args=p.parse_args();args.report=private_path(args.report);asyncio.run(run(args))
+    p.add_argument('--live-http', action='store_true', help='Use production private HTTP servers and native browser fetch')
+    args=p.parse_args();args.report=private_path(args.report)
+    if args.live_http:
+        from history_event_live_smoke import run_live
+        asyncio.run(run_live(args, 'history'))
+    else:
+        asyncio.run(run(args))
 
 
 if __name__=='__main__':main()
