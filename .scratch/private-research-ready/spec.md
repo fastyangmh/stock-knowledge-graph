@@ -1,11 +1,15 @@
 # M1：真實私有研究基礎驗收規格
 
-**Status:** ready-for-agent
+**Status:** claimed
 **Review:** 使用者於 2026-11-17 授權依本規格實作、TDD、整合與審查；執行驗收仍依實際證據判定。
 **Parent:** [P0-01、P0-02、P1-01、P1-02](../../docs/DEVELOPMENT_BACKLOG.md)。
 **Parallel track:** [P2-01](../../docs/DEVELOPMENT_BACKLOG.md) 的離線交付納入本次審閱，歸 M2，不是 M1 完成的必要條件。
 **Context:** [里程碑與拆票](README.md) · [程式盤點與實作定位](inventory.md)。
 盤點版本：`8adf7f68fdbb4b221686bcf45c2c83b596902795`；2026-11-17。
+
+## 執行環境修訂（2026-11-17）
+
+使用者明確回覆：「目前沒有linux，請在當前環境測試」。本輪 M1 的環境驗收改採現有 macOS arm64／Python 3.11；01、02 及整合票不再等待 Linux。以下 Linux／NAS 仍描述既定運行方向，不能解讀為本輪已實測 Linux。將來移轉到 Linux／NAS 時需另行重驗；其餘資料、研究定義與安全契約不變。
 
 ## Problem Statement
 
@@ -112,7 +116,7 @@ P2-01 獨立預備線提案：
 
 ## Out of Scope
 
-- 本輪規劃不直接實作；確認後逐票推進。
+- 規劃已獲使用者核准；本輪依 tickets 實作、驗收、審查並推送開發分支。
 - M1 不新增季度／籌碼／公告適配器、權威日曆、公司行為還原或完整撤回 ledger。
 - P2-01 預備線不重建未保存歷史、不補行情 recorded_at、不改研究目的或提醒門檻。
 - 不改成跨市場單一 research run；不另造大型 ETL／排程框架。

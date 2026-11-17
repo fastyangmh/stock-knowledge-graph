@@ -26,6 +26,8 @@ from zoneinfo import ZoneInfo
 from .core import ROOT
 from .dates import iso_date, timestamp
 from .safety import exclusive_lock, private_path
+from .http_evidence import body_metadata, capture_response
+from .collect_official import save_failure
 
 MAX_BYTES = 20_000_000
 LICENSE_URL = "https://data.gov.tw/license"
@@ -129,37 +131,64 @@ def normalize(body: bytes, feed: str, symbols, expected_date: str, observed_at: 
     if not headers or len(set(headers)) != len(headers) or not all(headers) or not set(columns).issubset(headers):
         raise ValueError("missing or duplicated official CSV columns")
     reader.fieldnames = headers
-    records = {}
-    for row in reader:
-        if None in row or any(v is None for v in row.values()):
-            raise ValueError("CSV row length differs from header")
-        mapped = {key: row[column].strip() for key, column in zip(FIELDS, columns)}
-        # The supplied date is a freshness assertion, never a relabelling operation.
-        if _date(mapped["trade_date"]) != expected_date:
+    rows = list(reader)
+    profile = {"columns": headers, "row_count": len(rows), "date_distribution": {},
+               "selected_symbol_rows": {symbol: 0 for symbol in sorted(requested)},
+               "missing_symbols": [], "selected_value_validation": "not_run"}
+    mapped_rows = []
+    seen = set()
+    try:
+        for row in rows:
+            if None in row or any(v is None for v in row.values()):
+                raise ValueError("CSV row length differs from header")
+            mapped = {key: row[column].strip() for key, column in zip(FIELDS, columns)}
+            day = _date(mapped["trade_date"])
+            profile["date_distribution"][day] = profile["date_distribution"].get(day, 0) + 1
+            symbol = mapped["symbol"]
+            if symbol in seen:
+                raise ValueError("duplicate symbol in full source file")
+            seen.add(symbol)
+            if symbol in requested:
+                profile["selected_symbol_rows"][symbol] += 1
+                mapped_rows.append(mapped)
+        profile["missing_symbols"] = sorted(requested - seen)
+        if set(profile["date_distribution"]) != {expected_date}:
             raise ValueError("stale/mixed source date; refuse to relabel data")
-        symbol = mapped["symbol"]
-        if symbol not in requested:
-            continue
-        if symbol in records or not mapped["name"]:
-            raise ValueError("duplicate symbol or empty security name")
-        record = {"market": source["market"], "symbol": symbol, "name": mapped["name"], "trade_date": expected_date}
-        for key in ("open", "high", "low", "close"):
-            record[key] = _number(mapped[key], missing=True)
-        for key in ("volume_shares", "trades"):
-            record[key] = _number(mapped[key], integer=True)
-        record["turnover_raw"] = _number(mapped["turnover_raw"])
-        low, high = record["low"], record["high"]
-        for key in ("open", "high", "low", "close"):
-            value = record[key]
-            if value is not None and ((low is not None and Decimal(value) < Decimal(low))
-                                      or (high is not None and Decimal(value) > Decimal(high))):
-                raise ValueError("inconsistent OHLC range")
-        record.update(price_basis="source_unadjusted", price_unit="source_reported", turnover_unit="source_reported",
-                      missing_price_fields=[key for key in ("open", "high", "low", "close") if record[key] is None])
-        records[symbol] = record
-    if set(records) != requested:
-        raise ValueError("requested symbol coverage incomplete: " + ",".join(sorted(requested-set(records))))
-    return {"schema_version": "market-prices-1.0", "source": source,
+        if profile["missing_symbols"]:
+            raise ValueError("requested symbol coverage incomplete: " + ",".join(profile["missing_symbols"]))
+    except ValueError as exc:
+        exc.profile = profile
+        raise
+    records = {}
+    try:
+        for mapped in mapped_rows:
+            symbol = mapped["symbol"]
+            if not mapped["name"]:
+                raise ValueError("empty security name")
+            record = {"market": source["market"], "symbol": symbol, "name": mapped["name"], "trade_date": expected_date}
+            for key in ("open", "high", "low", "close"):
+                record[key] = _number(mapped[key], missing=True)
+            for key in ("volume_shares", "trades"):
+                record[key] = _number(mapped[key], integer=True)
+            record["turnover_raw"] = _number(mapped["turnover_raw"])
+            low, high = record["low"], record["high"]
+            for key in ("open", "high", "low", "close"):
+                value = record[key]
+                if value is not None and ((low is not None and Decimal(value) < Decimal(low))
+                                          or (high is not None and Decimal(value) > Decimal(high))):
+                    raise ValueError("inconsistent OHLC range")
+            record.update(price_basis="source_unadjusted", price_unit="source_reported", turnover_unit="source_reported",
+                          missing_price_fields=[key for key in ("open", "high", "low", "close") if record[key] is None])
+            records[symbol] = record
+        if set(records) != requested:
+            raise ValueError("requested symbol coverage incomplete: " + ",".join(sorted(requested-set(records))))
+    except ValueError as exc:
+        profile["selected_value_validation"] = "failed"
+        exc.profile = profile
+        raise
+    profile["selected_value_validation"] = "passed"
+    return {"schema_version": "market-prices-1.0", "source": source, "profile": profile,
+            "bytes": len(body), **body_metadata(body, source["resource_url"]),
             "observed_at": observed.isoformat(timespec="microseconds"),
             "observation_basis": "retrieved_or_imported_at_not_original_publication",
             "expected_date": expected_date, "raw_sha256": hashlib.sha256(body).hexdigest(),
@@ -179,14 +208,14 @@ def fetch(feed: str) -> bytes:
         try:
             request = Request(info["resource_url"], headers={"Accept": "text/csv", "User-Agent": "StockKnowledgeGraph/0.3 (official open-data research)"})
             with opener.open(request, timeout=20) as response:
-                if int(response.headers.get("Content-Length", "0")) > MAX_BYTES:
-                    raise ValueError("market response exceeds size limit")
-                body = response.read(MAX_BYTES+1)
-                if len(body) > MAX_BYTES:
-                    raise ValueError("market response exceeds size limit")
-                return body
+                return capture_response(response, info["resource_url"], MAX_BYTES)
         except HTTPError as exc:
             if exc.code not in (429, 500, 502, 503, 504) or attempt == 2:
+                try:
+                    captured = capture_response(exc, info["resource_url"], MAX_BYTES)
+                except ValueError as size_error:
+                    captured = size_error.response_body
+                exc.response_body = captured
                 raise
             retry = (exc.headers or {}).get("Retry-After", "")
             time.sleep(min(int(retry), 30) if retry.isdigit() else 2**attempt)
@@ -293,14 +322,21 @@ def main(argv=None):
         parser.error("--expected-date is in the future")
     _target(args.db)
     _target(args.output)
-    if args.input:
-        with args.input.open("rb") as source:
-            body = source.read(MAX_BYTES+1)
-    else:
-        body = fetch(args.market)
-    observed = datetime.now(timezone.utc).isoformat(timespec="microseconds")
-    result = ingest(body, args.market, args.symbols, args.expected_date, db=args.db, output=args.output,
-                    observed_at=observed, acquisition="local_file_unverified" if args.input else "https_download")
+    body = None
+    stage = "fetch" if not args.input else "read_local_input"
+    try:
+        if args.input:
+            with args.input.open("rb") as source:
+                body = source.read(MAX_BYTES+1)
+        else:
+            body = fetch(args.market)
+        observed = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+        stage = "validation_and_persistence"
+        result = ingest(body, args.market, args.symbols, args.expected_date, db=args.db, output=args.output,
+                        observed_at=observed, acquisition="local_file_unverified" if args.input else "https_download")
+    except Exception as exc:
+        save_failure(_target(args.output), source_info(args.market), [], stage, exc, body)
+        raise
     print(f"Private prices: {len(result['records'])} securities; {result['inserted_observations']} new observations; no publication")
 
 
