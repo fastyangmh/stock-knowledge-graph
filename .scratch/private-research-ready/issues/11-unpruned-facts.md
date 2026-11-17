@@ -6,7 +6,7 @@
 **Spec:** [第一階段規格](../spec.md)
 **Milestone:** M2 預備線；不阻擋 M1
 **Blocked by:** None (can start immediately；待整體方案確認後)
-**Status:** ready-for-agent
+**Status:** claimed
 **Review:** 使用者於 2026-11-17 授權依本規格實作、TDD、整合與審查；執行驗收仍依實際證據判定。
 
 ## Acceptance criteria
@@ -35,4 +35,4 @@ research→bundle_audit→research_archive；只新增被 audit 承認的 bundle
 
 ## Comments
 
-本票尚未實作或驗收。拆票與測試介面按使用者要求合併審閱；詳見[一次確認包](../README.md)。
+已完成保存／audit／archive 實作，正在整合後完整驗收。拆票與測試介面按使用者要求合併審閱；詳見[一次確認包](../README.md)。

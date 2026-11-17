@@ -21,7 +21,7 @@ def write_json(path,data):
         name=tmp.name
     os.replace(name,path)
 
-def export(conn, output=None, universe=None, lifecycle=False, as_of=None, research_alerts=None):
+def export(conn, output=None, universe=None, lifecycle=False, as_of=None, research_alerts=None, max_information_nodes=100):
     output=Path(output) if output else ROOT/"data"
     destination=output.resolve()
     if output.is_symlink() or destination==ROOT or ROOT.is_relative_to(destination):
@@ -41,9 +41,9 @@ def export(conn, output=None, universe=None, lifecycle=False, as_of=None, resear
                         raise ValueError("Refusing to replace unrelated file: "+relative)
         output.parent.mkdir(parents=True,exist_ok=True)
         with tempfile.TemporaryDirectory(prefix=".stock-graph-stage-",dir=output.parent) as staging:
-            return _export(conn, output, universe, lifecycle, Path(staging), as_of, research_alerts)
+            return _export(conn, output, universe, lifecycle, Path(staging), as_of, research_alerts, max_information_nodes)
 
-def _export(conn, output, universe, lifecycle, stage_root, as_of, research_alerts):
+def _export(conn, output, universe, lifecycle, stage_root, as_of, research_alerts, max_information_nodes):
     output=Path(output) if output else ROOT/"data"
     if output.resolve()==ROOT.resolve() or output.resolve()==(ROOT/'local').resolve():
         raise ValueError('Unsafe export directory')
@@ -95,7 +95,7 @@ def _export(conn, output, universe, lifecycle, stage_root, as_of, research_alert
                               "evidence_ids":evidence.get(e["edge_id"],[])})
         graph={"schema_version":"1.0","stock_id":sid,"generated_at":now(),"nodes":nodes,"edges":out_edges}
         if lifecycle:
-            graph=prune(graph,max_information_nodes=100,max_related_stocks=15,max_semantic_per_node=5,news_days=90,as_of=as_of)
+            graph=prune(graph,max_information_nodes=max_information_nodes,max_related_stocks=15,max_semantic_per_node=5,news_days=90,as_of=as_of)
         if research_alerts is not None:
             graph["research_alerts"] = research_alerts[sid]
         validate_graph(graph)

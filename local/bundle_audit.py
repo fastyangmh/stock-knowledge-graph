@@ -16,7 +16,7 @@ import tempfile
 
 from .alerts import validate as validate_alert, policy
 from .dates import timestamp
-from .research_history import canonical, strict_json
+from .research_history import canonical, strict_json, MAX_INPUT_BYTES
 from .research import ENGINE_VERSION, guarded
 from .validate_release import validate_data_dir
 
@@ -41,6 +41,7 @@ class Bundle:
     alerts: dict | None
     size_bytes: int
     anchored: bool
+    facts: dict | None = None
 
     def summary(self):
         return {"run": self.report["run"], "status": "valid",
@@ -51,6 +52,7 @@ class Bundle:
                 "warnings": self.report["quality"]["warnings"],
                 "analysis_mode": self.report.get("configuration", {}).get("analysis", {}).get("mode", self.report["analysis"].get("mode", "unknown")),
                 "alerts_enabled": self.alerts is not None,
+                "fact_scope": "unpruned_facts" if self.facts is not None else "display_graph_only",
                 "triggered_by_category": self.report.get("research_alerts", {}).get("triggered_by_category", {})}
 
 
@@ -78,8 +80,10 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
         _require(not path.is_symlink(), "bundle_symlink")
         if path.is_file():
             relative = path.relative_to(bundle).as_posix()
-            _require(relative in expected or relative == "alerts.json" or
+            _require(relative in expected or relative in ("alerts.json", "research-facts.json") or
                      re.fullmatch(r"data/stocks/[A-Za-z0-9_.-]+/graph\.json", relative), "unexpected_bundle_file")
+            if relative != "graph.db":
+                _require(path.stat().st_size <= MAX_INPUT_BYTES, "json_size_budget_exceeded")
             total += path.stat().st_size
             _require(total <= max_bytes, "bundle_size_budget_exceeded")
             found.add(relative)
@@ -91,13 +95,15 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
         path = bundle/relative
         _require(not path.is_symlink(), "bundle_symlink")
         before = path.stat()
-        digest, parts = hashlib.sha256(), []
+        digest, parts, file_bytes = hashlib.sha256(), [], 0
         with path.open("rb") as stream:
             for part in iter(lambda: stream.read(1024*1024), b""):
                 read_bytes += len(part)
+                file_bytes += len(part)
                 _require(read_bytes <= max_bytes, "bundle_size_budget_exceeded")
                 digest.update(part)
                 if relative != "graph.db":
+                    _require(file_bytes <= MAX_INPUT_BYTES, "json_size_budget_exceeded")
                     parts.append(part)
         after = path.stat()
         _require((before.st_ino, before.st_size, before.st_mtime_ns) ==
@@ -164,8 +170,20 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
         _require(triggered == alert_index.get("triggered_by_category"), "alert_summary_mismatch")
     else:
         _require("alerts.json" not in captured and all("research_alerts" not in g for g in graphs.values()), "unlisted_alerts")
+    facts = None
+    if "research_facts" in report:
+        index = report["research_facts"]
+        _require(isinstance(index, dict), "invalid_facts_index")
+        _require("research-facts.json" in captured and index.get("path") == "research-facts.json" and
+                 digests.get("research-facts.json") == index.get("sha256"), "facts_checksum_mismatch")
+        _require(type(index.get("size_bytes")) is int and index["size_bytes"] == len(captured["research-facts.json"]), "facts_size_mismatch")
+        facts = strict_json(captured["research-facts.json"])
+        from .research_facts import validate_facts
+        validate_facts(facts, report)
+    else:
+        _require("research-facts.json" not in captured, "unlisted_facts")
     return Bundle(report, digests["report.json"], manifest, graphs, data_files,
-                  alerts, read_bytes, expected_report_sha is not None)
+                  alerts, read_bytes, expected_report_sha is not None, facts)
 
 
 def catalog(root, *, max_runs=50, max_bytes=MAX_BUNDLE_BYTES):

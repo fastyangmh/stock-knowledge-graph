@@ -48,6 +48,7 @@ uv run --locked python -m local.research \
 
 ```text
 <run-id>/
+├── research-facts.json # 未裁剪、版本化的私有數值契約，不提供 HTTP
 ├── graph.db       # 當次隔離的衍生圖譜資料庫，不是原始資料庫
 ├── data/          # 完整可驗證的靜態圖譜（仍在 private 路徑）
 └── report.json    # 資料來源、截止時間、快照、統計、警告、SHA256
@@ -106,3 +107,7 @@ uv run --locked python -m local.backup restore \
 ## 已儲存版本的稽核與比較
 
 執行`local.bundle_audit --root local/private/research-runs`確認整包資料，再以`local.research_archive --root local/private/research-runs`開啟本機歷史頁；不需要把私有輸出搬到公開data/。新版報告記錄計算設定，重用上一版快取前也先稽核manifest、圖譜及提醒。詳見[研究歷史](RESEARCH_HISTORY.md)與[財務抽檢](FINANCIAL_REVIEW.md)。
+
+## 完整數值契約
+
+新版 bundle 另保存 `research-facts.json`，包含 cutoff 的全部 replay 財務／籌碼與指定市場已保存行情歷史；展示名額不裁剪研究事實。保存前執行完整 audit，舊版仍標為 `display_graph_only`。欄位、時間語意、工作量限制與下游介面見[未裁剪研究事實契約](RESEARCH_FACTS.md)。

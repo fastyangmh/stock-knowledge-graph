@@ -26,8 +26,9 @@ HISTORY_ASSETS = {"history.html": "text/html; charset=utf-8",
 def archive_snapshot(directory, *, root=ROOT, max_runs=50, max_mib=256, max_preview_bytes=MAX_PREVIEW_BYTES):
     _require(type(max_mib) is int and 1 <= max_mib <= 4096, "invalid_disk_budget")
     _require(type(max_preview_bytes) is int and max_preview_bytes > 0, "invalid_preview_budget")
-    # Reject an oversized JSON corpus BEFORE catalog validation constructs parsed
-    # copies. This is a serialized-data budget, not a peak Python heap guarantee.
+    # Bound the served graph corpus before parsing. Unserved facts/reports remain
+    # subject to the catalog total budget and per-JSON parser limit; they are not
+    # part of the HTTP preview budget. Neither limit guarantees peak Python heap.
     directory = guarded(directory)
     _require(type(max_runs) is int and 1 <= max_runs <= 500, "invalid_run_budget")
     json_bytes, entries = 0, 0
@@ -40,7 +41,7 @@ def archive_snapshot(directory, *, root=ROOT, max_runs=50, max_mib=256, max_prev
         for path in run.rglob("*"):
             count += 1
             _require(count <= MAX_FILES, "too_many_bundle_entries")
-            if not path.is_symlink() and path.is_file() and path.suffix == ".json":
+            if not path.is_symlink() and path.is_file() and path.suffix == ".json" and path.is_relative_to(run/"data"):
                 json_bytes += path.stat().st_size
                 _require(json_bytes <= max_preview_bytes, "history_preview_size_budget_exceeded")
     summary, bundles = catalog(directory, max_runs=max_runs, max_bytes=max_mib*1024*1024)

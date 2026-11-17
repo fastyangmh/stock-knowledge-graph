@@ -41,7 +41,7 @@ class ArchiveHTTPTests(unittest.TestCase):
         report=json.loads(body);self.assertEqual(report['before']['run'],self.a['run'])
         self.assertEqual(report['stocks'][0]['categories']['monthly_revenue'][0]['transition'],'activated')
     def test_db_reports_raw_and_source_files_not_served(self):
-        for suffix in ('graph.db','report.json','alerts.json','input.json','data/'):
+        for suffix in ('graph.db','report.json','alerts.json','research-facts.json','input.json','data/'):
             self.assertEqual(self.request(f"/versions/{self.a['run']}/{suffix}")[0],404)
         for path in ('/local/','/.git/config','/docs/','/latest.json','/input-1.json','/%2e%2e/input-1.json'):
             self.assertEqual(self.request(path)[0],404)
