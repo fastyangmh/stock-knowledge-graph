@@ -1,5 +1,7 @@
 # 真實模型增量驗證（ticket 02）
 
+> 2026-11-17 範圍修訂：使用者指定本輪在目前macOS環境驗收，01／02已resolved；以下Linux needs-info為修訂前歷史，不再是本輪gate。最新同候選重驗見[整合索引](VERIFICATION-2026-11-17-M1.md)。Linux／NAS移轉仍未驗證。
+
 日期：2026-11-17。這是 macOS 補充驗證；ticket 01 的 Linux gate 尚未通過，ticket 02 維持 `needs-info`。
 
 新增 `local.model_check`，以核准的 research／semantic／encoder-loader seam 量測，使用真實 SQLite、不可變 bundle 與 audit。

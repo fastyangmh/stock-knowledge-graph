@@ -1,5 +1,7 @@
 # 鎖定環境補充驗證（ticket 01）
 
+> 2026-11-17 範圍修訂：使用者指定本輪在目前macOS環境驗收，01／02已resolved；以下Linux needs-info為修訂前歷史，不再是本輪gate。最新同候選重驗見[整合索引](VERIFICATION-2026-11-17-M1.md)。Linux／NAS移轉仍未驗證。
+
 日期：2026-11-17。實作與最終測試 Commit：`54773a094a9cf06294cc4e6b6bb9208ac0accbdc`，報告的 dirty 為 `false`。此為 **macOS 補充驗證**；尚無 Linux runtime，ticket 01 保留 `needs-info`，不宣稱完成目標環境驗收。
 
 ## 變更與 TDD
