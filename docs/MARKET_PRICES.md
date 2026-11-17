@@ -26,7 +26,7 @@
 
 兩份資料集頁標示每日更新、免費及政府資料開放授權條款第1版。依[條款](https://data.gov.tw/license)符合條件使用無須逐次書面授權，但須履行顯名義務。此核對只針對這兩份開放資料，不擴及其他付費行情、網站頁面或指數名單。
 
-2026-11-17 已完成 TWSE 固定端點的真實全檔與兩檔私有研究驗收，詳見[驗證紀錄](VERIFICATION-2026-11-17-TWSE-MARKET.md)。TPEx 真實驗收另由 ticket 07 負責；一次成功不代表每日穩定服務。重新導向、403、欄位異動仍會停止。
+2026-11-17 已分別完成 TWSE 與 TPEx 固定端點的真實全檔、各兩檔私有研究驗收，詳見 [TWSE 紀錄](VERIFICATION-2026-11-17-TWSE-MARKET.md)與 [TPEx 紀錄](VERIFICATION-2026-11-17-TPEX-MARKET.md)。TPEx 使用既有 `otc_quotes_no1430` 資源，沒有換用 `daily_close_quotes` 或 OpenAPI；交易範圍與尺度另由 ticket 09 核查。一次成功不代表每日穩定服務。重新導向、403、欄位異動仍會停止。
 
 ## 操作（手動，僅私有輸出）
 
@@ -39,6 +39,8 @@ uv run --locked python -m local.market_prices \
 ```
 
 `--market tpex` 選擇上櫃來源。程式只接受明確的四碼代碼，不根據代碼格式聲稱普通股類別或指數歸屬。交易市場需由呼叫者選定，不把上市與上櫃的同代碼紀錄互相覆蓋。
+
+串接 `local.research` 時，TPEx 必須明確帶 `--price-market tpex`（預設為 `twse`），並使用獨立核對的上櫃公司／月營收輸入。本次以 private registry 啟用既有 TPEx 公司／營收來源完成驗收，公開 registry 的預設啟用設定未變；準備與重跑程序見 [TPEx 驗證](VERIFICATION-2026-11-17-TPEX-MARKET.md)。
 
 已有來源CSV時可完全離線匯入：
 
@@ -70,4 +72,4 @@ uv run --locked python -m local.market_prices \
 
 ## 下一步（不要求先寄信）
 
-TWSE 全檔至研究串接已驗證；接續完成單位與交易範圍核查（ticket 09），再擴充官方財務指標與原始公告抽檢。雙來源歷史名單、對外展示、付費服務或簽約各自評估，不阻塞與名單無關的模組。仍維持手動執行，不啟用排程或發布。
+TWSE 與 TPEx 全檔至各市場研究串接已驗證；接續完成單位與交易範圍核查（ticket 09），再擴充官方財務指標與原始公告抽檢。雙來源歷史名單、對外展示、付費服務或簽約各自評估，不阻塞與名單無關的模組。仍維持手動執行，不啟用排程或發布。

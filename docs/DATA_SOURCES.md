@@ -48,3 +48,16 @@ TWSE 公司／月營收 CSV 已於 2026-11-17 完成一次真實全檔下載；�
 
 這是單次 TWSE 來源與工程契約驗收；不是金額尺度確認、每日穩定性、TPEx 啟用、
 全市場數值抽檢或公開發布核准。上方舊「未成功連線」段落保留為 11 月 15 日紀錄。
+
+## 2026-11-17 TPEx 獨立補充驗收
+
+重新核對 [25036](https://data.gov.tw/dataset/25036)、[56510](https://data.gov.tw/dataset/56510)
+的 CSV 資源連結、免費／OGDL-1.0 標示及[顯名義務](https://data.gov.tw/license)後，
+本次只在私有 registry 副本啟用 `tpex_companies`、`tpex_monthly_revenue`；不變更預設設定。
+兩個原 URL 實際回應 HTTP 200／`text/csv`；公司及營收各 898 列，公司出表日
+2026-11-16、營收出表日 2026-11-17／資料年月 2026-10。6488／8069 的財務輸入
+與 TPEx 行情獨立完成 research／audit，沒有借用 TWSE 股票或輸入。
+
+本次保存官方 metadata／條款 HTML、三份原始 CSV、HTTP metadata、hash、全檔 profile
+及私有研究版本。完整記錄見 [TPEx 驗證](VERIFICATION-2026-11-17-TPEX-MARKET.md)。
+金額仍 `source_reported`，來源審核與下載成功不代表金額倍率、幣別、交易範圍或全市場數值抽檢完成。
