@@ -6,8 +6,12 @@
 **Spec:** [第一階段規格](../spec.md)
 **Milestone:** M1
 **Blocked by:** None (can start immediately；待整體方案確認後)
-**Status:** needs-info
+**Status:** resolved
 **Review:** 使用者於 2026-11-17 授權依本規格實作、TDD、整合與審查；執行驗收仍依實際證據判定。
+
+## 執行範圍修訂
+
+使用者於 2026-11-17 確認目前沒有 Linux，要求在當前環境測試。本票本輪驗收環境改為 macOS arm64／Python 3.11，既有本機成功證據據此接受；Linux／NAS 仍未驗證，留待移轉時重驗，不再阻擋本輪。下列原始 Linux 條件依此修訂解讀，不宣稱 Linux 通過。
 
 ## Acceptance criteria
 
@@ -36,3 +40,7 @@ local.check 使用者入口、報告與退出碼；重用現有離線全套測�
 2026-11-17：已完成 `local.check` 環境／Commit／lock 記錄補強與 TDD，實作 Commit `54773a094a9cf06294cc4e6b6bb9208ac0accbdc`。乾淨 Commit 在 macOS arm64／Python 3.11.11 的 locked pytest＋frontend 通過（412 tests、154 subtests；Node 53），uv sync 成功、lock 未變。詳見[驗證摘要](../../../docs/VERIFICATION-2026-11-17-LOCKED-ENVIRONMENT.md)。
 
 目標 Linux 環境尚無可用入口，故必要驗收仍未通過、狀態維持 needs-info；下一步是於 Linux／Python 3.11 執行摘要中的命令並留存報告。macOS 初次暫存路徑與 loopback 權限失敗已保留，後續經實體 TMPDIR 與正常權限流程驗證，不關閉 Linux 完成條件。私有原始證據在執行 worktree 的 `local/private/m1/01/`；公開示範、依賴與 uv.lock 未更動。
+
+## 最新狀態
+
+依使用者的當前環境驗收指示，本票本輪驗收已完成，設 resolved；先前紀錄的 Linux needs-info 是修訂前狀態。最終整合仍須通過全套檢查與 code-review。
