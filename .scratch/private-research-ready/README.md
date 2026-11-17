@@ -5,18 +5,18 @@
 本地 `main` 與已存在的 `origin/main` tracking ref 相同；本輪沒有 fetch，未聲稱已查到遠端即時 HEAD。
 
 **Review:** 使用者於 2026-11-17 授權依本規格實作、TDD、整合與審查；執行驗收仍依實際證據判定。
-**Status:** claimed
+**Status:** needs-info
 
 **環境修訂：** 使用者已指示本輪在當前 macOS 環境測試，M1 不等待 Linux；Linux／NAS 移轉驗收仍未執行。規格與 01／02 票已記錄此修訂。
 
 入口：[第一里程碑規格](spec.md) · [逐票清單](#任務拆分) · [程式盤點](inventory.md) · [原 backlog](../../docs/DEVELOPMENT_BACKLOG.md) · [已確認決策](../../docs/HANDOFF.md)。
 
-這次只建立規劃文件，不下載金融資料、不實作產品、不變更 parent backlog 狀態。每張 ticket 連回原 ID；本地詳細 tracker 依 [issue-tracker](../../docs/agents/issue-tracker.md)。
+本輪已依核准方案完成實作與當前環境驗收；01～08、11／12 resolved，09／10 needs-info，M1未全過。每張 ticket 連回原 ID；本地詳細 tracker 依 [issue-tracker](../../docs/agents/issue-tracker.md)。
 本輪驗證範圍及結果見文末。
 
 ## 目標與完成邊界
 
-「真實私有研究可用」是：在目標 Linux／Python 3.11 環境，以明確自選股票及逐來源驗收的真實資料，手動完成擷取、正規化、SQLite、文字語意、兩類獨立提醒、不可變研究版本、稽核、歷史比較與事件描述統計，並有尺度／時間／完整性、獨立抽檢、容量與復原證據。
+「真實私有研究可用」是：在使用者指定驗收環境（本輪macOS／Python 3.11；Linux／NAS移轉另驗），以明確自選股票及逐來源驗收的真實資料，手動完成擷取、正規化、SQLite、文字語意、兩類獨立提醒、不可變研究版本、稽核、歷史比較與事件描述統計，並有尺度／時間／完整性、獨立抽檢、容量與復原證據。
 
 第一里程碑 M1 只完成環境、來源及瀏覽器的基礎驗收。M1 完成不能關閉其餘 backlog，也不能宣稱完整研究歷史已可用。
 
@@ -76,7 +76,7 @@ CLI 擷取／匯入 → 真實臨時 SQLite → research → audit → 本機 HT
 
 以下為編號清單；每張完整驗收條件在連結內。
 
-1. [01 Linux／Python 3.11 鎖定環境重現](issues/01-locked-environment.md) — **Blocked by：無**。交付可重跑的離線全套檢查、環境／版本／exit code 證據（P0-01）。
+1. [01 當前環境／Python 3.11 鎖定環境重現](issues/01-locked-environment.md) — **Blocked by：無**。交付可重跑的離線全套檢查、環境／版本／exit code 證據（P0-01）。
 2. [02 真實模型與增量快取四情境](issues/02-real-model-cache.md) — **Blocked by：01**。固定 revision，驗證首次、全快取、改一篇、改股票映射，保留可稽核 bundle（P0-01）。
 3. [03 圖譜真實瀏覽器與固定 CDN](issues/03-graph-browser.md) — **Blocked by：無**。真實 HTTP／HTTPS、3.30.4、WebCrypto、手機、錯版及失敗恢復（P0-02）。
 4. [04 歷史與事件頁真實 HTTP 瀏覽](issues/04-history-event-browser.md) — **Blocked by：無**。保存版本、比較及事件報告在實際瀏覽器可用，錯誤安全且可恢復（P0-02）。
@@ -89,13 +89,13 @@ CLI 擷取／匯入 → 真實臨時 SQLite → research → audit → 本機 HT
 11. [11 未裁剪研究數值的保存與稽核](issues/11-unpruned-facts.md) — **Blocked by：無**。以合成輸入完成不可變新契約、來源連結、版本／容量驗證及舊 bundle 相容（P2-01；M2 預備線）。
 12. [12 事件統計改讀新契約並揭露舊版限制](issues/12-event-fact-contract.md) — **Blocked by：11**。新分析版本不受展示上限影響；舊版可讀但不補資料，瀏覽器可辨識樣本範圍（P2-01；M2 預備線）。
 
-確認後的 frontier：01、03、04、05、06、07、11。這表示沒有功能 blockers，不代表本輪已啟動實作或多代理工作。01 的目標環境驗收不是 05～09 離線開發的前置；最後 10 統一驗收目標環境。
+最初frontier為01、03、04、05、06、07、11；目前上述各票已驗，10已完成獨立工程整合但仍等待09外部定義證據。Linux不是本輪依賴gate。
 
 06／07 以各市場獨立、合法準備的正規化財務輸入驗證行情串接；不假設 05 的上市股票可供上櫃使用，也不要求先做跨市場單一 run。票內若共用下載紀錄工具，屬小範圍抽取並附於第一條可用路徑，不另設水平基礎設施票。
 
-## 一次確認的內容
+## 已核准的一次確認內容
 
-請一併確認：
+使用者已核准下列方案；保留原確認範圍，不重新詢問：
 
 1. 以上 M1／M2 預備線邊界、測試介面與各票完成條件是否符合預期。
 2. 12 張票的粒度是否合適；blockers 是否正確，哪些應合併或再拆。
@@ -109,8 +109,8 @@ CLI 擷取／匯入 → 真實臨時 SQLite → research → audit → 本機 HT
 
 ## 本輪實際驗證
 
-- 讀取 AGENTS、HANDOFF、backlog、tracker／triage／domain、兩個指定 skills 與相關功能文件。
-- 核對入口、資料契約、測試及瀏覽器 harness；詳細證據見 inventory。
-- 沒有執行產品測試、官方下載、真實模型、瀏覽器或 NAS 演練；410 等既有數字僅為歷史紀錄。
-- 文件驗證：15 份 Markdown、12 張獨立 tickets、111 個相對連結均有效；21 個原 backlog ID 均有里程碑／範圍對應，依賴編號由前往後且無循環。
-- 首次新檔空白檢查發現 EOF 多餘空行，已修正；重新執行逐檔 git diff --no-index --check 及 git diff --check 通過。變更僅新增本目錄文件；未改 parent backlog、產品程式、lock 或公開示範。
+固定候選3834c19完成完整check（482 pytest／220 subtests／55 Node）、真實模型四情境、兩市場各兩版真實來源semantic/alerts→audit→compare→event與六個真實頁面桌機／手機HTTP驗收。原CDN、WebCrypto、只讀Pages及既有故障回歸通過。詳細命令、exit code、證據與未驗範圍見[整合索引](../../docs/VERIFICATION-2026-11-17-M1.md)。
+
+財務月營收獨立核對完成；行情正式兩市場仍exit 2／compared_fields=0，09／10保持needs-info，M1未全過。P2-01工程及真實來源串接完成，不代表M2～M6或完整repo完成。最終code-review、必要修復與推送由後續整合流程記錄。
+
+原規劃時的文件驗證保留歷史：15份Markdown、12張tickets、111個相對連結有效；21個backlog ID有里程碑／範圍對應。本輪文件另檢查相對路徑與git diff --check，不將歷史數字當本輪重跑。

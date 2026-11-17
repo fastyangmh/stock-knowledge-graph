@@ -9,6 +9,7 @@
 | 文件 | 內容 |
 | --- | --- |
 | [專案交接](HANDOFF.md) | 程式基準、已確認決策、實作與驗證界線、操作入口、接手指令 |
+| [M1本輪整合證據](VERIFICATION-2026-11-17-M1.md) | 當前macOS、真實模型／來源／瀏覽器；09／10未完成、M1未全過 |
 | [待開發與驗收清單](DEVELOPMENT_BACKLOG.md) | 優先級、相依項目、完成條件、外部依賴與必要決策 |
 | [AI 開發技能](agents/README.md) | Matt Pocock skills、使用流程、本地工作追蹤與更新方式 |
 
@@ -27,6 +28,7 @@
 | --- | --- |
 | [System Design](SYSTEM_DESIGN.md) | 需求、設計取捨與驗收 |
 | [Architecture](ARCHITECTURE.md) | 元件與資料流 |
+| [未裁剪研究事實](RESEARCH_FACTS.md) | 新版bundle保存／稽核及舊版範圍限制 |
 | [事件後變化統計](EVENT_STUDY.md) | 價量與營收分開，已保存事件的描述統計，非策略回測 |
 | [雙來源研究股票池](RESEARCH_UNIVERSE.md) | TW50＋009816 聯集定義與輸入契約 |
 | [Data Model](DATA_MODEL.md) | SQLite 與 JSON |
@@ -66,4 +68,6 @@
 
 前一輪本地驗證：[歷史版本與品質檢查](VERIFICATION-2026-11-16-HISTORY.md)。
 
-最新驗證：[事件後描述統計（2026-11-16）](VERIFICATION-2026-11-16-EVENTS.md)。
+歷史驗證：[事件後描述統計（2026-11-16）](VERIFICATION-2026-11-16-EVENTS.md)。
+
+最新驗證：[M1整合與各子票證據索引（2026-11-17）](VERIFICATION-2026-11-17-M1.md)。工程／真實來源串接已驗；行情範圍與獨立參考仍缺，M1未全過，M2～M6仍有待辦。

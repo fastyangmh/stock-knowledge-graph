@@ -5,7 +5,7 @@
 **Parent:** [P0-01](../../../docs/DEVELOPMENT_BACKLOG.md)
 **Spec:** [第一階段規格](../spec.md)
 **Milestone:** M1
-**Blocked by:** [01：Linux／Python 3.11 鎖定環境重現](01-locked-environment.md)
+**Blocked by:** [01：當前環境／Python 3.11 鎖定環境重現](01-locked-environment.md)
 **Status:** resolved
 **Review:** 使用者於 2026-11-17 授權依本規格實作、TDD、整合與審查；執行驗收仍依實際證據判定。
 
@@ -20,7 +20,7 @@
 - [x] 相同輸入第二次執行 encoded=0、pairs_evaluated=0、關聯重用；以 loader 邊界測量證明沒有載入模型，不能僅看 encoded=0。
 - [x] 只改一篇文本時僅該篇重編；只改文件股票映射時不重編文本，但關聯與 evidence 反映新映射。
 - [x] 真實模型四情境、合成 encoder 回歸分開記錄，保留舊 bundle／pointer 失敗保全與 numeric 不進文字 encoder 的驗證。
-- [ ] 缺下載／權重或任何情境未執行則本票未完成；新增修復先 red 再 green，最後重跑必要 local.check。
+- [x] 缺下載／權重或任何情境未執行則本票未完成；新增修復先 red 再 green，最後重跑必要 local.check。
 
 ## Testing seam
 
@@ -33,15 +33,15 @@ research／semantic 既有入口與報告，既有 encoder／loader 邊界只用
 ## Completion evidence
 
 - [x] 記錄實作 Commit、實際命令／環境／exit code、測試與資料屬性（合成／真實）、私有證據識別及未驗證範圍。
-- [ ] 更新相關功能文件；完成後本票設 resolved 並同步 parent backlog 實際進度，不以單一子票關閉整個 parent。
+- [x] 更新相關功能文件；完成後本票設 resolved 並同步 parent backlog 實際進度，不以單一子票關閉整個 parent。
 - [x] 私有 bytes／DB／原始報告不提交；repo 僅留去敏感摘要與可重跑程序，公開示範未被改寫。
 
 ## Comments
 
 2026-11-17：實作 Commit `5a40650`，整合測試 Commit `0fb3f08`。已新增 opt-in `local.model_check`，固定既定模型完整 revision，驗證下載權重／設定 hash，真實模型四情境已在 macOS arm64／Python 3.11.11 通過，四份 bundle audit 成功。詳見[驗證紀錄](../../../docs/VERIFICATION-2026-11-17-REAL-MODEL.md)。合成 encoder 回歸與真實模型分開記錄；公開示範與 uv.lock 未變。
 
-依賴 gate：ticket 01 尚缺 Linux／Python 3.11 目標環境驗收，因此本票仍為 needs-info；本機成功不替代 Linux acceptance，不關閉 parent P0-01。私有原始證據與模型位於 `local/private/m1/02/`，不提交。
+依賴gate已依使用者環境修訂滿足；真實模型與報告留於私有local/private/m1/02/。Linux／NAS仍未驗。
 
 ## 最新狀態
 
-依使用者的當前環境驗收指示，本票本輪驗收已完成，設 resolved；先前紀錄的 Linux needs-info 是修訂前狀態。最終整合仍須通過全套檢查與 code-review。
+依使用者的當前環境驗收指示，本票本輪驗收已完成，設 resolved；先前紀錄的 Linux needs-info 是修訂前狀態。同候選整合重驗見[10索引](../../../docs/VERIFICATION-2026-11-17-M1.md)；最終code-review／修復／推送另記。
