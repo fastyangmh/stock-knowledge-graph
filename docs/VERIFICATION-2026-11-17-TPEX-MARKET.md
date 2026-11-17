@@ -1,6 +1,6 @@
 # TPEx 全檔至私有研究驗證（2026-11-17）
 
-對應 [ticket 07](../.scratch/private-research-ready/issues/07-tpex-market-source.md)。測試基準 `8b91af6`（已確認 ancestry），加上本票 `local/tests/test_tpex_research.py`；完整測試時的檔案 hash 另存私有 `execution.json`。本票重用 05／06 的採集、HTTP evidence、profile 與失敗報告，沒有修改產品邏輯、來源 URL 或正規化定義。
+對應 [ticket 07](../.scratch/private-research-ready/issues/07-tpex-market-source.md)。初次測試基準 `8b91af6`（已確認 ancestry），加上本票 `local/tests/test_tpex_research.py`；整合最新 `0de76c1` 後於提交 `6133bf7` 重跑完整檢查與真實串接；完整測試時的檔案 hash 另存私有 `execution.json`。本票重用 05／06 的採集、HTTP evidence、profile 與失敗報告，沒有修改產品邏輯、來源 URL 或正規化定義。
 
 ## 來源審核與實際全檔
 
@@ -25,7 +25,7 @@ TPEx 行情保留已登錄 `otc_quotes_no1430/stk_wn1430_result.php?l=zh-tw&o=da
 
 ## 真實串接與故障注入
 
-6488／8069 公司／營收均來自 TPEx 的獨立快照。raw→official import→market SQLite→`price_market=tpex` research（`analysis none`、alerts）→audit 全部 exit 0。最後驗證 run `f396c177ec8540fea8eb820f86b71bca`，2 個股票圖、6 財務節點、2 行情節點、8 筆完整 facts；兩個保存版本皆 valid。
+6488／8069 公司／營收均來自 TPEx 的獨立快照。raw→official import→market SQLite→`price_market=tpex` research（`analysis none`、alerts）→audit 全部 exit 0。最後驗證 run `cdbb544e6e83450396609e1b92c7a895`，2 個股票圖、6 財務節點、2 行情節點、8 筆完整 facts；三個保存版本皆 valid。
 
 同一行情 bytes／觀察時間再次匯入新增 0 筆；重用原 HTTP metadata，不將重讀冒稱新下載。另對獨立衍生副本注入舊日與 raw 改寫，並以錯誤 `price_market=twse` 嘗試研究；分別拒絕 stale/mixed date、checksum mismatch、market coverage missing。行情 DB、行情成功報告、財務成功 manifest、研究 latest pointer 的 hash 均不變。這些是故障注入，不是官方來源送出了壞資料。
 
@@ -41,13 +41,13 @@ UV_PROJECT_ENVIRONMENT=/private/tmp/skg-venv \
 uv run --locked python -m local.check --report local/private/m1/07/check.json
 ```
 
-結果 exit 0：451 passed、193 subtests；compile、lexical CLI 與 JSON validation 通過。環境 macOS 27.2.1 arm64、Python 3.11.11、uv 0.6.13，使用既有 lock。使用者已指定本輪目前 macOS 驗收；Linux 未驗、不阻擋本票。完整檢查以正常 escalation 提供 loopback 權限，沒有略過測試。未修改前端；本票未重跑 frontend、瀏覽器或真實模型。
+初次結果 exit 0：451 passed、193 subtests。整合 ticket 12 後以同一命令、報告 `check-integrated.json` 重跑，exit 0：463 passed、199 subtests；compile、lexical CLI 與 JSON validation 通過。環境 macOS 27.2.1 arm64、Python 3.11.11、uv 0.6.13，使用既有 lock。使用者已指定本輪目前 macOS 驗收；Linux 未驗、不阻擋本票。完整檢查以正常 escalation 提供 loopback 權限，沒有略過測試。未修改前端；本票未重跑 frontend、瀏覽器或真實模型。
 
 `local.check` 在 `/private/tmp` worktree 的 `source_sha256` 既有空值問題未在本票修改；`execution.json` 另列 repo 相對 Python 原碼 hash 與 `uv.lock` hash。
 
 ## 重跑與證據位置
 
-私有證據保留主工作區 `local/private/m1/07/`：`source-review/`、`tpex-registry.json`、`official/`、`prices/`、`prices.db`、`normalized.json`、`history.db`、`runs/`、`check.json`、`commands.json`、`execution.json`、`acceptance.py` 及故障副本。以下日期是本次驗收值；下次執行須以來源實際日期確認，`expected-date` 不查歷史。
+私有證據保留主工作區 `local/private/m1/07/`：`source-review/`、`tpex-registry.json`、`official/`、`prices/`、`prices.db`、`normalized.json`、`history.db`、`runs/`、`check.json`、`check-integrated.json`、`commands.json`、`execution.json`、`acceptance.py` 及故障副本。以下日期是本次驗收值；下次執行須以來源實際日期確認，`expected-date` 不查歷史。
 
 ```bash
 # 先逐來源確認並準備僅啟用 TPEx 兩筆的私有 registry 副本。

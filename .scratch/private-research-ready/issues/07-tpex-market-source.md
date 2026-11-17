@@ -34,6 +34,6 @@ TPEx market_prices→research→audit，既有來源 registry／import 可按實
 
 ## Comments
 
-2026-11-17 完成。基準 `8b91af6`；既有產品直接支援實際 TPEx 格式，本票新增 4 個端到端驗收測試（6 subtests），沒有產品修復。完整 local.check：451 passed、193 subtests，exit 0。真實行情 1,022 列、公司／月營收各 898 列，6488／8069 獨立 research／audit 成功；三份原始來源均 HTTP 200，無受阻項。兩個保存版本 valid，8 筆完整 facts。
+2026-11-17 完成。基準 `8b91af6`，整合 `0de76c1` 後於 `6133bf7` 重驗；既有產品直接支援實際 TPEx 格式，本票新增 4 個端到端驗收測試（6 subtests），沒有產品修復。完整 local.check：463 passed、199 subtests，exit 0。真實行情 1,022 列、公司／月營收各 898 列，6488／8069 獨立 research／audit 成功；三份原始來源均 HTTP 200，無受阻項。三個保存版本 valid，8 筆完整 facts。
 
 來源審核、hash、命令、環境及界線見 [TPEx 驗證](../../../docs/VERIFICATION-2026-11-17-TPEX-MARKET.md)。私有證據在主工作區 `local/private/m1/07/`。目前 macOS 為使用者指定本輪驗收環境；Linux、前端／瀏覽器／模型未重驗。尺度與交易範圍留 08／09；本票不關閉 P1-01 或整體 M1。parent backlog／HANDOFF 由整合主代理集中同步。
