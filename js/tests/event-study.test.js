@@ -23,3 +23,18 @@ test('unavailable outcome cannot have a value',()=>{const r=sample();r.categorie
 test('horizons explicitly say observations not sessions',()=>{assert.equal(horizonLabel({horizon:5,horizon_unit:'quote_observations'}),'後第5筆報價觀察');assert.equal(horizonLabel({horizon:3,horizon_unit:'calendar_months'}),'後3個曆月');});
 test('empty report represents zero events without zero means',()=>{const r=sample();r.counts.events=0;r.categories.price_volume={events:[],summaries:[]};validate(r);});
 test('excessive event/report dimensions refused',()=>{const r=sample();r.counts.events=2001;assert.throws(()=>validate(r));});
+test('analysis version and fact scope visible including old report fallback',()=>{
+  const {scopeLabel}=require('../event-study.js');
+  assert.match(scopeLabel(sample()),/event-study-1.0.*display_graph_only/);
+  const r=sample();r.schema_version='event-study-2.0';r.fact_scope='unpruned_facts';
+  r.cohort_selection='explicit';r.counts.included_runs=1;r.counts.runs_after_cutoff=0;r.counts.runs_excluded_by_cohort=1;r.counts.events_excluded_by_origin=0;
+  r.inputs=[{run:'1',fact_scope:'unpruned_facts'}];r.excluded_inputs=[{run:'2',fact_scope:'display_graph_only',reason:'different_fact_scope'}];r.excluded_events=[];
+  r.cohorts={unpruned_facts:{total_runs:1,included_runs:1,excluded_runs:0},display_graph_only:{total_runs:1,included_runs:0,excluded_runs:1}};
+  validate(r);assert.match(scopeLabel(r),/event-study-2.0.*unpruned_facts/);
+  r.fact_scope='display_graph_only';assert.throws(()=>validate(r));
+});
+test('new version cannot omit cohort disclosure or claim mixed denominator',()=>{
+  const r=sample();r.schema_version='event-study-2.0';assert.throws(()=>validate(r));
+  r.fact_scope='unpruned_facts';assert.throws(()=>validate(r));
+  r.schema_version='event-study-1.0';assert.throws(()=>validate(r));
+});

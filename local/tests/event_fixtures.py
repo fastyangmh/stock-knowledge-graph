@@ -48,3 +48,23 @@ def event(report,rule='price_change'):
 
 def outcome(report,rule='price_change',metric='close_change_pct',horizon=1):
     return next(o for o in event(report,rule)['outcomes'] if o['metric']==metric and o['horizon']==horizon)
+
+
+def complete_bundle(*args, **kwargs):
+    """Synthetic audited-contract stand-in for the pure analyze seam (no disk IO)."""
+    result=bundle(*args, **kwargs)
+    facts=[]
+    for node in result.graphs[SID]['nodes']:
+        if node['type']=='stock':
+            continue
+        row=copy.deepcopy(node)
+        row.update(kind=row.pop('type'),stock_id=SID,
+                   source={'source_id':node['source_id'],'dataset_url':node['source_url']},
+                   normalization_version='synthetic-1',recorded_at=None,recorded_at_status='unknown')
+        if row['kind']=='market_price':
+            row['available_at']=row['observed_at']
+        row['id']=hashlib.sha256(canonical([row['id'],row['kind']])).hexdigest()
+        facts.append(row)
+    result.facts={'schema_version':'research-facts-1.0','scope':{'stock_ids':[SID]},'facts':facts}
+    result.graphs={SID:{'nodes':[],'edges':[]}}
+    return result
