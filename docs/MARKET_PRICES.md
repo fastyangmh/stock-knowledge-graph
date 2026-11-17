@@ -26,7 +26,7 @@
 
 兩份資料集頁標示每日更新、免費及政府資料開放授權條款第1版。依[條款](https://data.gov.tw/license)符合條件使用無須逐次書面授權，但須履行顯名義務。此核對只針對這兩份開放資料，不擴及其他付費行情、網站頁面或指數名單。
 
-本輪只確認官方metadata與來源連結；執行環境無法下載完整CSV，live integration尚未驗收。若來源重新導向、403、欄位異動，程式會停止，不繞過限制或以示範資料替補。不能只因測試通過就宣布端點可用。
+2026-11-17 已完成 TWSE 固定端點的真實全檔與兩檔私有研究驗收，詳見[驗證紀錄](VERIFICATION-2026-11-17-TWSE-MARKET.md)。TPEx 真實驗收另由 ticket 07 負責；一次成功不代表每日穩定服務。重新導向、403、欄位異動仍會停止。
 
 ## 操作（手動，僅私有輸出）
 
@@ -57,6 +57,9 @@ uv run --locked python -m local.market_prices \
 
 - 預設資料庫：`local/private/market-prices.db`；獨立於圖譜資料庫。
 - 私有輸出：`local/private/market-prices/<source_id>/<SHA256>.csv` 及 `latest-twse.json`／`latest-tpex.json`。
+- 成功報告附 HTTP status、Content-Type（缺省明示 missing）、實際 response URL、觀察時間、bytes 與 raw SHA256。離線／注入 bytes 不虛構 HTTP metadata，保持 unavailable。
+- `profile` 記錄全檔欄位、總列數、交易日分布、指定股票列數與缺漏。全列日期、欄列結構及重複代碼均檢查；OHLC／成交數值只驗證指定股票，以 `selected_value_validation` 分開揭露。
+- CLI 失敗另存 `retrieval-failure-<id>.json` 與有界 `failures/<id>.bin`，重用官方採集器的 metadata／錯誤分類。超量或短讀標記 `body_truncated`，只給 captured SHA256、不宣稱完整回應 hash；失敗不更新 `latest-<market>.json`。直接呼叫 `ingest` 的既有介面仍以例外回報，不自動建立失敗檔案。
 - SQLite表 `market_price_observations` 保存來源、市場、代碼、交易日、觀察時間、原始校驗碼、正規化行情JSON、來源條款和取得方式。主鍵為 `(source_id, symbol, trade_date, observed_at)`。
 - `market_prices_latest` view 按**每來源／股票／交易日**選最新觀察，而非最後插入順序；舊觀察與更正值都不覆寫。同一時間的矛盾資料會拒絕，不默默決定哪個正確。
 - 原始CSV不可變；只對完整成功批次更新結果報告。檔案與SQLite不是跨系統原子交易，失敗時可能留下未被報告引用的原始快照；不自動清除稽核證據。
@@ -67,4 +70,4 @@ uv run --locked python -m local.market_prices \
 
 ## 下一步（不要求先寄信）
 
-完成正式端點小量下載核對、單位與交易範圍核查；再擴充官方財務指標與原始公告抽檢。雙來源歷史名單、對外展示、付費服務或簽約各自評估，不阻塞與名單無關的模組。仍維持手動執行，不啟用排程或發布。
+TWSE 全檔至研究串接已驗證；接續完成單位與交易範圍核查（ticket 09），再擴充官方財務指標與原始公告抽檢。雙來源歷史名單、對外展示、付費服務或簽約各自評估，不阻塞與名單無關的模組。仍維持手動執行，不啟用排程或發布。

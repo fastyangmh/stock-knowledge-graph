@@ -163,6 +163,19 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(self.query("SELECT COUNT(*) FROM market_prices_latest")[0][0], 2)
         self.assertEqual(self.query("SELECT name FROM sqlite_master WHERE name='graph_nodes'"), [])
 
+    def test_full_file_profile_includes_unselected_rows_and_coverage(self):
+        result = ingest(fixture(), "twse", ["1000"], DAY, db=self.db, output=self.out,
+                        observed_at=WHEN, acquisition="local_file_unverified")
+        profile = result["profile"]
+        self.assertEqual(profile["columns"], list(FEEDS["twse"]["columns"]))
+        self.assertEqual(profile["row_count"], 2)
+        self.assertEqual(profile["date_distribution"], {DAY: 2})
+        self.assertEqual(profile["selected_symbol_rows"], {"1000": 1})
+        self.assertEqual(profile["missing_symbols"], [])
+        self.assertEqual(profile["selected_value_validation"], "passed")
+        self.assertEqual(result["bytes"], len(fixture()))
+        self.assertEqual(result["http_status"], None)
+
     def test_same_observation_idempotent(self):
         self.load()
         self.assertEqual(self.load()["inserted_observations"], 0)
@@ -245,8 +258,102 @@ class StorageTests(unittest.TestCase):
             main(['--market','twse','--symbols','1000','--expected-date',DAY,'--output',str(ROOT/'data')])
         mocked.assert_not_called()
 
+    def test_cli_stale_full_file_retains_success_and_saves_failure_bytes(self):
+        self.load()
+        before = (self.out/"latest-twse.json").read_bytes()
+        inp = self.root/"stale.csv"
+        stale = fixture().replace(b"1090102,1001", b"1090101,1001")
+        inp.write_bytes(stale)
+        with self.assertRaises(ValueError):
+            main(['--market', 'twse', '--symbols', '1000', '--expected-date', DAY,
+                  '--input', str(inp), '--db', str(self.db), '--output', str(self.out)])
+        self.assertEqual((self.out/"latest-twse.json").read_bytes(), before)
+        reports = list(self.out.glob('retrieval-failure-*.json'))
+        self.assertEqual(len(reports), 1)
+        failure = json.loads(reports[0].read_text())['failure']
+        self.assertEqual(failure['stage'], 'validation_and_persistence')
+        self.assertEqual(failure['profile']['date_distribution'], {'2020-01-01': 1, DAY: 1})
+        self.assertEqual((self.out/failure['path']).read_bytes(), stale)
+        self.assertFalse(failure['body_truncated'])
+
+    def test_cli_invalid_selected_values_preserves_full_profile(self):
+        self.load()
+        before = (self.out/"latest-twse.json").read_bytes()
+        inp = self.root/"invalid.csv"
+        inp.write_bytes(fixture().replace(b"11.50", b"NaN"))
+        with self.assertRaises(ValueError):
+            main(['--market', 'twse', '--symbols', '1000', '--expected-date', DAY,
+                  '--input', str(inp), '--db', str(self.db), '--output', str(self.out)])
+        failure = json.loads(next(self.out.glob('retrieval-failure-*.json')).read_text())['failure']
+        self.assertEqual(failure['profile']['row_count'], 2)
+        self.assertEqual(failure['profile']['selected_value_validation'], 'failed')
+        self.assertEqual((self.out/"latest-twse.json").read_bytes(), before)
+
+    def test_failed_cli_batches_preserve_success_with_structured_evidence(self):
+        self.load()
+        before = (self.out/"latest-twse.json").read_bytes()
+        rows = list(csv.reader(io.StringIO(fixture().decode())))
+        cases = {
+            'missing_stock': fixture(rows=[rows[1]]),
+            'missing_column': fixture().replace('收盤價'.encode(), b'unknown'),
+            'duplicate_unselected': fixture(rows=[rows[1], rows[2], rows[2]]),
+            'old_date': fixture().replace(b'1090102', b'1090101'),
+            'negative_count': fixture().replace(b'"1,000"', b'-1'),
+            'infinite_price': fixture().replace(b'11.50', b'Inf'),
+            'html': b'<html>blocked</html>',
+        }
+        for name, body in cases.items():
+            with self.subTest(name=name):
+                inp = self.root/(name + '.csv')
+                inp.write_bytes(body)
+                prior = set(self.out.glob('retrieval-failure-*.json'))
+                symbols = ['1000'] if name == 'duplicate_unselected' else ['1000', '1001']
+                with self.assertRaises(ValueError):
+                    main(['--market', 'twse', '--symbols', *symbols, '--expected-date', DAY,
+                          '--input', str(inp), '--db', str(self.db), '--output', str(self.out)])
+                reports = set(self.out.glob('retrieval-failure-*.json')) - prior
+                self.assertEqual(len(reports), 1)
+                report = json.loads(reports.pop().read_text())
+                self.assertEqual(report['status'], 'failed')
+                self.assertEqual((self.out/report['failure']['path']).read_bytes(), body)
+                self.assertEqual((self.out/"latest-twse.json").read_bytes(), before)
+
+    def test_http_failure_prefix_and_metadata_do_not_replace_success(self):
+        self.load()
+        before = (self.out/"latest-twse.json").read_bytes()
+        with patch('local.market_prices.build_opener') as builder:
+            builder.return_value.open.side_effect = HTTPError(FEEDS['twse']['resource_url'], 403,
+                'Forbidden', {'Content-Type': 'text/html'}, io.BytesIO(b'<html>denied</html>'))
+            with self.assertRaises(HTTPError):
+                main(['--market', 'twse', '--symbols', '1000', '--expected-date', DAY,
+                      '--db', str(self.db), '--output', str(self.out)])
+        failure = json.loads(next(self.out.glob('retrieval-failure-*.json')).read_text())['failure']
+        self.assertEqual(failure['http_status'], 403)
+        self.assertEqual(failure['content_type'], 'text/html')
+        self.assertEqual(failure['error_category'], 'http_error')
+        self.assertEqual((self.out/failure['path']).read_bytes(), b'<html>denied</html>')
+        self.assertEqual((self.out/"latest-twse.json").read_bytes(), before)
+
 
 class NetworkTests(unittest.TestCase):
+    def test_http_response_metadata_and_failed_response_body_are_retained(self):
+        with patch('local.market_prices.build_opener') as builder:
+            response = builder.return_value.open.return_value.__enter__.return_value
+            response.headers = {'Content-Type': 'text/csv', 'Content-Length': str(len(fixture()))}
+            response.status = 200
+            response.geturl.return_value = FEEDS['twse']['resource_url']
+            response.read.return_value = fixture()
+            body = fetch('twse')
+            self.assertEqual(body.metadata['http_status'], 200)
+            self.assertEqual(body.metadata['content_type'], 'text/csv')
+            self.assertEqual(body.metadata['response_url'], FEEDS['twse']['resource_url'])
+            builder.return_value.open.side_effect = HTTPError(FEEDS['twse']['resource_url'], 403,
+                'Forbidden', {'Content-Type': 'text/html'}, io.BytesIO(b'<html>denied</html>'))
+            with self.assertRaises(HTTPError) as caught:
+                fetch('twse')
+            self.assertEqual(caught.exception.response_body, b'<html>denied</html>')
+            self.assertEqual(caught.exception.response_body.metadata['http_status'], 403)
+
     def test_403_not_retried(self):
         with patch('local.market_prices.build_opener') as builder:
             builder.return_value.open.side_effect = HTTPError(FEEDS['twse']['resource_url'],403,'Forbidden',{},None)
@@ -269,8 +376,10 @@ class NetworkTests(unittest.TestCase):
         with patch('local.market_prices.build_opener') as builder:
             response = builder.return_value.open.return_value.__enter__.return_value
             response.headers = {'Content-Length': str(MAX_BYTES+1)}
-            with self.assertRaises(ValueError): fetch('twse')
-            response.read.assert_not_called()
+            response.read.return_value = b"bounded prefix"
+            with self.assertRaises(ValueError) as caught: fetch('twse')
+            self.assertTrue(caught.exception.response_body.metadata["body_truncated"])
+            response.read.assert_called_once_with(MAX_BYTES+1)
             url = builder.return_value.open.call_args.args[0].full_url
             self.assertEqual(url, FEEDS['twse']['resource_url'])
 
