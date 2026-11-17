@@ -48,6 +48,7 @@ uv run --locked python -m local.research \
 
 ```text
 <run-id>/
+├── research-facts.json # 未裁剪、版本化的私有數值契約，不提供 HTTP
 ├── graph.db       # 當次隔離的衍生圖譜資料庫，不是原始資料庫
 ├── data/          # 完整可驗證的靜態圖譜（仍在 private 路徑）
 └── report.json    # 資料來源、截止時間、快照、統計、警告、SHA256
@@ -138,3 +139,7 @@ uv run --locked python -m local.model_check --offline \
 `linux_target_acceptance` 保持 false，需另結合 ticket 01 的目標環境基準審核。
 失敗回傳 exit 1 並保留錯誤報告；已有 output 會拒絕覆寫。實測與受阻範圍見
 [2026-11-17 模型驗證](VERIFICATION-2026-11-17-REAL-MODEL.md)。
+
+## 完整數值契約
+
+新版 bundle 另保存 `research-facts.json`，包含 cutoff 的全部 replay 財務／籌碼與指定市場已保存行情歷史；展示名額不裁剪研究事實。保存前執行完整 audit，舊版仍標為 `display_graph_only`。欄位、時間語意、工作量限制與下游介面見[未裁剪研究事實契約](RESEARCH_FACTS.md)。

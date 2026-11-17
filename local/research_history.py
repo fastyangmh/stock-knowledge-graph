@@ -209,7 +209,9 @@ and contradictory same-time revisions fail instead of choosing silently.
         updates_selected_doc = any(d["document_id"] in selected["documents"] for d in payload.get("documents", []))
         if not relevant and not updates_selected_doc:
             continue
-        used.append({"sha256": checksum, "observed_at": observed_at, "recorded_at": recorded_at})
+        used.append({"sha256": checksum, "observed_at": observed_at, "recorded_at": recorded_at,
+                     "metadata": copy.deepcopy(payload["metadata"]),
+                     "sources": copy.deepcopy(payload.get("sources", []))})
         warnings.update(quality["warnings"])
         for source in payload.get("sources", []):
             keep("sources", source["source_id"], source, observed)
@@ -239,6 +241,8 @@ and contradictory same-time revisions fail instead of choosing silently.
                 if available > cutoff:
                     continue
                 item = copy.deepcopy(metric)
+                item["source_available_at"] = metric["available_at"]
+                item["observed_at"] = observed_at
                 item["available_at"] = max(available, observed, recorded).isoformat(timespec="microseconds")
                 item["input_snapshot_sha256"] = checksum
                 item["registered_at"] = recorded_at

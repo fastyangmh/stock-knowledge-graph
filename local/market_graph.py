@@ -18,7 +18,33 @@ from .dates import iso_date, timestamp
 from .market_prices import FEEDS, FIELDS, normalize, source_info, MAX_BYTES
 
 
-def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, snapshot_dir=None) -> list[dict]:
+MAX_HISTORY_ROWS = 100000
+MAX_HISTORY_RAW_BYTES = 128 * 1024 * 1024
+MAX_HISTORY_RECORD_BYTES = 128 * 1024 * 1024
+MAX_HISTORY_SQL_STEPS = 5_000_000
+
+
+class HistoryBudget:
+    """Shared limits include repeated raw normalization and SQL scans."""
+    def __init__(self):
+        self.limits = {'rows': MAX_HISTORY_ROWS, 'raw_bytes': MAX_HISTORY_RAW_BYTES,
+                       'record_bytes': MAX_HISTORY_RECORD_BYTES, 'sql_steps': MAX_HISTORY_SQL_STEPS}
+        self.used = dict.fromkeys(self.limits, 0)
+        self.exhausted = False
+
+    def consume(self, name, amount):
+        self.used[name] += amount
+        if self.used[name] > self.limits[name]:
+            self.exhausted = True
+            raise ValueError('market history '+name+' work budget exceeded')
+
+    def progress(self):
+        self.used['sql_steps'] += 1000
+        self.exhausted = self.used['sql_steps'] > self.limits['sql_steps']
+        return int(self.exhausted)
+
+
+def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, snapshot_dir=None, *, budget=None) -> list[dict]:
     info = source_info(feed)
     symbols = list(symbols)
     if not symbols or len(set(symbols)) != len(symbols) or any(not re.fullmatch(r"[0-9]{4}", s) for s in symbols):
@@ -32,12 +58,27 @@ def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, sn
         conn.execute("PRAGMA query_only=ON")
         conn.execute("PRAGMA trusted_schema=OFF")
         conn.row_factory = sqlite3.Row
+        conn.execute("BEGIN")
         kind = conn.execute("SELECT type FROM sqlite_master WHERE name='market_price_observations'").fetchone()
         if kind is None or kind[0] != "table":
             raise ValueError("market_price_observations table is missing")
         # Count and dates are deliberately bounded before loading data into memory.
         query = "SELECT * FROM market_price_observations WHERE source_id=? AND trade_date=? AND symbol IN (" + ",".join("?" for _ in symbols) + ")"
-        rows = conn.execute(query + " ORDER BY observed_at LIMIT 10001", (info["source_id"], trade_date, *symbols)).fetchall()
+        if budget:
+            conn.set_progress_handler(budget.progress, 1000)
+        try:
+            rows = []
+            # Lengths are checked before SQLite transfers record JSON to Python.
+            if budget:
+                sizes = conn.execute(query.replace('SELECT *', 'SELECT length(CAST(record_json AS BLOB))+length(CAST(source_json AS BLOB))') + ' LIMIT 10001',
+                                     (info['source_id'], trade_date, *symbols))
+                for size, in sizes:
+                    budget.consume('record_bytes', size)
+            rows = conn.execute(query + " ORDER BY observed_at LIMIT 10001", (info["source_id"], trade_date, *symbols)).fetchall()
+        except sqlite3.OperationalError as exc:
+            if budget and budget.exhausted:
+                raise ValueError('market history SQL work budget exceeded') from exc
+            raise
     if len(rows) > 10000:
         raise ValueError("market revision budget exceeded")
     latest = {}
@@ -75,8 +116,13 @@ def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, sn
             raw = Path(snapshot_dir).absolute()/info["source_id"]/(row["raw_sha256"] + ".csv")
             if raw.is_symlink() or any(p.is_symlink() for p in raw.parents):
                 raise ValueError("symlink price snapshot is not permitted")
+            if budget:
+                raw_size = raw.stat().st_size
+                budget.consume('raw_bytes', raw_size)
             with raw.open("rb") as source_file:
                 body = source_file.read(MAX_BYTES+1)
+            if budget and len(body) > raw_size:
+                budget.consume("raw_bytes", len(body)-raw_size)
             if len(body) > MAX_BYTES or hashlib.sha256(body).hexdigest() != row["raw_sha256"]:
                 raise ValueError("market raw snapshot checksum mismatch")
             original = normalize(body, feed, [row["symbol"]], trade_date, row["observed_at"])
