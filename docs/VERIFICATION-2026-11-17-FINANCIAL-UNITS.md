@@ -1,6 +1,6 @@
 # 2026-11-17 月營收單位與獨立抽檢
 
-本票基於 `0de76c1`，於 `task/pr-08` 實作；實作 Commit 見本檔的 Git history。
+本票基於 `0de76c1`，實作 Commit `bb4c534`；合併整合分支後於 `896b4f9` 重驗。
 本輪採使用者允許的 macOS arm64、Python 3.11.11／uv 鎖定環境；Linux 未執行。
 私有證據存於 `local/private/m1/08/`，不提交官方 bytes、SQLite 或研究報告。
 公開 `data/` 未變更，未設定排程／公開／交易。
@@ -14,11 +14,11 @@
 | 企業 IR 補充 | 2454 金額／YoY／MoM、6488 金額、8069 金額共 5 筆通過各自尺度容差 |
 | 原 CSV → 新單位 → 獨立 ledger → research/alerts → audit | 每市場 6 個完整 facts，兩個 bundle audit 通過；原擷取可得時間皆保留 |
 | 零容差差異 | 8 筆官方 HTML 增率及 4 筆企業 IR 精度差異均保留 exit 2 原報告，未冒充零差 |
-| 本地完整檢查 | `local.check`：471 passed、197 subtests passed；compileall、示範 import/similarity/export/validate 通過 |
+| 本地完整檢查 | `local.check`：整合後475 passed、207 subtests passed；compileall、示範 import/similarity/export/validate 通過 |
 
 初次 sandbox 檢查 449 passed、10 failed、12 errors，全為禁止 loopback bind；
 以正常 escalation 重跑完整檢查 exit 0。`check-report.json` 保留失敗，
-`check-escalated.json` 保留成功。未變更前端，未執行本票瀏覽器驗收。
+`check-escalated.json` 保留合併前471/197成功；`check-integrated.json` 保存 `896b4f9` 的475/207成功。未變更前端，未執行本票瀏覽器驗收。
 `local.check` 的既知私有程式雜湊範圍問題未在本票修改，另存本票來源檔 SHA256。
 
 ## 獨立來源與單位結論

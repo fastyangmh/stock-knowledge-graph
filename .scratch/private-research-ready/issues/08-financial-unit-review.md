@@ -38,6 +38,6 @@
 
 - 公共入口 red→green：未知幣別／月期別scope／aliases／版本、raw→新版→research→audit、ledger隔離、提醒／事件可比較性與來源URL。
 - 真實兩市場各2檔、2026-10金額及MoM/YoY共12筆；4筆金額零差、8筆增率在有原始精度證據的0.01百分點內。另5筆企業IR核對按各指標精度通過。
-- `local.check` 正常loopback權限下471 passed、197 subtests passed；原sandbox bind失敗另留報告。
+- `local.check` 正常loopback權限下整合後475 passed、207 subtests passed（`896b4f9`；實作`bb4c534`）；原sandbox bind失敗另留報告。
 - 私有證據 `local/private/m1/08/`；來源bytes/manifest、0容差差異及容差報告、2組新ledger/bundle均保留；05/07舊產物未改。
 - 詳見[驗證紀錄](../../../docs/VERIFICATION-2026-11-17-FINANCIAL-UNITS.md)與[單位契約](../../../docs/FINANCIAL_REVIEW.md)。parent backlog/HANDOFF由整合代理統一更新，不以本票關閉所有P1-02範圍。
