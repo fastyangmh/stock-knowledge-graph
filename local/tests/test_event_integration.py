@@ -27,7 +27,7 @@ ASOF='2020-09-30T23:59:59+08:00'
 CONFIG={'quote_horizons':[1,2], 'revenue_horizons':[1]}
 
 
-def research_run(root,n,day,close,volume,*,alerts=False,data=None):
+def research_run(root,n,day,close,volume,*,alerts=False,data=None,cap=100):
     """Backdated synthetic clocks are test-only; product CLI never backdates runs."""
     root=Path(root);known=day+'T20:00:00+08:00'
     body=csv_data(day,close,volume)
@@ -37,7 +37,7 @@ def research_run(root,n,day,close,volume,*,alerts=False,data=None):
     p=root/f'input-{n}.json';p.write_bytes(canonical(data))
     with patch('local.research.utc_now',return_value=known),patch('local.research_history.utc_now',return_value=known):
         return run(p,['1000'],history_db=root/'ledger.db',output_root=root/'runs',
-                   alerts=alerts,alerts_config={'volume_window':1} if alerts else None,
+                   max_information_nodes=cap,alerts=alerts,alerts_config={'volume_window':1} if alerts else None,
                    prices_db=root/'prices.db',price_snapshots=root/'raw',trade_date=day)
 
 
@@ -56,9 +56,84 @@ class EventIntegrationTests(unittest.TestCase):
         self.assertEqual(outcome(result,metric='volume_ratio')['value'],'0.500000')
         self.assertEqual(outcome(result)['baseline']['raw_snapshot_verified'],True)
         self.assertEqual(len(result['inputs']),4)
+    def test_unpruned_facts_independent_of_display_cap(self):
+        small=self.root/'small'
+        small.mkdir()
+        for n,day,close,volume in [(0,'2020-08-14','100',1000),(1,'2020-08-15','110',3000),
+                                   (2,'2020-08-16','121',1500),(3,'2020-08-17','99',0)]:
+            research_run(small,n,day,close,volume,alerts=n==1,cap=0)
+        full=self.study();limited=build(small/'runs',ASOF,config=CONFIG)
+        self.assertEqual(full['schema_version'],'event-study-2.0')
+        self.assertEqual(full['fact_scope'],'unpruned_facts')
+        self.assertEqual(outcome(limited)['value'],'10.000000')
+        self.assertIn('fact_id',outcome(limited)['baseline'])
+        self.assertNotIn('node_id',outcome(limited)['baseline'])
+        self.assertEqual(full['counts'],limited['counts'])
+        def results(report):
+            return [(s['rule_id'],s['metric'],s['horizon'],s['n_total'],s['status_counts'],s['statistics'])
+                    for category in report['categories'].values() for s in category['summaries']]
+        self.assertEqual(results(full),results(limited))
+        first=audit_bundle(small/'runs',limited['inputs'][1]['run'])
+        self.assertEqual(len(first.graphs[SID]['nodes']),1)
+        self.assertGreater(len(first.facts['facts']),1)
+
+    def test_mixed_catalog_requires_cohort_and_never_rebuilds_legacy_event(self):
+        first=self.root/'runs'/self.first['run']
+        report=json.loads((first/'report.json').read_text())
+        report.pop('research_facts')
+        (first/'research-facts.json').unlink()
+        (first/'report.json').write_bytes(canonical(report))
+        # A later capture of the same revenue trigger cannot replace its legacy baseline.
+        research_run(self.root,4,'2020-08-18','99',0,alerts=True)
+        with self.assertRaisesRegex(ValueError,'explicit cohort'):
+            self.study()
+        new=build(self.root/'runs',ASOF,config=CONFIG,cohort='unpruned_facts')
+        old=build(self.root/'runs',ASOF,config=CONFIG,cohort='display_graph_only')
+        self.assertEqual(old['schema_version'],'event-study-1.0')
+        self.assertEqual(old['fact_scope'],'display_graph_only')
+        self.assertEqual(old['counts']['included_runs'],1)
+        self.assertEqual(outcome(old)['status'],'insufficient_data')
+        self.assertEqual(new['counts']['included_runs'],4)
+        self.assertEqual(new['cohorts']['display_graph_only']['excluded_runs'],1)
+        self.assertEqual(old['cohorts']['unpruned_facts']['excluded_runs'],4)
+        self.assertFalse(new['categories']['monthly_revenue']['events'])
+        self.assertEqual(len(new['excluded_events']),4)
+        self.assertTrue(all(e['reason']=='first_trigger_saved_in_other_cohort' for e in new['excluded_events']))
+        self.assertEqual(new['excluded_inputs'][0]['run'],self.first['run'])
+        self.assertEqual(new['excluded_inputs'][0]['reason'],'different_fact_scope')
+        self.assertEqual(new['counts']['events'],0)
+        output=self.root/'cohort.json'
+        with redirect_stdout(io.StringIO()):
+            main(['--root',str(self.root/'runs'),'--as-of',ASOF,'--cohort','display_graph_only','--output',str(output)])
+        self.assertEqual(json.loads(output.read_text())['fact_scope'],'display_graph_only')
+
+    def test_invalid_new_facts_never_fall_back_even_when_other_cohort_selected(self):
+        path=self.root/'runs'/self.first['run']/'research-facts.json'
+        original=path.read_bytes()
+        for body in (b'{}',b'{"schema_version":"research-facts-999"}'):
+            path.write_bytes(body)
+            with self.assertRaisesRegex(ValueError,'invalid catalog'):
+                build(self.root/'runs',ASOF,cohort='display_graph_only')
+        path.write_bytes(original)
+        path.unlink()
+        with self.assertRaisesRegex(ValueError,'invalid catalog'):
+            self.study()
+
+    def test_later_bundle_retains_locally_saved_history_outside_current_graph(self):
+        import shutil
+        shutil.rmtree(self.root/'runs'/self.second['run'])
+        result=self.study()
+        row=outcome(result)
+        self.assertEqual(row['target_period'],'2020-08-16')
+        self.assertEqual(row['value'],'10.000000')
+        self.assertEqual(row['followup']['run'],self.third['run'])
+        self.assertEqual(row['followup']['captured_at'],'2020-08-17T12:00:00+00:00')
+        self.assertEqual(row['followup']['recorded_at_status'],'unknown')
+
     def test_full_report_reproducible_read_only_no_network(self):
         before={p.relative_to(self.root):p.read_bytes() for p in self.root.rglob('*') if p.is_file()}
-        with patch('urllib.request.OpenerDirector.open',side_effect=AssertionError('forbidden network')):
+        with patch('urllib.request.OpenerDirector.open',side_effect=AssertionError('forbidden network')), \
+                patch('sqlite3.connect',side_effect=AssertionError('forbidden SQL')):
             a=self.study();b=self.study()
         self.assertEqual(a,b)
         self.assertEqual(before,{p.relative_to(self.root):p.read_bytes() for p in self.root.rglob('*') if p.is_file()})
@@ -134,7 +209,7 @@ class EventIntegrationTests(unittest.TestCase):
         self.assertEqual(response.status,200);self.assertEqual(json.loads(body),report)
         report['counts']['events']=999
         conn.request('GET','/event-study.json');response=conn.getresponse();self.assertEqual(response.read(),body)
-        for path in ('/../ledger.db','/data/manifest.json','/raw','/report.json','/.env','/api/compare','/runs'):
+        for path in ('/../ledger.db','/data/manifest.json','/raw','/report.json','/.env','/api/compare','/runs','/research-facts.json','/graph.db'):
             conn.request('GET',path);response=conn.getresponse();response.read();self.assertEqual(response.status,404,path)
         conn.request('GET','/',headers={'Host':'evil.example'});response=conn.getresponse();response.read();self.assertEqual(response.status,403)
         conn.request('HEAD','/');response=conn.getresponse();self.assertEqual(response.status,200);self.assertEqual(response.read(),b'')
