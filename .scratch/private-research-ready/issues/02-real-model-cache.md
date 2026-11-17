@@ -34,6 +34,6 @@ research／semantic 既有入口與報告，既有 encoder／loader 邊界只用
 
 ## Comments
 
-2026-11-17：已新增 opt-in `local.model_check`，固定既定模型完整 revision，驗證下載權重／設定 hash，真實模型四情境已在 macOS arm64／Python 3.11.11 通過，四份 bundle audit 成功。詳見[驗證紀錄](../../../docs/VERIFICATION-2026-11-17-REAL-MODEL.md)。合成 encoder 回歸與真實模型分開記錄；公開示範與 uv.lock 未變。
+2026-11-17：實作 Commit `5a40650`，整合測試 Commit `0fb3f08`。已新增 opt-in `local.model_check`，固定既定模型完整 revision，驗證下載權重／設定 hash，真實模型四情境已在 macOS arm64／Python 3.11.11 通過，四份 bundle audit 成功。詳見[驗證紀錄](../../../docs/VERIFICATION-2026-11-17-REAL-MODEL.md)。合成 encoder 回歸與真實模型分開記錄；公開示範與 uv.lock 未變。
 
 依賴 gate：ticket 01 尚缺 Linux／Python 3.11 目標環境驗收，因此本票仍為 needs-info；本機成功不替代 Linux acceptance，不關閉 parent P0-01。私有原始證據與模型位於 `local/private/m1/02/`，不提交。

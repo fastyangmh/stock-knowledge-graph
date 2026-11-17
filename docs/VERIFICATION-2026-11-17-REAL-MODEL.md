@@ -11,7 +11,10 @@
 - 新測試 red：缺 `local.model_check`，ModuleNotFoundError，pytest collection error（外層 shell 因 zsh 唯讀 `status` 變數回傳 1，未另捕捉 pytest exit code；原始 pytest 錯誤保留）。
 - green：四情境合成 encoder 回歸 1 passed；連同既有回歸 26 passed，exit 0。
 - 真實初次擷取與四情境：exit 0；完整離線 local.check exit 0。
-- 提交後的乾淨 Commit 快取重跑證據將記於下方。
+- 乾淨實作 Commit `5a4065069389e715a00ffa881d362eda09b371b8`：離線真實四情境 exit 0；完整 local.check exit 0，413 passed、154 subtests passed。
+- 合併 integration `82edd78` 後，乾淨 Commit `0fb3f08d917c5ac286f4037a65c719d2417a28af`：離線真實四情境 exit 0；完整 local.check exit 0，422 passed、163 subtests passed。
+- 明確缺少已驗證快取的離線 CLI：exit 1，保存 FileNotFoundError 與 passed=false，未載入模型。
+- `git diff --check` exit 0；本票未更動公開示範、uv.lock 或既有私有研究。
 
 | 情境 | encoded | pairs_evaluated | loader 次數 | graph_reused | stock_pairs |
 | --- | --- | --- | --- | --- | --- |
@@ -37,9 +40,18 @@
 
 ## 私有證據與重跑
 
-私有執行根目錄：`/private/tmp/skg-worktrees/02/local/private/m1/02/`。
+私有執行根目錄：`/private/tmp/skg-worktrees/02/local/private/m1/02/`；已將原始報告、輸入、SQLite、模型 provenance 與完整已校驗 snapshot 複製至主工作區 `local/private/m1/02/`。Hub 中間下載快取不重複複製，主工作區仍可直接執行 `--offline`。
 `model-cache/model-provenance.json` 包含來源、revision、ETag／SHA256／bytes；`live-01/report.json`
 與 `exercise/scenarios.json` 包含四份 run、audit、向量 hash、關係與 loader 測量；原始輸入與 SQLite 同目錄保存。
+最終整合證據為 `integrated/report.json` 與 `check-integrated.json`；兩份報告記錄乾淨 Commit，所有檢查 exit 0。
+
+| 私有檔案 | SHA256 |
+| --- | --- |
+| `integrated/report.json` | `b031a50426a886dead87b7f64b4d48689fcd79545356567219579740f6b04fcd` |
+| `check-integrated.json` | `f2b25bbaebff322c0e7c3ab4aff9f2786b7b4aad13b590c31add6cd2a79cf810` |
+| `model-cache/model-provenance.json` | `2419e6d6ae941f784bd40a8da105b2aae5112044f41ae6d1b083c7affc5e74b4` |
+| `model-cache/snapshot/model.safetensors`（470641600 bytes） | `eaa086f0ffee582aeb45b36e34cdd1fe2d6de2bef61f8a559a1bbc9bd955917b` |
+
 模型、DB、原始報告不提交，公開 `data/` 未被覆寫。
 
 ```bash
