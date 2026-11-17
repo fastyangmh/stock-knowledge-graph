@@ -111,6 +111,8 @@ CLI 擷取／匯入 → 真實臨時 SQLite → research → audit → 本機 HT
 
 固定候選3834c19完成完整check（482 pytest／220 subtests／55 Node）、真實模型四情境、兩市場各兩版真實來源semantic/alerts→audit→compare→event與六個真實頁面桌機／手機HTTP驗收。原CDN、WebCrypto、只讀Pages及既有故障回歸通過。詳細命令、exit code、證據與未驗範圍見[整合索引](../../docs/VERIFICATION-2026-11-17-M1.md)。
 
-財務月營收獨立核對完成；行情正式兩市場仍exit 2／compared_fields=0，09／10保持needs-info，M1未全過。P2-01工程及真實來源串接完成，不代表M2～M6或完整repo完成。最終code-review、必要修復與推送由後續整合流程記錄。
+最終兩軸審查與修復已完成，候選ecd176b通過490 pytest／246 subtests／55 Node，並重驗兩市場真實串接及三頁瀏覽器。已修復證據覆寫、事件定義錯誤合併與來源hash遺漏；詳見[審查修復紀錄](../../docs/VERIFICATION-2026-11-17-REVIEW.md)。
 
-原規劃時的文件驗證保留歷史：15份Markdown、12張tickets、111個相對連結有效；21個backlog ID有里程碑／範圍對應。本輪文件另檢查相對路徑與git diff --check，不將歷史數字當本輪重跑。
+財務月營收獨立核對完成；行情正式兩市場仍exit 2／compared_fields=0，09／10保持needs-info，M1未全過。P2-01工程及真實來源串接完成，不代表M2～M6或完整repo完成。開發分支提交與推送由整合流程回報。
+
+原規劃時的文件驗證保留歷史：15份Markdown、12張tickets、111個相對連結有效；21個backlog ID有里程碑／範圍對應。最終檢查本輪變更的43份Markdown、295個相對連結與git diff --check均通過；產品檔案與實測ecd176b一致，公開資料hash及lock不變，未追蹤私有產物。
