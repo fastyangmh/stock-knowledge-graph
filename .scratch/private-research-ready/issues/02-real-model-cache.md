@@ -6,8 +6,12 @@
 **Spec:** [第一階段規格](../spec.md)
 **Milestone:** M1
 **Blocked by:** [01：Linux／Python 3.11 鎖定環境重現](01-locked-environment.md)
-**Status:** needs-info
+**Status:** resolved
 **Review:** 使用者於 2026-11-17 授權依本規格實作、TDD、整合與審查；執行驗收仍依實際證據判定。
+
+## 執行範圍修訂
+
+使用者於 2026-11-17 確認目前沒有 Linux，要求在當前環境測試。本票本輪驗收環境改為 macOS arm64／Python 3.11，既有本機成功證據據此接受；Linux／NAS 仍未驗證，留待移轉時重驗，不再阻擋本輪。下列原始 Linux 條件依此修訂解讀，不宣稱 Linux 通過。
 
 ## Acceptance criteria
 
@@ -37,3 +41,7 @@ research／semantic 既有入口與報告，既有 encoder／loader 邊界只用
 2026-11-17：實作 Commit `5a40650`，整合測試 Commit `0fb3f08`。已新增 opt-in `local.model_check`，固定既定模型完整 revision，驗證下載權重／設定 hash，真實模型四情境已在 macOS arm64／Python 3.11.11 通過，四份 bundle audit 成功。詳見[驗證紀錄](../../../docs/VERIFICATION-2026-11-17-REAL-MODEL.md)。合成 encoder 回歸與真實模型分開記錄；公開示範與 uv.lock 未變。
 
 依賴 gate：ticket 01 尚缺 Linux／Python 3.11 目標環境驗收，因此本票仍為 needs-info；本機成功不替代 Linux acceptance，不關閉 parent P0-01。私有原始證據與模型位於 `local/private/m1/02/`，不提交。
+
+## 最新狀態
+
+依使用者的當前環境驗收指示，本票本輪驗收已完成，設 resolved；先前紀錄的 Linux needs-info 是修訂前狀態。最終整合仍須通過全套檢查與 code-review。
