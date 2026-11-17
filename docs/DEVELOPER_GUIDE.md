@@ -27,6 +27,9 @@ uv run --locked python -m local.check --runner unittest
 
 ## 日常開發流程
 
+AI 協作採用 [Matt Pocock skills](agents/README.md)，專案入口為根目錄 `AGENTS.md`；
+技能沿用既有 backlog、術語表與以下驗收規則。
+
 1. 讀取最新分支／Commit，使用獨立開發分支；不覆寫其他人的變更。
 2. 先跑基準測試，再修改程式和相對應的回歸測試。
 3. 執行 `compileall`、完整 Python 測試；前端變更另測 Node 與適用的瀏覽器情境。

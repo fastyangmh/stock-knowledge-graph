@@ -10,6 +10,7 @@
 | --- | --- |
 | [專案交接](HANDOFF.md) | 程式基準、已確認決策、實作與驗證界線、操作入口、接手指令 |
 | [待開發與驗收清單](DEVELOPMENT_BACKLOG.md) | 優先級、相依項目、完成條件、外部依賴與必要決策 |
+| [AI 開發技能](agents/README.md) | Matt Pocock skills、使用流程、本地工作追蹤與更新方式 |
 
 ## 使用者
 
