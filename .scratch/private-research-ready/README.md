@@ -5,7 +5,9 @@
 本地 `main` 與已存在的 `origin/main` tracking ref 相同；本輪沒有 fetch，未聲稱已查到遠端即時 HEAD。
 
 **Review:** 使用者於 2026-11-17 授權依本規格實作、TDD、整合與審查；執行驗收仍依實際證據判定。
-**Status:** ready-for-agent
+**Status:** claimed
+
+**環境修訂：** 使用者已指示本輪在當前 macOS 環境測試，M1 不等待 Linux；Linux／NAS 移轉驗收仍未執行。規格與 01／02 票已記錄此修訂。
 
 入口：[第一里程碑規格](spec.md) · [逐票清單](#任務拆分) · [程式盤點](inventory.md) · [原 backlog](../../docs/DEVELOPMENT_BACKLOG.md) · [已確認決策](../../docs/HANDOFF.md)。
 

@@ -20,7 +20,7 @@ from .core import ROOT, connect, init_db, import_payload, upsert_node, upsert_ed
 from .collect_official import atomic_bytes
 from .dates import iso_date, timestamp
 from .export_json import export
-from .market_graph import read_prices, attach_prices
+from .market_graph import attach_prices, HistoryBudget
 from .research_history import (strict_json, canonical, record_snapshot, replay,
                                validate_symbols, utc_now, MAX_INPUT_BYTES)
 from .safety import private_path, exclusive_lock
@@ -137,11 +137,12 @@ def _reuse_cache(conn, prior, model_name, revision):
 def run(input_file, symbols, *, history_db, output_root, analysis="none", known_at=None,
         prices_db=None, trade_date=None, price_market="twse", price_snapshots=None, model=DEFAULT_MODEL, revision=None,
         top_k=10, threshold=0.65, max_pairs=2_000_000, lookback_days=None, encoder=None,
-        alerts=False, alerts_config=None):
+        alerts=False, alerts_config=None, max_information_nodes=100):
     """Materialize an isolated research database from as-recorded observations."""
     stock_ids = validate_symbols(symbols)
+    if type(max_information_nodes) is not int or not 0 <= max_information_nodes <= 100:
+        raise ValueError("display information limit must be 0..100")
     from .alerts import evaluate, policy
-    from .alert_inputs import load_price_history
     if type(alerts) is not bool or (alerts_config is not None and not alerts):
         raise ValueError("alerts configuration requires alerts=True")
     rules = policy(alerts_config) if alerts else None
@@ -178,16 +179,33 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
         # Replay deliberately uses registration time as well as source observation.
         with closing(sqlite3.connect(ledger.as_uri()+"?mode=ro", uri=True)) as history:
             payload, quality = replay(history, stock_ids, cutoff)
-        prices = read_prices(guarded(prices_db), price_market, sorted(s[3:] for s in stock_ids), trade_date, cutoff, snapshot_dir=guarded(price_snapshots)) if prices_db else []
+        from .research_facts import build_facts, load_market_history
+        market_history = load_market_history(guarded(prices_db), price_market, sorted(s[3:] for s in stock_ids),
+            trade_date, cutoff, guarded(price_snapshots), HistoryBudget()) if prices_db else []
+        prices = [item for item in market_history if item["record"]["trade_date"] == trade_date]
+        if prices_db and {"TW:"+item["record"]["symbol"] for item in prices} != stock_ids:
+            raise ValueError("market coverage missing at known_at")
+        facts = build_facts(payload, quality, stock_ids, cutoff, market_history,
+                            price_market if prices_db else None, trade_date)
         alert_report = None
         if alerts:
-            history = load_price_history(guarded(prices_db), price_market, sorted(s[3:] for s in stock_ids),
-                trade_date, cutoff, guarded(price_snapshots), rules) if prices_db else {}
+            # Same reminder window, using already verified observations. This
+            # avoids re-reading raw history outside the shared work budget.
+            from datetime import timedelta
+            history = {sid: [] for sid in stock_ids}
+            if prices_db:
+                count = max(rules["volume_window"], 1)+1
+                lower = iso_date(trade_date)-timedelta(days=(count+1)*rules["max_observation_gap_days"])
+                for item in market_history:
+                    if iso_date(item["record"]["trade_date"]) >= lower:
+                        history["TW:"+item["record"]["symbol"]].append(item)
+                history = {sid: rows[-count:] for sid, rows in history.items()}
             alert_report = evaluate(payload, history, stock_ids, cutoff, trade_date=trade_date, config=rules)
         name = uuid.uuid4().hex
         final = root/name
         with tempfile.TemporaryDirectory(prefix=".research-stage-", dir=root) as temporary:
-            stage = Path(temporary)
+            stage = Path(temporary)/name
+            stage.mkdir()
             conn = connect(stage/"graph.db")
             try:
                 init_db(conn)
@@ -204,7 +222,7 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
                 elif analysis == "lexical":
                     stats.update(compute(conn, top_k=top_k, threshold=threshold))
                 export_options = {"research_alerts": alert_report} if alerts else {}
-                manifest = export(conn, stage/"data", universe=stock_ids, lifecycle=True, **export_options)
+                manifest = export(conn, stage/"data", universe=stock_ids, lifecycle=True, max_information_nodes=max_information_nodes, **export_options)
                 graph_count = validate_data_dir(stage/"data")
                 conn.commit()
                 if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
@@ -236,7 +254,7 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
                       "configuration": {"analysis": {"mode": analysis, "model": model if analysis == "semantic" else None,
                           "revision": revision if analysis == "semantic" else None, "top_k": top_k,
                           "threshold": threshold, "max_pairs": max_pairs, "lookback_days": lookback_days},
-                          "lifecycle": "display-caps-v1", "engine": ENGINE_VERSION},
+                          "lifecycle": "display-caps-v1", "max_information_nodes": max_information_nodes, "engine": ENGINE_VERSION},
                       "counts": {"graphs": graph_count, "financial_metric_nodes": metric_count,
                                  "market_nodes": price_count, "market_missing_OHLC": missing_prices},
                       "market_observations": [{"source_id": p["source"]["source_id"], "symbol": p["record"]["symbol"],
@@ -255,8 +273,15 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
                     "triggered_by_category":{category:sum(c["status"] == "triggered"
                         for r in alert_report.values() for c in r["categories"][category])
                         for category in ("price_volume", "monthly_revenue")}}
+            facts_body = canonical(facts)
+            atomic_bytes(stage/"research-facts.json", facts_body)
+            report["research_facts"] = {"schema_version": facts["schema_version"], "path": "research-facts.json",
+                "sha256": hashlib.sha256(facts_body).hexdigest(), "count": len(facts["facts"]),
+                "size_bytes": len(facts_body), "market": facts["scope"]["market"]}
             report_body = canonical(report)
             atomic_bytes(stage/"report.json", report_body)
+            from .bundle_audit import audit_bundle
+            audit_bundle(Path(temporary), name)
             stage.rename(final)
             # A pointer failure leaves a complete but unreferenced bundle, never corrupts the old one.
             atomic_bytes(root/"latest.json", canonical({"engine": ENGINE_VERSION, "run": name,
@@ -282,6 +307,7 @@ def main(argv=None):
     p.add_argument("--threshold", type=float, default=0.65)
     p.add_argument("--max-pairs", type=int, default=2_000_000)
     p.add_argument("--lookback-days", type=int)
+    p.add_argument("--max-information-nodes", type=int, default=100, help="Display cap 0..100; research facts are not pruned")
     p.add_argument("--alerts", action="store_true", help="Independent price/volume and revenue reminders; no trading instructions")
     p.add_argument("--alerts-config", type=Path, help="Optional private JSON threshold overrides; requires --alerts")
     args = p.parse_args(argv)

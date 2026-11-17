@@ -6,7 +6,7 @@
 
 比較 `local.research` **已儲存**的兩個研究版本，查看哪些股票／展示節點改變，以及價量、月營收提醒如何變化。不重建未保存的市場歷史，不計算投資績效，也不將兩類提醒合併成評分。TW50與009816名單仍是獨立的暫緩項目，並非此功能的先決條件。
 
-本機版本目錄使用 `local/private/research-runs/<32位run-id>/`，包含 `report.json`、`graph.db`、`data/`，以及啟用提醒時的 `alerts.json`。新版報告另保存 `configuration`（計算模式、模型revision、Top-K、門檻、窗口及裁剪版本）。舊版未保存的設定標記為「unknown」，不得推測相同。
+本機版本目錄使用 `local/private/research-runs/<32位run-id>/`，包含 `report.json`、`graph.db`、`data/`，以及啟用提醒時的 `alerts.json`。新產物另外保存 [research-facts.json 完整事實契約](RESEARCH_FACTS.md)，audit 後透過 `Bundle.facts` 提供給本機讀者。新版報告另保存 `configuration`（計算模式、模型revision、Top-K、門檻、窗口及裁剪版本）。舊版未保存的設定標記為「unknown」，不得推測相同。
 
 ## 先稽核，不修復也不刪除
 
@@ -37,7 +37,7 @@ uv run --locked python -m local.research_archive --root local/private/research-r
 3. 選取較早／較晚可得截止的兩版，比較股票範圍、展示圖譜及提醒狀態。
 4. 展開每條提醒查看前後兩版的公式、門檻、期別與來源證據。
 
-只監聽loopback；同機其他使用者可能存取，**沒有帳號驗證**，請勿轉發到公開網路。只服務已驗證的記憶體快照、必要網站資產與摘要，不開放SQLite、原始CSV、完整report或目錄列舉。預覽JSON與網站資產有64 MiB序列化大小預算，解析前先拒絕過量JSON；不是整個Python程序的峰值記憶體保證。更新研究資料後須重啟以讀到新版本。
+只監聽loopback；同機其他使用者可能存取，**沒有帳號驗證**，請勿轉發到公開網路。只服務已驗證的記憶體快照、必要網站資產與摘要，不開放SQLite、原始CSV、完整report或目錄列舉。實際服務的圖譜、摘要與網站資產有64 MiB序列化大小預算，解析前先拒絕過量展示JSON。完整事實／report不提供HTTP，另受全catalog bytes與單檔32 MiB限制；不占HTTP預覽預算。這些不是整個Python程序的峰值記憶體保證。更新研究資料後須重啟以讀到新版本。
 
 `history.html`雖在Repository，但公開Pages不提供本地歷史API，直接瀏覽只會提示需啟動本機工具；這不會將研究版本上傳到網站。沒有新增遠端後端、排程、Git Push或自動清理。
 
