@@ -2,7 +2,7 @@
 
 [文件中心](README.md) · [資料模型](DATA_MODEL.md) · [官方資料來源](DATA_SOURCES.md)
 
-本文件保留向後相容的 TW50-only 流程；**示範資料與正式資料分開**。不依賴名單的現行入口請先看 [私有研究流程](PRIVATE_RESEARCH.md)，可直接指定代碼，無須等待指數名單。官方端點尚未完成線上全量驗證。
+本文件保留向後相容的 TW50-only 流程；**示範資料與正式資料分開**。不依賴名單的現行入口請先看 [私有研究流程](PRIVATE_RESEARCH.md)，可直接指定代碼，無須等待指數名單。已啟用 TWSE 公司／月營收的全檔下載與兩檔私有研究驗收見 [2026-11-17 紀錄](VERIFICATION-2026-11-17-OFFICIAL-FINANCIAL.md)；其他來源與金額尺度不包含在該結論中。
 
 ## 1. 資料流
 
@@ -95,3 +95,43 @@ uv run --locked python -m local.pipeline validate --output local/private/preview
 ## 不依賴指數名單的現行入口
 
 上方 `--universe` 流程仍保留；現在也可 `local.official_import --symbols <代碼...> --as-of <實際快照日期>`。公司／月營收資料不再強制提供50檔名單。新版 adapter 為每筆財務指標保留 `source_id`，在 metadata 保存來源快照 SHA256／擷取時間；接續 `local.research` 產生私有版本。完整契約、行情驗證與重跑方式見 [PRIVATE_RESEARCH](PRIVATE_RESEARCH.md)。舊 `local.pipeline` 不會自動啟用新的 observation ledger，不要把兩個入口的歷史保證混為一談。
+
+
+## 全檔證據與失敗報告
+
+建議從 collector 就提供同一組研究股票，避免先更新下載成功指標、匯入時才發現選股缺漏：
+
+```bash
+uv run --locked python -m local.collect_official \
+  --symbols 2330 2454 --output-dir local/private/official
+uv run --locked python -m local.official_import \
+  --snapshot-dir local/private/official --symbols 2330 2454 \
+  --as-of YYYY-MM-DD --output local/private/normalized.json
+```
+
+代碼僅示範明確選取，不代表指數歸屬或建議。`--as-of` 是快照取得的台北日期，
+不是歷史下載參數。未提供 collector `--symbols` 時仍驗證全檔結構／日期，
+`selected_value_validation` 明示 `not_requested`；正規化入口仍會驗證選中數值與覆蓋。
+
+成功 `retrieval_manifest.json` 保留 schema 1.0 並增加每來源 HTTP status、實際 URL、
+Content-Type／缺少狀態、完整原始 bytes 的大小／SHA256，以及 `official-profile-v1`：
+原始及正規化日期分布、全部欄名、列數、取得日、所選股票 present／missing。
+全檔結構／日期檢查與 `selected_value_validation` 分開；未選中列的數值並未全部驗證。
+舊 bytes-only 測試邊界的 HTTP metadata 標為 unavailable，不冒稱 HTTP 200。
+
+目前接受每份公司表單一出表日、每份營收表單一出表日與資料月份；出表日不可晚於
+取得日，營收期末不可晚於出表日。各來源出表日可以不同，也可以早於取得日。
+此為當次真實輪廓支持的保守匯入契約，未宣稱來源永久保證單一月份；之後若出現混雜，
+停止並重新核對契約。所有列（含未選股票）都受日期檢查，讀取舊快照也不能跳過。
+
+任何來源下載、CSV、schema、日期或覆蓋失敗，都保存獨立
+`retrieval-failure-<id>.json`（失敗階段、分類、來源、HTTP metadata 與已完成來源），
+可取得的失敗回應只放私有 `failures/<id>.bin`。HTML／403不成為成功金融快照。
+`--max-bytes` 預設 15,000,000；超限只保存有界 prefix，`body_truncated=true`、
+`captured_sha256` 是 prefix hash，完整 `sha256=null`。Content-Length 短讀也拒絕。
+沒有收到 HTTP response 的網路失敗保留未知 status／Content-Type，不捏造原始 bytes。
+403不重試；429／指定暫時性伺服器錯誤最多三次；不跟隨 redirect。
+
+整批及選中值驗證成功後才換成功 manifest。失敗報告不覆寫舊成功快照、研究 bundle
+或 latest pointer；磁碟寫入失敗仍應由 CLI 的非零退出碼辨識。金額尺度另依來源核對，
+本次下載／輪廓功能不改 `source_reported`。
