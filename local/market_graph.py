@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .core import upsert_node, upsert_edge
 from .dates import iso_date, timestamp
+from .market_units import reviewed_record
 from .market_prices import FEEDS, FIELDS, normalize, source_info, MAX_BYTES
 
 
@@ -109,7 +110,7 @@ def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, sn
         writer.writerow(FEEDS[feed]["columns"])
         writer.writerow([record.get(key) if record.get(key) is not None else "--" for key in FIELDS])
         normalized = normalize(buffer.getvalue().encode(), feed, [row["symbol"]], trade_date, row["observed_at"])
-        if normalized["records"][0] != record:
+        if reviewed_record(normalized["records"][0], record, info["source_id"], row["raw_sha256"]) != record:
             raise ValueError("market record values/basis fail normalized contract")
         verified = False
         if snapshot_dir is not None:
@@ -126,7 +127,7 @@ def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, sn
             if len(body) > MAX_BYTES or hashlib.sha256(body).hexdigest() != row["raw_sha256"]:
                 raise ValueError("market raw snapshot checksum mismatch")
             original = normalize(body, feed, [row["symbol"]], trade_date, row["observed_at"])
-            if original["records"][0] != record:
+            if reviewed_record(original["records"][0], record, info["source_id"], row["raw_sha256"]) != record:
                 raise ValueError("market record does not match its raw source snapshot")
             verified = True
         item = {"record": record, "raw_snapshot_verified": verified, "source": source, "observed_at": row["observed_at"],

@@ -14,6 +14,7 @@ from decimal import Decimal, localcontext
 from zoneinfo import ZoneInfo
 
 from .alerts import number, text_number
+from .market_units import DEFINITION_KEYS
 from .dates import iso_date, timestamp
 
 METRICS = {
@@ -63,7 +64,7 @@ snapshot references, and validate numeric/time contracts before calculation.
             available = node.get("available_at") if complete else node.get("observed_at")
             body = {key: node.get(key) for key in (
                 "close", "volume_shares", "market", "price_unit", "price_basis",
-                "raw_sha256", "raw_snapshot_verified", "acquisition")}
+                "raw_sha256", "raw_snapshot_verified", "acquisition", *DEFINITION_KEYS)}
         elif (kind == "financial_metric" and node.get("stock_id") == sid
               and node.get("metric") in REVENUE_KEYS and node.get("period_type") == "month"):
             metric, period = node["metric"], node["period_end"]
@@ -102,7 +103,7 @@ snapshot references, and validate numeric/time contracts before calculation.
 def basis(fact):
     if fact is None:
         return {"source_id": None, "status": "missing_baseline"}
-    keys = (("source_id", "source_url", "market", "price_unit", "price_basis")
+    keys = (("source_id", "source_url", "market", *DEFINITION_KEYS)
             if fact["metric"] == "market" else
             ("source_id", "source_url", "unit", "currency", "consolidation", "value_basis", "period_type"))
     if "fact_id" in fact:

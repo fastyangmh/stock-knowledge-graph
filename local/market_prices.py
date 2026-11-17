@@ -25,6 +25,7 @@ from zoneinfo import ZoneInfo
 
 from .core import ROOT
 from .dates import iso_date, timestamp
+from .market_units import apply_review
 from .safety import exclusive_lock, private_path
 from .http_evidence import body_metadata, capture_response
 from .collect_official import save_failure
@@ -113,7 +114,7 @@ def _number(value: str, *, integer=False, missing=False):
     return format(number, "f")
 
 
-def normalize(body: bytes, feed: str, symbols, expected_date: str, observed_at: str) -> dict:
+def normalize(body: bytes, feed: str, symbols, expected_date: str, observed_at: str, *, unit_review=None) -> dict:
     source = source_info(feed)
     requested = _symbols(symbols)
     target = iso_date(expected_date)
@@ -179,6 +180,8 @@ def normalize(body: bytes, feed: str, symbols, expected_date: str, observed_at: 
                     raise ValueError("inconsistent OHLC range")
             record.update(price_basis="source_unadjusted", price_unit="source_reported", turnover_unit="source_reported",
                           missing_price_fields=[key for key in ("open", "high", "low", "close") if record[key] is None])
+            if unit_review is not None:
+                record = apply_review(record, unit_review, source["source_id"], hashlib.sha256(body).hexdigest())
             records[symbol] = record
         if set(records) != requested:
             raise ValueError("requested symbol coverage incomplete: " + ",".join(sorted(requested-set(records))))
@@ -273,9 +276,9 @@ def store(conn, payload, acquisition: str) -> int:
     return added
 
 
-def ingest(body: bytes, feed: str, symbols, expected_date: str, *, db, output, observed_at: str, acquisition: str) -> dict:
+def ingest(body: bytes, feed: str, symbols, expected_date: str, *, db, output, observed_at: str, acquisition: str, unit_review=None) -> dict:
     # Validate every selected row before creating a DB, snapshot or successful report.
-    payload = normalize(body, feed, symbols, expected_date, observed_at)
+    payload = normalize(body, feed, symbols, expected_date, observed_at, unit_review=unit_review)
     destination, database = _target(output), _target(db)
     if database == destination or database.is_relative_to(destination):
         raise ValueError("database and snapshot directories must be separate")
@@ -315,6 +318,7 @@ def main(argv=None):
     parser.add_argument("--input", type=Path, help="Offline CSV copy instead of any network request (unverified origin)")
     parser.add_argument("--db", type=Path, default=ROOT/"local/private/market-prices.db")
     parser.add_argument("--output", type=Path, default=ROOT/"local/private/market-prices")
+    parser.add_argument("--unit-review", type=Path, help="Explicit snapshot-bound unit review; use a separate DB for a new definition")
     args = parser.parse_args(argv)
     # Fail before network or disk IO for invalid selection/date/output paths.
     _symbols(args.symbols)
@@ -322,6 +326,11 @@ def main(argv=None):
         parser.error("--expected-date is in the future")
     _target(args.db)
     _target(args.output)
+    unit_review = None
+    if args.unit_review:
+        from .research_history import strict_json, MAX_INPUT_BYTES
+        with _target(args.unit_review).open("rb") as stream:
+            unit_review = strict_json(stream.read(MAX_INPUT_BYTES+1))
     body = None
     stage = "fetch" if not args.input else "read_local_input"
     try:
@@ -333,7 +342,7 @@ def main(argv=None):
         observed = datetime.now(timezone.utc).isoformat(timespec="microseconds")
         stage = "validation_and_persistence"
         result = ingest(body, args.market, args.symbols, args.expected_date, db=args.db, output=args.output,
-                        observed_at=observed, acquisition="local_file_unverified" if args.input else "https_download")
+                        observed_at=observed, acquisition="local_file_unverified" if args.input else "https_download", unit_review=unit_review)
     except Exception as exc:
         save_failure(_target(args.output), source_info(args.market), [], stage, exc, body)
         raise

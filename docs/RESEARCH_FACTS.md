@@ -61,3 +61,5 @@ producer 在暫存目錄執行完整 bundle audit，成功才搬成新版本並�
 純舊 bundle 仍通過原有 audit，標明 `display_graph_only`；不就地補寫或偽稱完整歷史。私有歷史頁可列出新版 bundle，但 HTTP allowlist 不提供 `research-facts.json`、完整 report、raw 或 SQLite。完整事實由本機已稽核的 `Bundle` 交給分析工具，沒有新增公開完整事實 API。
 
 事件讀者已透過 audit 的 `Bundle.facts` 使用 `event-study-2.0`；純舊維持 `event-study-1.0`／`display_graph_only`。混合目錄必須明確選 cohort，列出未納入版本及原因，不用新契約重建舊事件基準；詳見[事件統計](EVENT_STUDY.md)。SHA256 證明內部一致性，不能證明來源真實性、授權、數位簽章或無偏研究。真實來源結合、Linux/NAS 與大規模效能仍須各自驗收。
+
+行情可明確附 `normalization_version: market-units-2.0`、`raw_values`、`unit_review` 及價格幣別／股數／金額／筆數單位／`trading_scope`；它們是來源快照綁定的審閱定義，不能自行替舊事實補值。Audit 依原有或新版契約重建行情欄位；未知版本或未有版本卻注入新單位拒絕。完整格式與目前未完成的真實尺度驗收見[行情單位抽檢](MARKET_PRICES.md#私有行情單位抽檢與版本)。
