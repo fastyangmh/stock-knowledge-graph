@@ -106,3 +106,35 @@ uv run --locked python -m local.backup restore \
 ## 已儲存版本的稽核與比較
 
 執行`local.bundle_audit --root local/private/research-runs`確認整包資料，再以`local.research_archive --root local/private/research-runs`開啟本機歷史頁；不需要把私有輸出搬到公開data/。新版報告記錄計算設定，重用上一版快取前也先稽核manifest、圖譜及提醒。詳見[研究歷史](RESEARCH_HISTORY.md)與[財務抽檢](FINANCIAL_REVIEW.md)。
+
+## 固定真實模型的增量驗收（opt-in）
+
+`local.model_check` 使用既定多語 MiniLM 與固定 commit
+`e8f8c211226b894fcb81acc59f3b34ba3efd5f42`。此入口不在 `local.check` 內；一般測試不下載模型。
+需要可用網路進行首次擷取，模型與報告僅寫入私有路徑：
+
+```bash
+uv run --locked python -m local.model_check \
+  --model-cache local/private/model-acceptance-cache \
+  --output local/private/model-acceptance-001
+# 後續使用原先驗證過的快取；每次使用新的 output，避免覆寫證據
+uv run --locked python -m local.model_check --offline \
+  --model-cache local/private/model-acceptance-cache \
+  --output local/private/model-acceptance-002
+```
+
+首次從 Hugging Face 取得固定 revision 的設定／tokenizer／safetensors，確認回應 commit，
+依 Hub ETag 校驗 Git blob SHA1 或 LFS SHA256，另保存所有檔案 SHA256；離線模式要求既有
+`model-provenance.json` 與完整檔案逐一符合，不接受未知權重。雜湊為內容一致性證據，不是簽章。
+模型只在 CPU 以本機已驗證檔案載入，禁用 remote code；不重新選擇模型或浮動 tag。
+
+工具使用固定中／英／日合成文本、三檔虛構股票及一筆合成數值，循序建立首次、全快取、
+單文件修改與股票映射修改四份 research bundle，並逐份執行 audit。`report.json` 與
+`exercise/scenarios.json` 保存載入／編碼／配對計數、文本與向量 hash、匯出關係及 evidence、
+環境與版本。全快取及映射修改若觸發 loader 直接失敗；單文件修改須只變動該篇向量；
+所有舊 bundle bytes 須維持不變。數值不進文字 encoder。既有失敗保全測試仍由 `local.check` 驗證。
+
+成功只代表**真實模型＋合成輸入**的工程契約，不是語意品質、金融資料或 Linux 環境的完整驗收。
+`linux_target_acceptance` 保持 false，需另結合 ticket 01 的目標環境基準審核。
+失敗回傳 exit 1 並保留錯誤報告；已有 output 會拒絕覆寫。實測與受阻範圍見
+[2026-11-17 模型驗證](VERIFICATION-2026-11-17-REAL-MODEL.md)。
