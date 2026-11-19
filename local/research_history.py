@@ -39,7 +39,7 @@ def canonical(value) -> bytes:
                       separators=(",", ":")).encode("utf-8")
 
 
-def strict_json(body: bytes) -> dict:
+def strict_json_value(body: bytes):
     if not body or len(body) > MAX_INPUT_BYTES:
         raise ValueError("normalized input is empty or exceeds 32 MiB")
     def pairs(items):
@@ -51,7 +51,11 @@ def strict_json(body: bytes) -> dict:
         return result
     def invalid(value):
         raise ValueError("nonfinite JSON value: " + value)
-    value = json.loads(body.decode("utf-8-sig"), object_pairs_hook=pairs, parse_constant=invalid)
+    return json.loads(body.decode("utf-8-sig"), object_pairs_hook=pairs, parse_constant=invalid)
+
+
+def strict_json(body: bytes) -> dict:
+    value = strict_json_value(body)
     if not isinstance(value, dict):
         raise ValueError("normalized input must be a JSON object")
     return value
