@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 from collections import Counter
 from datetime import timedelta
 from graphlib import TopologicalSorter
@@ -12,23 +11,12 @@ from urllib.parse import urlsplit
 from .bundle_audit import catalog
 from .dates import iso_date, timestamp
 from .event_study import save_report
-from .research import guarded
-from .research_history import strict_json, validate_symbols
+from .research_history import validate_symbols
+from .calendar_archive import MIB, load_evidence
+from .calendar_gaps import load_gaps, diagnose, diagnostic_counts
 
 
-MIB = 1024 * 1024
 MAX_ROWS = 50_000
-MAX_ENTRIES = 512
-
-
-def bounded_bytes(path, limit):
-    if not path.is_file() or not 0 < path.stat().st_size <= limit:
-        raise ValueError('calendar source missing, empty or exceeds size budget')
-    with path.open('rb') as stream:
-        body = stream.read(limit + 1)
-    if len(body) > limit:
-        raise ValueError('calendar source exceeds size budget')
-    return body
 
 
 def validate_calendar_entry(entry):
@@ -61,30 +49,7 @@ def validate_calendar_entry(entry):
 
 
 def load_calendar(path, cutoff, budget):
-    path = guarded(path)
-    body = bounded_bytes(path, min(budget, 4 * MIB))
-    budget -= len(body)
-    document = strict_json(body)
-    if document.get('schema_version') != 'market-calendar-1' or not isinstance(document.get('entries'), list):
-        raise ValueError('invalid calendar schema')
-    if len(document['entries']) > MAX_ENTRIES:
-        raise ValueError('calendar version count exceeds budget')
-    eligible, archived_hashes = [], {}
-    for entry in document['entries']:
-        if timestamp(entry['saved_at']) > cutoff:
-            continue
-        validate_calendar_entry(entry)
-        relative = Path(entry['path'])
-        if relative.is_absolute() or '..' in relative.parts:
-            raise ValueError('calendar archive path must be relative to the calendar')
-        archive = guarded(path.parent / relative)
-        if archive not in archived_hashes:
-            raw = bounded_bytes(archive, min(budget, 32 * MIB))
-            budget -= len(raw)
-            archived_hashes[archive] = hashlib.sha256(raw).hexdigest()
-        if archived_hashes[archive] != entry['sha256']:
-            raise ValueError('calendar source checksum mismatch: ' + entry['id'])
-        eligible.append(entry)
+    eligible, budget = load_evidence(path, cutoff, budget, 'market-calendar-1', validate_calendar_entry)
     by_id = {entry['id']: entry for entry in eligible}
     if len(by_id) != len(eligible):
         raise ValueError('duplicate calendar evidence ID')
@@ -156,7 +121,8 @@ def research_inputs(root, market, stock_ids, start, end, cutoff, max_runs, byte_
                 if fact['stock_id'] not in stock_ids:
                     continue
                 observation = {key: fact[key] for key in ('id', 'source_id', 'observed_at', 'recorded_at',
-                                                          'recorded_at_status', 'raw_sha256', 'close', 'volume_shares')}
+                                                          'recorded_at_status', 'raw_sha256', 'close', 'volume_shares',
+                                                          'turnover_raw', 'turnover_unit', 'price_unit', 'trades')}
                 observation.update(run=report['run'], captured_at=report['completed_at'])
                 observations.setdefault((fact['stock_id'], day), observation)
     return inputs, observations, covered_until, market_witnesses
@@ -190,7 +156,7 @@ def stock_day(status, observation, insufficient_scope):
     return {'status': state, 'reason': reason, 'observation': observation}
 
 
-def build(root, calendar, market, symbols, start, end, as_of, *, max_runs=50, max_mib=256, max_rows=MAX_ROWS):
+def build(root, calendar, market, symbols, start, end, as_of, *, gap_evidence=None, max_runs=50, max_mib=256, max_rows=MAX_ROWS):
     stock_ids = validate_symbols(symbols)
     first, last, cutoff = iso_date(start), iso_date(end), timestamp(as_of)
     day_count = (last - first).days + 1
@@ -201,6 +167,7 @@ def build(root, calendar, market, symbols, start, end, as_of, *, max_runs=50, ma
     eligible, remaining = load_calendar(calendar, cutoff, max_mib * MIB)
     if day_count * len(eligible) > 1_000_000:
         raise ValueError('calendar evaluation budget exceeded')
+    versions, gap_index, remaining = load_gaps(gap_evidence, cutoff, remaining, market, start, end, stock_ids)
     inputs, observations, covered_until, market_witnesses = research_inputs(
         root, market, stock_ids, start, end, cutoff, max_runs, remaining)
     outside = {sid: 'after_market_trade_date' if sid in covered_until else scope_reason(inputs, sid)
@@ -217,11 +184,17 @@ def build(root, calendar, market, symbols, start, end, as_of, *, max_runs=50, ma
         for sid in sorted(stock_ids):
             limitation = outside[sid] if key > covered_until.get(sid, '') else None
             result = stock_day(row['market_status'], observations.get((sid, key)), limitation)
+            result['diagnosis'] = diagnose(row['market_status'], result, gap_index, key, sid, cutoff)
+            if result['diagnosis']['gap'] == 'explained':
+                result['reason'] = 'documented_gap'
+            elif result['diagnosis']['gap'] == 'pending':
+                result['reason'] = 'awaiting_due_time'
             row['stocks'][sid] = result
             stock_counts[sid][result['status']] += 1
         days.append(row)
     return {'schema_version': 'calendar-coverage-1', 'market': market, 'stock_ids': sorted(stock_ids),
             'start': start, 'end': end, 'as_of': as_of, 'calendar': {'versions': eligible},
+            'gap_evidence': {'versions': versions}, 'diagnosis_counts': diagnostic_counts(days, stock_ids),
             'inputs': inputs, 'days': days, 'market_counts': market_counts, 'stock_counts': stock_counts}
 
 
@@ -229,6 +202,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, required=True)
     parser.add_argument('--calendar', type=Path, required=True)
+    parser.add_argument('--gap-evidence', type=Path)
     parser.add_argument('--market', choices=('twse', 'tpex'), required=True)
     parser.add_argument('--symbols', nargs='+', required=True)
     for option in ('start', 'end', 'as-of'):
@@ -240,7 +214,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         report = build(args.root, args.calendar, args.market, args.symbols, args.start, args.end, args.as_of,
-                       max_runs=args.max_runs, max_mib=args.max_mib, max_rows=args.max_rows)
+                       gap_evidence=args.gap_evidence, max_runs=args.max_runs, max_mib=args.max_mib, max_rows=args.max_rows)
         save_report(report, args.output, args.root)
     except (ValueError, OSError, KeyError, TypeError, RuntimeError) as exc:
         parser.exit(2, f'{parser.prog}: {exc}\n')
