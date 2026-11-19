@@ -20,7 +20,7 @@ from .core import ROOT, connect, init_db, import_payload, upsert_node, upsert_ed
 from .collect_official import atomic_bytes
 from .dates import iso_date, timestamp
 from .export_json import export
-from .market_graph import attach_prices, HistoryBudget
+from .market_graph import attach_prices, HistoryBudget, observation_report
 from .research_history import (strict_json, canonical, record_snapshot, replay,
                                validate_symbols, utc_now, MAX_INPUT_BYTES)
 from .safety import private_path, exclusive_lock
@@ -183,10 +183,9 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
         prices = [item for item in market_history if item["record"]["trade_date"] == trade_date]
         covered = {"TW:"+item["record"]["symbol"] for item in prices}
         if notices:
-            from .market_notices import active_heads
+            from .market_notices import withdrawn_stocks
             quality['market_notices'] = notices
-            covered.update('TW:'+symbol for (symbol, day), entry in active_heads(notices, timestamp(cutoff)).items()
-                           if day == trade_date and entry['notice']['action'] == 'withdraw')
+            covered.update(withdrawn_stocks(notices, trade_date, timestamp(cutoff)))
         if prices_db and covered != stock_ids:
             raise ValueError("market coverage missing at known_at")
         revision_files = {}
@@ -267,11 +266,7 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
                           "lifecycle": "display-caps-v1", "max_information_nodes": max_information_nodes, "engine": ENGINE_VERSION},
                       "counts": {"graphs": graph_count, "financial_metric_nodes": metric_count,
                                  "market_nodes": price_count, "market_missing_OHLC": missing_prices},
-                      "market_observations": [{"source_id": p["source"]["source_id"], "symbol": p["record"]["symbol"],
-                          "trade_date": p["record"]["trade_date"], "observed_at": p["observed_at"],
-                          "raw_sha256": p["raw_sha256"], "acquisition": p["acquisition"],
-                          "raw_snapshot_verified": p["raw_snapshot_verified"],
-                          **{k: p[k] for k in ("notice_sha256", "recorded_at", "available_at", "source_available_at") if k in p}} for p in prices],
+                      "market_observations": [observation_report(p) for p in prices],
                       "graph_db_sha256": file_digest(stage/"graph.db"),
                       "manifest_sha256": hashlib.sha256((stage/"data/manifest.json").read_bytes()).hexdigest(),
                       "public_publish": False,
