@@ -58,5 +58,21 @@
     "redistribution_reviewed": true,
     "reviewed_at": "2026-11-15",
     "attribution": "金融監督管理委員會證券期貨局 2026 上櫃公司每月營業收入彙總表；依政府資料開放授權條款第1版釋出。來源及條款請見 dataset_url 與 license_url；本專案的整理與分析不代表提供機關認可。"
+  },
+  {
+    "dataset_id": "tpex_exright_11633",
+    "title": "上櫃股票除權除息計算結果表",
+    "kind": "corporate_action",
+    "enabled": false,
+    "format": "csv",
+    "provider": "金融監督管理委員會證券期貨局／證券櫃檯買賣中心",
+    "dataset_url": "https://data.gov.tw/dataset/11633",
+    "resource_url": "https://www.tpex.org.tw/web/stock/exright/dailyquo/exDailyQ_result.php?l=zh-tw&o=data",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": false,
+    "reviewed_at": "2026-11-19",
+    "usage": "offline_saved_receipt_only",
+    "attribution": "上櫃股票除權除息計算結果表，政府資料開放授權條款第 1 版。來源及條款見 dataset_url 與 license_url。"
   }
 ]

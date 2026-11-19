@@ -82,7 +82,7 @@ uv run --locked python -m local.preview \
 
 每次成功產生新 bundle，舊 bundle 不變；有相同模型身分時，從上一個通過 SHA256 的圖譜 DB 複製適用向量及語意狀態。資料與關係未變時可達 `encoded=0`、`graph_reused=true`，但仍會重建私有展示版本與報告。
 
-匯出失敗不更新 `latest.json`。已通過驗證的輸入快照可能已進 ledger，作為失敗前取得的證據；這**不是**全部 SQLite／檔案系統的單一跨檔交易。若最後更新指標檔失敗，可能留下一個完整但未被 latest 指向的 bundle，應人工查核，不能當作新發布成功。
+候選輸入與研究重播使用同一筆 SQLite 交易。暫存 bundle 通過 audit 後才提交 ledger，接著將 bundle 移入正式目錄並更新 `latest.json`。匯出或稽核失敗會回滾候選輸入，重送可重新登錄。若已提交 ledger、檔案系統移動才失敗，已驗證輸入可冪等重送。若最後更新指標檔失敗，可能留下一個完整但未被 latest 指向的 bundle，應人工查核，不能當作新發布成功。
 
 預設保留所有 bundle 與備份，不自動刪資料；正式長期排程前要決定磁碟預算與保存策略。公開發布仍需獨立審查，不因私有 bundle 可看就自動推送 GitHub。
 
@@ -183,4 +183,6 @@ uv run --locked python -m local.research --input local/private/revision-notice.j
 uv run --locked python -m local.bundle_audit --root local/private/research-runs
 ```
 
-用相同 ledger 及 `--known-at` 重讀較早截止。研究報告的 `quality.source_revisions` 列出該股票範圍內已生效的版本、證詞、觀察與登錄時間；`quality.snapshots` 及完整研究事實另保存已登錄通知的正規化內容，包括尚待生效的通知。Audit 核對通知雜湊、父版本與來源索引、重播截止及已套用的數值事實；舊圖譜、早期事件基準及報告保留原始版本。
+用相同 ledger 及 `--known-at` 重讀較早截止。研究報告的 `quality.source_revisions` 列出影響選股結果的已生效版本、證詞、觀察與登錄時間。已登錄、尚待生效的通知也列入快照索引。Audit 核對父版本、來源、截止與已套用的數值事實。
+
+新版本在 `revisions/<快照 SHA256>.json` 各存一份完整通知。報告與事實以相同路徑和快照雜湊索引。稽核逐檔核對雜湊、版本鏈與可見文件的來源、時間、標題及原文摘要。因展示名額裁剪的文件可缺席。舊版內嵌通知仍可稽核。

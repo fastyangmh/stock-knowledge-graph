@@ -28,3 +28,13 @@ P1-03。2026-11-19 正常閱覽兩家公司分別公布的 2026 年第 3 季合�
 有代號者均為民國 115 年第 3 季。最後三檔各有一列無公司代號、無季別，須保留原件並回報沒有可用觀察，不能以空列驗收產業。上櫃保險業資產負債表的官方資源回 403，本次未封存該資源。重新驗收條件是可依授權取得原件且有可核對公司與期別。[上櫃保險業資產負債表](https://data.gov.tw/dataset/91969)
 
 另以環球晶圓 6488 合併財務報告暨會計師核閱報告核對上櫃一般業。PDF 第 4 頁 9 月 30 日資產總計、第 5 頁前九月營業收入及基本 EPS 均與 91967／94853 原件零容差相符，單位分別為新台幣千元及元／股。三欄原件 hash、定位及比較在 `local/private/source-review-2026-11-19/issuer-6488-view-comparison.json`。8069 中文 PDF 在本次閱覽逾時，英文目錄註明 2026Q3 英譯本仍在準備，故未計入第二個上櫃樣本。[環球晶圓原始合併財報](https://www.sas-globalwafers.com/wp-content/uploads/2026/05/GlobalWafers_2026Q3-consolidated-financial-statement_CN.pdf) · [元太中文投資人財報入口](https://tw.eink.com/investor/finance?bookmark=quarter) · [元太英文財報入口](https://www.eink.com/investor/finance?bookmark=quarter)
+## 擴大同期間發行人原件核對
+
+2026-11-19 以聯發科技揭露至千元的正式英文季報重新核對先前兩個金額差異，並新增群聯電子的上櫃一般業樣本。兩市場一般業現在各有兩家公司可核對。保留原先整數百萬元版本的比較與失配紀錄。兩版報表的顯示精度、各自的取得定位與核對時間可以分開重讀。[聯發科技正式季報，第 4、6 頁](https://www.mediatek.com/hubfs/MediaTek-Assets/Pdfs/Financial%20Reports/2026/Q3%20Consolidated%20Report.pdf) · [群聯電子正式季報，第 5、6 頁](https://www.phison.com/wp-content/uploads/2026/06/2026_Nine-Month_CN.pdf)
+
+| 採用的原始資源 | 研究事實 | 發行人抽檢 | 可重跑的私有結果 |
+| --- | ---: | --- | --- |
+| 四份損益表，六家公司（含上市金融及保險各一家） | 22 | 22 筆等值。前九月合併金額與基本 EPS 分別核對期間、尺度及母數 | `local/private/m3-income-issuer-expanded/out-5b537ed/summary.json` |
+| 四份資產負債表，同六家公司 | 34 | 22 筆等值，另有 12 筆可保存但尚未獨立核對。原始快照中另有兩個空欄 | `local/private/m3-balance-issuer-expanded/out-bd878ea/summary.json` |
+
+每份原件均以私有 CLI 正規化、經 SQLite 建立研究版本並執行 bundle audit，每組 12 次命令全數 exit 0。重算八個政府 CSV 與研究版本引用的 SHA256 一致。群聯的流動資產取流動資產區段小計，母公司業主權益與含非控制權益的權益總計各自核對。核對值、時間及逐欄頁碼僅保存在私有 review。每組目錄的 `replay.py` 可從相應產品 checkout 對全新目的地重跑。本次抽樣未解決上櫃金融／保險來源缺值、現金流原件、正式修訂或早年期間的涵蓋。

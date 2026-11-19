@@ -36,7 +36,7 @@ class TPExResearchTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.sources = [s for s in json.loads((ROOT/'local/official_datasets.json').read_text())
-                        if s['dataset_id'].startswith('tpex_')]
+                        if s['dataset_id'] in ('tpex_companies', 'tpex_monthly_revenue')]
         for source in self.sources:
             source['enabled'] = True
         self.registry = self.root/'registry.json'

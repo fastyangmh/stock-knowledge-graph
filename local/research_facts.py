@@ -114,7 +114,7 @@ def load_market_history(database, feed, symbols, trade_date, known_at, snapshot_
     return result
 
 
-def validate_facts(document, report):
+def validate_facts(document, report, *, archived_snapshots, graphs):
     version = document.get('schema_version')
     if version not in (SCHEMA, NOTICE_SCHEMA) or report['research_facts'].get('schema_version') != version:
         raise ValueError('facts_schema_unsupported')
@@ -213,7 +213,7 @@ def validate_facts(document, report):
     else:
         require(notices is None and 'market_notices' not in report['quality'], 'market_notices_mismatch')
     from .source_revisions import audit_revisions
-    audit_revisions(snapshots, report['quality'].get('source_revisions', []), facts, stock_ids, cutoff)
+    audit_revisions(archived_snapshots, report['quality'].get('source_revisions', []), facts, stock_ids, cutoff, graphs)
     require(document.get('coverage') == coverage(facts, stock_ids), 'coverage_mismatch')
     for group, kind in (('financial_metrics', 'financial_metric'), ('chip_metrics', 'chip_metric')):
         require(sum(f['kind'] == kind for f in facts) == report['quality']['counts'][group], 'replay_count_mismatch')

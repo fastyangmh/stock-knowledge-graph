@@ -57,7 +57,7 @@ AI 協作採用 [Matt Pocock skills](agents/README.md)，專案入口為根目�
 ## 修改規則
 
 - **依賴：** 只有真的變更依賴才更新 lockfile。現在同時存在 optional dev extra 和 dev dependency group；整理時須驗證，不任意覆寫使用者 lockfile。模型 revision 另行固定，套件 lock 不固定遠端權重。
-- **資料集：** 先逐資料集核對權利及欄位，再更新 registry、adapter 和離線 fixtures；不把能瀏覽推定成可自動取得或公開。
+- **資料集：** 先逐資料集核對權利及欄位，再更新 registry、adapter 和離線 fixtures；不把能瀏覽推定成可自動取得或公開。11633 在 `local/official_datasets.json` 登記為 `offline_saved_receipt_only`，由價格比較讀取已保存收據及原件。
 - **Schema：** 同步更改 schema/core/export/validation/tests/docs。既存 SQLite 的 migration 與備份需明確設計，不能僅修改 CREATE TABLE。
 - **語意算法：** 檢查模型身分、向量 hash、`similarity_state` fingerprint、邊及證據；改變演算法需避免錯用舊邊快取。
 - **前端：** 純邏輯放 `js/graph-utils.js`，DOM/請求放 `js/app.js`；測試舊 demo、缺少歸屬、搜尋、空狀態、失敗回復、晚到回應、來源文字與連結安全。
