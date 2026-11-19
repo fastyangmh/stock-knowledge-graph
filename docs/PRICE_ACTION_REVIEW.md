@@ -40,3 +40,5 @@ uv run --locked python -m local.research_compare \
 - 另查同一研究池內一檔上櫃股票的真實除息案例。櫃買中心 2026-07-16 歷史查詢回覆單日 54 筆；以股票代號核對到一列除息，與發行人官網所列除息交易日一致。這個已生效的個案在十一月價格區間以外。單次人工核對的網址、回覆雜湊、定位與原件留在私有目錄。[櫃買中心結果表](https://www.tpex.org.tw/zh-tw/announce/market/ex/cal.html) · [發行人股利資訊](https://www.sas-globalwafers.com/investor-page/shareholder-service/)
 - 私有紀錄在 `local/private/m2-price-actions-2026-11-19/`。在實作版本的工作樹，以 Python 執行該目錄的 `check-intervals.py` 即可重讀兩組既有 bundle、重建並核對報告。該目錄的 `interval-check.json` 保存完整 CLI、run ID、輸出雜湊；`historical-check.json` 保存七月個案的逐列核對位置。
 - 合成 `local/tests/test_price_action_review.py` 以 research → audit → 比較 CLI 檢查次日生效、邊界日期、不同股票／市場／幣別、來源校驗、晚到證據、未知涵蓋、舊版與同日重讀。另在比較介面以假設的第二價格基準驗證拒比。這些情境不替代 P1-02 行情尺度驗收。
+
+2026-11-19 macOS arm64／Python 3.11.11，實作 `10dee33` 合入已完成的日曆分支後，候選 `9630980` 的 `uv run --locked python -m local.check` exit 0，527 個 pytest、277 個 subtests，以及 SQLite 輸出與驗證通過。兩市場真實 CLI 在該候選重跑通過。完整離線報告為上述私有目錄內的 `full-check.json`。另保留沙箱未開放 loopback 時的測試失敗紀錄；最後一次使用正常 loopback 權限。本票未修改前端或執行瀏覽器驗收。
