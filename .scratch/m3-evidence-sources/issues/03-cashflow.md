@@ -18,3 +18,5 @@
 ## Comments
 
 2026-11-19，兩家一般業各有 6 筆真實人工筆記經 SQLite 研究與 audit；12 欄語言版本比對相符。另行發布的資料比對共 7 欄，1 欄零容差相符、6 欄金額尺度換算後有差異。來源及筆記雜湊分別標示；官方原件封存、全市場產業覆蓋與真實撤回仍待驗。重跑命令、來源與適用範圍見[季度現金流量表](../../../docs/QUARTERLY_CASHFLOW.md)。
+
+產品提交 `47adae4`，合入整合分支後於候選 `864cb89` 使用 macOS arm64、既有 `uv.lock` 環境執行 `uv run --locked --no-sync python -m local.check`，exit 0，554 pytest、304 subtests、SQLite／JSON smoke 與圖譜驗證通過。本次未執行前端、Linux 或 NAS 驗收。私有檢查報告與逐欄差額在 `local/private/m3-cashflow-2026-11-19/reviewed/`。
