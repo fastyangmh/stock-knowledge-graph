@@ -13,6 +13,8 @@
 
 後續調查：[2026-11-18 行情驗收缺口研究](research-market-gaps-2026-11-18.md)（P1-02／09／10；研究不替代正式驗收）。
 
+截至 2026-11-19，各里程碑的功能、實測結果與外部證據缺口記在[逐項完成清單](completion.md)。下方 12 張票及驗證數字保留 M1 與 P2-01 初次驗收的範圍。
+
 本輪已依核准方案完成實作與當前環境驗收；01～08、11／12 resolved，09／10 needs-info，M1未全過。每張 ticket 連回原 ID；本地詳細 tracker 依 [issue-tracker](../../docs/agents/issue-tracker.md)。
 本輪驗證範圍及結果見文末。
 
