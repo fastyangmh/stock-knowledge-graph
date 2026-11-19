@@ -14,3 +14,12 @@
 - [ ] 儲存可重跑程序及去敏摘要，以原 backlog 條件評定整體狀態。只有工程通過時將真實證據另列待驗。
 
 查證起點：[新聞與產業來源邊界](../../../docs/SOURCE_REVIEW_2026-11-16.md)
+
+## 已取得的真實輸入
+
+2026-11-19 私有保存四個政府資料開放授權第 1 版的資料集資源，均為首次 DNS 失敗後依正常權限取得 HTTP 200。私有 URL、時間、大小及原件 SHA256 見 `local/private/source-review-2026-11-19/news-official/manifest.json`；重算各原件雜湊後解析的結構見 `news-audit.json`。
+
+- 交易所新聞 CSV 有 756 列，只有標題、連結與日期。授權需按該索引可見欄位判定，連結目的地的全文另查。[證交所新聞](https://data.gov.tw/dataset/11546)
+- 金管會 RSS 有 591 個 item，可核對 GUID、發布時間、連結、標題、分類及 description。正文與第三方引用仍需逐來源確認。[金管會新聞稿](https://data.gov.tw/dataset/6040)
+- 各產業 EPS 資料在兩市分別有 1,076、898 列，欄位包含公司代號、期別及產業別，可用於有來源的公司產業對應。採用數值須逐欄核對尺度與期別；無法從個別公司的列直接得出產業總計。[上市產業別統計](https://data.gov.tw/dataset/20756) · [上櫃產業別統計](https://data.gov.tw/dataset/20757)
+- 經濟部新聞稿及兩個經濟部工業生產資料源的目錄可查，所列資源在本次閱覽回 403。已停止該次擷取，待可使用的正式資源或授權私有副本才能驗收。[經濟部新聞稿](https://data.gov.tw/dataset/10861) · [工業生產](https://data.gov.tw/dataset/6607) · [電子零組件業](https://data.gov.tw/dataset/146531)
