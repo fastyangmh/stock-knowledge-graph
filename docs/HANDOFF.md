@@ -8,7 +8,7 @@
 
 P2-02 六票已交付合成 CLI 與兩市場 11/14～17 的官方日曆驗收。11/18 的實際報價超出已核對日曆，事件報告能顯示第 1 筆已保存觀察，交易日序號維持未知。候選 `f45a8ac` 已修復未來截止、當日待到與同時首存衝突，並通過完整套件及真實重播。P2-02 在已記錄的範圍完成。[雙軸審查及重驗](VERIFICATION-2026-11-19-CALENDAR-REVIEW.md) · [真實日曆驗收](VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) · [逐項清單與後續規格](../.scratch/private-research-ready/completion.md)
 
-M2 價格基準與正規化來源通知已整合至 `9a0bce9`。兩市場四檔原始價格可查回原件，更正公告可按截止時間還原。已修補晚公告、跨選股撤回、舊格式文件、跨幣別比較與大通知的儲存及回滾。兩市場三版真實歷史與事件頁已在桌面及手機寬度複驗。正式行情庫通知另有[實作票](../.scratch/m2-market-revisions/issues/01-market-notices.md)，真實撤回尚缺證據。[雙軸審查及整合驗證](VERIFICATION-2026-11-19-M2-HISTORY-REVIEW.md)
+M2 價格基準與正規化來源通知已整合至 `9a0bce9`。兩市場四檔原始價格可查回原件，更正公告可按截止時間還原。已修補晚公告、跨選股撤回、舊格式文件、跨幣別比較與大通知的儲存及回滾。兩市場三版真實歷史與事件頁已在桌面及手機寬度複驗。獨立行情庫已支援明示更正、撤回與重發；兩市場兩日既有行情與研究按原截止重播一致。正式行情通知原件仍待驗。[行情通知實作及驗收](../.scratch/m2-market-revisions/issues/01-market-notices.md) [雙軸審查及整合驗證](VERIFICATION-2026-11-19-M2-HISTORY-REVIEW.md)
 
 最新一期季報、籌碼與重大訊息已開始分來源核對。11/17 與 11/18 的兩市場真實研究版本可供後續品質驗證。[真實後續行情及官方原件索引](../.scratch/private-research-ready/source-samples-2026-11-19.md) · [兩市場發行人季報抽檢](../.scratch/m3-evidence-sources/issuer-reference-2026-11-19.md)
 
