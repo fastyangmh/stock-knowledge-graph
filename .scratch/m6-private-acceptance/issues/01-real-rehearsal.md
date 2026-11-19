@@ -40,3 +40,9 @@ uv run --locked python "$packet/check.py" "$packet/post-new"
 
 - 以 `financial-reviews.py <新建研究根目錄> <新目的地>` 經四次 `local.financial_review` 核對兩市場各兩檔，4 筆月營收金額完全相符，8 筆增率在已確認的 0.01 個百分點以內。私有輸出為 `financial-c429270/`。
 - 以 `check-sqlite-restore.py <新建研究根目錄> <新目的地>` 逐一對兩個市場的價格庫和正規化 ledger 執行 `local.backup create/verify/restore`，12 次命令 exit 0。四個還原庫均通過 SQLite `integrity_check`，來源與還原庫的完整邏輯匯出雜湊各自相符。私有輸出為 `sqlite-c429270/`。此項只驗四個 SQLite，本地整組證據封存與實體異機復原另列 P0-03。
+
+### 混合財報庫整組復原預演
+
+2026-11-19 在 M5 候選 `88e20e8`，以 `63e0f49` 實測時保存的七家公司研究庫及 26 個歷史版本執行 `local.portable_backup create`、`verify`、`restore`，並分別對原目錄與新目錄執行 `local.bundle_audit`。五次命令 exit 0。封存 327 個檔案、618 條引用、21 個正規化輸入。還原後 26 個版本均 valid，最新指標一致，SQLite integrity_check 回覆 ok。重算來源 ledger 及 55 個具名輸入檔案的 SHA256 均相符。
+
+這次使用兩市場公司與月營收、17 個季報快照及兩份人工現金流筆記。財報獨立參考的涵蓋程度沿用 P1-03 的逐欄紀錄。原始資料與私有重演程式位於 `local/private/m6-preflight/portfolio-restore.py`，同層 `portable-financial-88e20e8-b/summary.json`、`commands.json` 和 `selected-sources.json` 可追查實際輸入與命令。本機同一裝置的新目錄已驗，完整多來源研究與異機復原待驗。
