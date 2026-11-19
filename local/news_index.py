@@ -61,7 +61,7 @@ def validate_news_payload(payload):
 
 def evidence_source(payload):
     metadata = payload.get('metadata', {})
-    if metadata.get('adapter_version') in (VERSION, 'official-industry-v1'):
+    if metadata.get('adapter_version') == VERSION:
         source, = payload['sources']
         return source['source_id']
     return None

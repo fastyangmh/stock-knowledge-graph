@@ -3,6 +3,9 @@ import hashlib
 import json
 from pathlib import Path
 
+from .collect_official import atomic_bytes
+from .safety import exclusive_lock
+from .research_history import canonical, validate_payload
 from .calendar_archive import MIB, bounded_bytes
 from .core import ROOT
 from .dates import analysis_cutoff, timestamp
@@ -49,3 +52,21 @@ def read_receipt(manifest: Path, source_id: str, catalog_id: int):
             or hashlib.sha256(body).hexdigest() != entry.get('sha256')):
         raise ValueError(f'{catalog_id} checksum or byte count mismatch')
     return source, entry, body
+
+def normalized_destination(output, manifest):
+    output = guarded(output)
+    if output.is_relative_to(guarded(manifest).parent):
+        raise ValueError('normalized output must be outside the saved capture directory')
+    return output
+
+
+def write_normalized(output, payload):
+    """Install a complete private projection once, permitting an identical retry."""
+    validate_payload(payload)
+    body = canonical(payload)
+    with exclusive_lock(output):
+        if output.exists():
+            if output.stat().st_size != len(body) or output.read_bytes() != body:
+                raise ValueError('changed capture requires a new output path')
+        else:
+            atomic_bytes(output, body)

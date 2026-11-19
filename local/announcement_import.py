@@ -9,13 +9,12 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from .calendar_archive import MIB, bounded_bytes
-from .collect_official import atomic_bytes
+from .source_receipts import fallback_stocks
 from .dates import timestamp
 from .official_adapter import report_date
-from .offline_receipt import read_receipt
+from .offline_receipt import normalized_destination, read_receipt, write_normalized
 from .research import guarded
 from .research_history import MAX_INPUT_BYTES, canonical, strict_json, validate_payload
-from .safety import exclusive_lock
 
 MARKETS = {18415: 'twse', 18418: 'tpex'}
 FIELDS = ['出表日期', '發言日期', '發言時間', '公司代號', '公司名稱', '主旨', '符合條款', '事實發生日', '說明']
@@ -169,6 +168,7 @@ def normalize(manifest, dataset, record, review, parent):
                    financial_metrics=[], chip_metrics=[], metadata=metadata)
     if review is not None:
         apply_review(payload, review, record, parent, companies)
+    payload['stocks'] = fallback_stocks(payload)
     return payload
 
 
@@ -181,9 +181,7 @@ def main(argv=None):
     parser.add_argument('--review', type=Path, help='private reviewed links or revision for one selected record')
     parser.add_argument('--parent', type=Path, help='previous normalized snapshot of a reviewed revision')
     args = parser.parse_args(argv)
-    output, manifest = guarded(args.output), guarded(args.manifest)
-    if output.is_relative_to(manifest.parent):
-        raise ValueError('normalized output must be outside the saved capture directory')
+    output = normalized_destination(args.output, args.manifest)
     review = None
     if args.parent is not None and (args.review is None or guarded(args.parent) == output):
         raise ValueError('a revision parent requires a review and a new output')
@@ -191,15 +189,8 @@ def main(argv=None):
         if args.record is None or guarded(args.review) == output:
             raise ValueError('review requires one selected record and a separate output')
         review = strict_json(bounded_bytes(guarded(args.review), MIB))
-    payload = normalize(manifest, args.dataset, args.record, review, args.parent)
-    validate_payload(payload)
-    data = canonical(payload)
-    with exclusive_lock(output):
-        if output.exists():
-            if output.stat().st_size != len(data) or output.read_bytes() != data:
-                raise ValueError('changed announcement selection requires a new output path')
-        else:
-            atomic_bytes(output, data)
+    payload = normalize(args.manifest, args.dataset, args.record, review, args.parent)
+    write_normalized(output, payload)
     print('Private announcement import:', len(payload['documents']), 'documents')
 
 

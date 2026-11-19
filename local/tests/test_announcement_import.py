@@ -29,7 +29,7 @@ class AnnouncementTests(unittest.TestCase):
         self.runs = self.root/'runs'
         self.dataset = 18418
 
-    def capture(self, rows, header=FIELDS):
+    def capture(self, rows, header=FIELDS, received=RECEIVED):
         data = io.StringIO(newline='')
         csv.writer(data).writerows([header, *rows])
         body = data.getvalue().encode('utf-8-sig')
@@ -38,7 +38,7 @@ class AnnouncementTests(unittest.TestCase):
         (self.raw/f'{self.dataset}.response').write_bytes(body)
         entry = dict(id=self.dataset, catalog=f'https://data.gov.tw/dataset/{self.dataset}',
                      url='https://mopsfin.twse.com.tw/opendata/'+filename, status='200', exit=0, error='',
-                     mime='text/csv', started_at=RECEIVED, received_at=RECEIVED, bytes=len(body), sha256=sha)
+                     mime='text/csv', started_at=received, received_at=received, bytes=len(body), sha256=sha)
         self.manifest.write_text(json.dumps([entry]))
         return sha
 
@@ -129,6 +129,13 @@ class AnnouncementTests(unittest.TestCase):
         link = dict(ticker='2000', name='乙公司', evidence='乙公司 普通股', company_record=3)
         payload = self.normalize(*self.review(sha, 2, links=[link]))
         self.assertEqual(payload['documents'][0]['stock_ids'], ['TW:1000', 'TW:2000'])
+        audited = self.research(['1000', '2000'])
+        for ticker, row in [('1000', 2), ('2000', 3)]:
+            stock = next(n for n in audited.graphs['TW:'+ticker]['nodes'] if n['id'] == 'stock:TW:'+ticker)
+            self.assertEqual((stock['source_id'], stock['raw_sha256'], stock['row_number'], stock['source_column']),
+                             ('tpex-mops-18418', sha, row, '公司代號'))
+            self.assertEqual(stock['source_url'], 'https://data.gov.tw/dataset/18418')
+            self.assertTrue(stock['attribution'] and stock['license_url'])
         with self.assertRaisesRegex(ValueError, 'company record'):
             self.normalize(*self.review(sha, 2, links=[dict(link, company_record=2)]))
 
@@ -171,3 +178,63 @@ class AnnouncementTests(unittest.TestCase):
         nodes = [n for n in repeated.graphs['TW:1000']['nodes'] if n['id'].startswith('doc:')]
         self.assertEqual({n['id'] for n in nodes}, {'doc:tpex:18418:1000:1090102:070501',
                                                     'doc:twse:18415:1000:1090102:070501'})
+
+    def test_disjoint_announcement_selections_conflict_by_full_receipt(self):
+        other = [*ROW[:3], '2000', '乙公司', *ROW[5:]]
+        self.capture([ROW, other])
+        self.normalize('--record', '2')
+        first = self.research()
+        self.output = self.root/'other.json'
+        self.normalize('--record', '3')
+        self.research(known_at=first.report['known_at'])
+        self.output = self.root/'changed.json'
+        self.capture([other])
+        self.normalize()
+        with self.assertRaisesRegex(ValueError, 'conflicting same-time'):
+            self.research(known_at=first.report['known_at'])
+
+    def test_unreviewed_refresh_preserves_reviewed_links_and_parent_for_withdrawal(self):
+        rows = [ROW, [*ROW[:2], '121000', *ROW[3:5], '撤回原公告', *ROW[6:]]]
+        sha = self.capture(rows)
+        link = dict(ticker='2000', name='乙公司', evidence='乙公司(2000)')
+        parent = self.output
+        payload = self.normalize(*self.review(sha, 2, links=[link]))
+        first = self.research(['2000'])
+        self.output = self.root/'batch.json'
+        self.capture(rows, received='2020-01-04T01:00:00+00:00')
+        self.normalize()
+        refreshed = self.research(['2000'])
+        did = 'doc:'+payload['documents'][0]['document_id']
+        def node(bundle):
+            return next(n for n in bundle.graphs['TW:2000']['nodes'] if n['id'] == did)
+        self.assertEqual(node(refreshed), node(first))
+        self.output = self.root/'withdraw.json'
+        revision = dict(action='withdraw', target_document_id=did[4:], evidence='撤回原公告',
+                        target_snapshot_sha256=first.report['registered_snapshot']['sha256'])
+        self.normalize(*self.review(sha, 3, revision=revision), '--parent', str(parent))
+        withdrawn = self.research(['2000'], enable_source_revisions=True)
+        self.assertNotIn(did, [n['id'] for n in withdrawn.graphs['TW:2000']['nodes']])
+        self.assertEqual(node(self.research(['2000'], known_at=first.report['known_at'])), node(first))
+
+    def test_later_source_row_keeps_master_stock_identity_and_attribution(self):
+        master = dict(stock_id='TW:1000', ticker='1000', market='TW', name='甲公司全名', industry='01',
+                      source_id='master', source_url='https://example.invalid/master', attribution='主檔署名')
+        self.output.write_text(json.dumps(dict(stocks=[master], sources=[], documents=[], chip_metrics=[],
+                                       financial_metrics=[], metadata=dict(observed_at='2019-12-31T00:00:00Z'))))
+        first = self.research()
+        self.output = self.root/'latest-input.json'
+        self.capture([ROW])
+        self.normalize()
+        for bundle in (self.research(), self.research(known_at=first.report['known_at'])):
+            node, = [n for n in bundle.graphs['TW:1000']['nodes'] if n['type'] == 'stock']
+            self.assertEqual((node['label'], node['industry'], node['source_url'], node['attribution']),
+                             ('甲公司全名', '01', master['source_url'], '主檔署名'))
+
+    def test_company_mentioned_by_name_without_review_cannot_gain_a_link_during_research(self):
+        other = [*ROW[:3], '2000', '乙公司', *ROW[5:]]
+        self.capture([[*ROW[:-1], '乙公司 普通股'], other])
+        payload = self.normalize()
+        payload['documents'][0]['stock_ids'].append('TW:2000')
+        self.output.write_text(json.dumps(payload))
+        with self.assertRaisesRegex(ValueError, 'reviewed links'):
+            self.research(['2000'])

@@ -1,18 +1,16 @@
 """Normalize a saved TPEx 11856 official CSV into private daily institutional observations."""
 import argparse
+import base64
 import csv
 import io
 import re
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from .collect_official import atomic_bytes
 from .dates import iso_date, timestamp
 from .official_adapter import report_date
-from .offline_receipt import read_receipt
-from .research import guarded
-from .research_history import canonical, validate_payload, validate_symbols
-from .safety import exclusive_lock
+from .offline_receipt import normalized_destination, read_receipt, write_normalized
+from .research_history import validate_symbols
 
 SOURCE = 'tpex_institutional_11856'
 GROUPS = {
@@ -53,9 +51,19 @@ def _check_subtotals(values, row_number):
                 raise ValueError(f'11856 row {row_number} {METRICS[key]}: subtotal mismatch')
 
 
+def row_values(row, index):
+    values = {key: _shares(raw, column, index) for (key, column), raw in zip(METRICS.items(), row[3:])}
+    _check_subtotals(values, index)
+    return values
+
+
 def normalize(manifest, trade_date, selection):
-    target = iso_date(trade_date)
     source, receipt, body = read_receipt(manifest, SOURCE, 11856)
+    return project(source, receipt, body, trade_date, selection)
+
+
+def project(source, receipt, body, trade_date, selection):
+    target = iso_date(trade_date)
     observed = receipt['received_at']
     if target > timestamp(observed).astimezone(ZoneInfo('Asia/Taipei')).date():
         raise ValueError('11856 trading date follows receipt')
@@ -72,12 +80,12 @@ def normalize(manifest, trade_date, selection):
         if not re.fullmatch(r'[0-9A-Za-z]{4,12}', symbol) or not name or symbol in seen:
             raise ValueError(f'11856 row {index}: invalid or duplicate security')
         seen.add(symbol)
-        values = {key: _shares(raw, column, index) for (key, column), raw in zip(METRICS.items(), row[3:])}
-        _check_subtotals(values, index)
+        values = row_values(row, index)
         sid = 'TW:'+symbol
         if sid not in selection:
             continue
-        stocks.append(dict(stock_id=sid, market='TW', ticker=symbol, name=name, **origin))
+        stocks.append(dict(stock_id=sid, market='TW', ticker=symbol, name=name, provider=source['provider'],
+                           raw_sha256=receipt['sha256'], row_number=index, source_column='代號', **origin))
         document_id = f'{SOURCE}:{symbol}:{trade_date}'
         docs.append(dict(document_id=document_id, external_id=document_id, doc_type='chip_report',
                          title=f'{name} {trade_date} 三大法人買賣明細',
@@ -93,10 +101,10 @@ def normalize(manifest, trade_date, selection):
     provenance = dict(source_id=SOURCE, provider=source['provider'], url=source['dataset_url'],
                       license_type='OGDL-1.0', license_url=source['license_url'], attribution=source['attribution'],
                       usage=source['usage'], market='TPEX', independent_reference_status='needs-info')
-    metadata = dict(adapter_version='tpex-institutional-1', observed_at=observed, trade_date=trade_date,
+    metadata = dict(adapter_version='tpex-institutional-2', observed_at=observed, trade_date=trade_date,
                     raw_row_count=len(seen), source_snapshots=[dict(dataset_id=SOURCE, sha256=receipt['sha256'],
                     bytes=receipt['bytes'], retrieved_at=observed, resource_url=source['resource_url'])])
-    return dict(stocks=stocks, sources=[provenance], documents=docs, financial_metrics=[], chip_metrics=metrics,
+    return dict(source_csv_b64=base64.b64encode(body).decode('ascii'), stocks=stocks, sources=[provenance], documents=docs, financial_metrics=[], chip_metrics=metrics,
                 metadata=metadata)
 
 
@@ -107,18 +115,9 @@ def main(argv=None):
     parser.add_argument('--symbols', required=True, nargs='+')
     parser.add_argument('--output', required=True, type=Path)
     args = parser.parse_args(argv)
-    output, manifest = guarded(args.output), guarded(args.manifest)
-    if output.is_relative_to(manifest.parent):
-        raise ValueError('normalized output must be outside the saved capture directory')
-    payload = normalize(manifest, args.trade_date, validate_symbols(args.symbols))
-    validate_payload(payload)
-    data = canonical(payload)
-    with exclusive_lock(output):
-        if output.exists():
-            if output.stat().st_size != len(data) or output.read_bytes() != data:
-                raise ValueError('changed capture requires a new output path')
-        else:
-            atomic_bytes(output, data)
+    output = normalized_destination(args.output, args.manifest)
+    payload = normalize(args.manifest, args.trade_date, validate_symbols(args.symbols))
+    write_normalized(output, payload)
     print('Private institutional import:', len(payload['stocks']), 'stocks,', len(payload['chip_metrics']), 'observations')
 
 

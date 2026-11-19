@@ -8,15 +8,13 @@ from xml.etree import ElementTree
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from .collect_official import atomic_bytes
+from .research_history import validate_payload
+from .source_receipts import fallback_stocks
 from .dates import timestamp
-from .offline_receipt import read_receipt
+from .offline_receipt import normalized_destination, read_receipt, write_normalized
 from .news_index import NEWS, VERSION
 from .official_adapter import report_date
 from .quarterly_import import period_end
-from .research import guarded
-from .research_history import canonical, validate_payload
-from .safety import exclusive_lock
 
 INDUSTRIES = {20756: 'TWSE', 20757: 'TPEx'}
 INDUSTRY_FIELDS = ('出表日期 年度 季別 公司代號 公司名稱 產業別 基本每股盈餘(元) 普通股每股面額 '
@@ -124,6 +122,7 @@ def normalize(manifest, dataset):
             articles = rss_articles(body)
         payload['articles'] = articles
         payload['metadata'].update(adapter_version=VERSION, raw_row_count=len(articles))
+    payload['stocks'] = fallback_stocks(payload)
     validate_payload(payload)
     return payload
 
@@ -134,17 +133,9 @@ def main(argv=None):
     parser.add_argument('--manifest', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
     args = parser.parse_args(argv)
-    output, manifest = guarded(args.output), guarded(args.manifest)
-    if output.is_relative_to(manifest.parent):
-        raise ValueError('save normalized output outside the capture directory')
-    payload = normalize(manifest, args.dataset)
-    data = canonical(payload)
-    with exclusive_lock(output):
-        if output.exists():
-            if output.stat().st_size != len(data) or output.read_bytes() != data:
-                raise ValueError('changed capture requires a new output path')
-        else:
-            atomic_bytes(output, data)
+    output = normalized_destination(args.output, args.manifest)
+    payload = normalize(args.manifest, args.dataset)
+    write_normalized(output, payload)
     print(f'{args.dataset}: {payload["metadata"]["raw_row_count"]} rows')
 
 

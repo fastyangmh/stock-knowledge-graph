@@ -71,6 +71,10 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(bundle.report['quality']['counts']['documents'], 1)
         graph = bundle.graphs['TW:1000']
         self.assertIn('測試業', json.dumps(graph, ensure_ascii=False))
+        stock = next(n for n in graph['nodes'] if n['type'] == 'stock')
+        self.assertEqual((stock['raw_sha256'], stock['row_number'], stock['source_column']), (sha, 2, '公司代號'))
+        self.assertEqual(stock['source_url'], 'https://data.gov.tw/dataset/20756')
+        self.assertTrue(stock['license_url'] and stock['attribution'])
 
     def test_unlinked_news_replays_as_a_private_index_separate_from_stock_evidence(self):
         self.capture(20757, csv_body(FIELDS, [ROW]))

@@ -41,9 +41,9 @@ class MarginTests(unittest.TestCase):
         self.manifest.write_text(json.dumps([receipt]))
         return sha
 
-    def normalize(self, market='TPEX', day=DAY):
+    def normalize(self, market='TPEX', day=DAY, symbol='1000'):
         from local.margin_import import main
-        main(['--market', market, '--manifest', str(self.manifest), '--trade-date', day, '--symbols', '1000',
+        main(['--market', market, '--manifest', str(self.manifest), '--trade-date', day, '--symbols', symbol,
               '--output', str(self.out)])
 
     def research(self, **kwargs):
@@ -159,3 +159,76 @@ class MarginTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.normalize(day='2020-01-03' if case == 'requested date' else DAY)
                 self.assertEqual(self.out.read_bytes(), success)
+
+    def test_full_receipt_conflict_rejected_even_on_disjoint_selection_and_old_cutoff(self):
+        other = [ROW[0], '1001', *ROW[2:]]
+        self.capture([ROW, other])
+        self.normalize()
+        first = self.research()
+        self.out = self.root/'other.json'
+        self.normalize(symbol='1001')
+        self.research(known_at=first.report['known_at'])
+        self.out = self.root/'different.json'
+        self.capture([other])
+        self.normalize(symbol='1001')
+        with self.assertRaisesRegex(ValueError, 'conflicting same-time'):
+            self.research(known_at=first.report['known_at'])
+
+    def test_research_and_immutable_audit_check_chip_cells_against_receipt(self):
+        from local.research_history import canonical
+        self.capture()
+        self.normalize()
+        original = json.loads(self.out.read_bytes())
+        bundle = self.research()
+        for changes in [dict(value=987654, raw_sha256='0'*64), dict(value=987654),
+                        dict(unit='lots'), dict(row_number=3), dict(source_column='unknown')]:
+            with self.subTest(changes=changes):
+                payload = json.loads(canonical(original))
+                payload['chip_metrics'][-1].update(changes)
+                self.out.write_bytes(canonical(payload))
+                with self.assertRaises(ValueError):
+                    self.research()
+        folder = self.runs/bundle.report['run']
+        facts_path = folder/'research-facts.json'
+        facts = json.loads(facts_path.read_bytes())
+        facts['facts'][-1]['value'] = 987654
+        body = canonical(facts)
+        facts_path.write_bytes(body)
+        report = json.loads((folder/'report.json').read_bytes())
+        report['research_facts'].update(sha256=hashlib.sha256(body).hexdigest(), size_bytes=len(body))
+        (folder/'report.json').write_bytes(canonical(report))
+        with self.assertRaisesRegex(ValueError, 'chip'):
+            audit_bundle(self.runs, bundle.report['run'])
+
+    def test_later_source_row_keeps_master_stock_identity_and_attribution(self):
+        master = dict(stock_id='TW:1000', ticker='1000', market='TW', name='甲公司全名', industry='01',
+                      source_id='master', source_url='https://example.invalid/master', attribution='主檔署名')
+        self.out.write_text(json.dumps(dict(stocks=[master], sources=[], documents=[], chip_metrics=[],
+                                       financial_metrics=[], metadata=dict(observed_at='2019-12-31T00:00:00Z'))))
+        first = self.research()
+        self.out = self.root/'latest-input.json'
+        self.capture([ROW])
+        self.normalize()
+        for bundle in (self.research(), self.research(known_at=first.report['known_at'])):
+            node, = [n for n in bundle.graphs['TW:1000']['nodes'] if n['type'] == 'stock']
+            self.assertEqual((node['label'], node['industry'], node['source_url'], node['attribution']),
+                             ('甲公司全名', '01', master['source_url'], '主檔署名'))
+
+    def test_audit_detects_missing_chip_cell_even_when_counts_and_file_hashes_agree(self):
+        from local.research_history import canonical
+        self.capture()
+        self.normalize()
+        bundle = self.research()
+        folder = self.runs/bundle.report['run']
+        facts_path = folder/'research-facts.json'
+        facts = json.loads(facts_path.read_bytes())
+        facts['facts'].pop()
+        facts['coverage']['TW:1000']['chip_metric'] -= 1
+        body = canonical(facts)
+        facts_path.write_bytes(body)
+        report = json.loads((folder/'report.json').read_bytes())
+        report['research_facts'].update(sha256=hashlib.sha256(body).hexdigest(), size_bytes=len(body), count=16)
+        report['quality']['counts']['chip_metrics'] = 16
+        (folder/'report.json').write_bytes(canonical(report))
+        with self.assertRaisesRegex(ValueError, 'chip'):
+            audit_bundle(self.runs, bundle.report['run'])

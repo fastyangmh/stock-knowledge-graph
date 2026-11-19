@@ -1,5 +1,6 @@
 """Import a dated, saved TPEx margin trading receipt into private daily research."""
 import argparse
+import base64
 import csv
 import io
 import re
@@ -7,13 +8,10 @@ from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from .collect_official import atomic_bytes
 from .dates import iso_date, timestamp
 from .official_adapter import report_date
-from .offline_receipt import read_receipt
-from .research import guarded
-from .research_history import canonical, validate_payload, validate_symbols
-from .safety import exclusive_lock
+from .offline_receipt import normalized_destination, read_receipt, write_normalized
+from .research_history import validate_symbols
 
 SOURCE = 'tpex_margin_11387'
 METRICS = {
@@ -27,7 +25,7 @@ METRICS = {
 COLUMNS = ['資料日期', '代號', '名稱', *METRICS, '備註']
 
 
-def _row_values(row, index):
+def row_values(row, index):
     values = {}
     for column, raw in zip(METRICS, row[3:-1]):
         raw = raw.strip()
@@ -57,6 +55,10 @@ def _row_values(row, index):
 
 def normalize(manifest, trade_date, selection):
     source, receipt, body = read_receipt(manifest, SOURCE, 11387)
+    return project(source, receipt, body, trade_date, selection)
+
+
+def project(source, receipt, body, trade_date, selection):
     observed = receipt['received_at']
     target = iso_date(trade_date)
     if target > timestamp(observed).astimezone(ZoneInfo('Asia/Taipei')).date():
@@ -75,10 +77,11 @@ def normalize(manifest, trade_date, selection):
             raise ValueError(f'11387 row {index}: invalid or duplicate security')
         seen.add(symbol)
         sid = 'TW:'+symbol
-        values = _row_values(row, index)
+        values = row_values(row, index)
         if sid not in selection:
             continue
-        stocks.append(dict(stock_id=sid, market='TW', ticker=symbol, name=name, **origin))
+        stocks.append(dict(stock_id=sid, market='TW', ticker=symbol, name=name, provider=source['provider'],
+                           raw_sha256=receipt['sha256'], row_number=index, source_column='代號', **origin))
         document_id = f'{SOURCE}:{symbol}:{trade_date}'
         documents.append(dict(document_id=document_id, external_id=document_id, doc_type='chip_report',
                               title=f'{name} {trade_date} 上櫃融資融券餘額',
@@ -98,9 +101,9 @@ def normalize(manifest, trade_date, selection):
                       quantity_scale='source_reported', scope='TPEx aggregate of securities finance companies and margin lenders')
     snapshot = dict(dataset_id=SOURCE, sha256=receipt['sha256'], bytes=receipt['bytes'],
                     retrieved_at=observed, resource_url=source['resource_url'])
-    metadata = dict(adapter_version='tpex-margin-1', observed_at=observed, trade_date=trade_date,
+    metadata = dict(adapter_version='tpex-margin-2', observed_at=observed, trade_date=trade_date,
                     raw_row_count=len(seen), source_snapshots=[snapshot])
-    return dict(stocks=stocks, sources=[provenance], documents=documents, financial_metrics=[],
+    return dict(source_csv_b64=base64.b64encode(body).decode('ascii'), stocks=stocks, sources=[provenance], documents=documents, financial_metrics=[],
                 chip_metrics=metrics, metadata=metadata)
 
 
@@ -114,18 +117,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.market == 'TWSE':
         raise ValueError('11680 CSV is undated; the dated JSON is a separate representation')
-    manifest, output = guarded(args.manifest), guarded(args.output)
-    if output.is_relative_to(manifest.parent):
-        raise ValueError('normalized output must be outside the saved capture directory')
-    payload = normalize(manifest, args.trade_date, validate_symbols(args.symbols))
-    validate_payload(payload)
-    data = canonical(payload)
-    with exclusive_lock(output):
-        if output.exists():
-            if output.stat().st_size != len(data) or output.read_bytes() != data:
-                raise ValueError('changed capture requires a new output path')
-        else:
-            atomic_bytes(output, data)
+    output = normalized_destination(args.output, args.manifest)
+    payload = normalize(args.manifest, args.trade_date, validate_symbols(args.symbols))
+    write_normalized(output, payload)
     print('Private margin import:', len(payload['stocks']), 'stocks,', len(payload['chip_metrics']), 'observations')
 
 
