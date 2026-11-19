@@ -1,6 +1,6 @@
 # 獨立行情庫通知的審查與重驗
 
-2026-11-19 在 macOS arm64、Python 3.11.11、uv 0.6.13、Node 22.16.0 重驗。原審查範圍為 `5a731f1...610e4b3`。修復提交 `16d6b5a` 以 `c429270` 為基底，與本地開發分支 `1118b7f` 合併後的乾淨驗收候選為 `8175e975b97b56c80ff7af18baae81c8d502a605`。[規格](../.scratch/m2-market-revisions/spec.md) · [票據](../.scratch/m2-market-revisions/issues/01-market-notices.md)
+2026-11-19 在 macOS arm64、Python 3.11.11、uv 0.6.13、Node 22.16.0 重驗。原審查範圍為 `5a731f1...610e4b3`。修復提交 `16d6b5a` 以 `c429270` 為基底，與本地開發分支 `ec1fdfd` 合併後的乾淨驗收候選為 `8175e975b97b56c80ff7af18baae81c8d502a605`。[規格](../.scratch/m2-market-revisions/spec.md) · [票據](../.scratch/m2-market-revisions/issues/01-market-notices.md)
 
 ## Standards｜實作、相容性與操作
 
