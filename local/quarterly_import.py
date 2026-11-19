@@ -11,11 +11,15 @@ from zoneinfo import ZoneInfo
 from .collect_official import atomic_bytes
 from .dates import timestamp
 from .official_adapter import csv_rows, number, report_date
-from .quarterly_income import SOURCES, ADDITIONAL_FIELDS
+from . import quarterly_balance, quarterly_income
 from .quarterly_review import apply_review
 from .research import guarded
 from .research_history import MAX_INPUT_BYTES, canonical, strict_json_value, validate_payload, validate_symbols
 from .safety import exclusive_lock
+
+
+SOURCES = {**quarterly_income.SOURCES, **quarterly_balance.SOURCES}
+ADDITIONAL_FIELDS = {'income': quarterly_income.ADDITIONAL_FIELDS, 'balance': quarterly_balance.ADDITIONAL_FIELDS}
 
 
 def read_bytes(path, limit=MAX_INPUT_BYTES):
@@ -70,13 +74,13 @@ def normalize(manifest, dataset, symbols):
     absent = required.difference(rows[0])
     if absent:
         raise ValueError(f'{dataset}: missing quarterly fields: ' + ', '.join(sorted(absent)))
-    if source['statement'] == 'income':
-        required.update(ADDITIONAL_FIELDS[source['sector']])
-        unknown = rows[0].keys() - required
-        if unknown:
-            raise ValueError(f'{dataset}: unknown quarterly fields: ' + ', '.join(sorted(unknown)))
-        if not required.issubset(rows[0]):
-            raise ValueError(f'{dataset}: missing published fields, quarterly schema review required')
+    required.update(ADDITIONAL_FIELDS[source['statement']][source['sector']])
+    unknown = rows[0].keys() - required
+    if unknown:
+        raise ValueError(f'{dataset}: unknown quarterly fields: ' + ', '.join(sorted(unknown)))
+    if not required.issubset(rows[0]):
+        raise ValueError(f'{dataset}: missing published fields, quarterly schema review required')
+    report_basis = 'point_in_time' if source['statement'] == 'balance' else None
     sid = source['source_id']
     stocks, documents, metrics, missing = {}, [], [], []
     dates = set()
@@ -121,7 +125,7 @@ def normalize(manifest, dataset, symbols):
                                 source_report_date=reported.isoformat(), source_year=row['年度'],
                                 source_quarter=row['季別'], period_end_basis='calendar_quarter_end',
                                 period_type='quarter', value=value, unit='source_reported',
-                                currency=None, report_basis=None, statement_scope=None,
+                                currency=None, report_basis=report_basis, statement_scope=None,
                                 available_at=received.isoformat()))
     if len(dates) > 1:
         raise ValueError(f'{dataset}: mixed quarterly periods or report dates')
