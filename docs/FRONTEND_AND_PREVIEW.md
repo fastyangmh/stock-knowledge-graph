@@ -96,3 +96,35 @@ JSON；每種失敗確認舊 canvas 清除與重新載入恢復。另測來源�
 本模式不能和 `--in-memory`、`--cytoscape-js` 或 `--esm-symbol` 混用。原本提供本地
 Cytoscape 的 loopback 模式仍會攔截 CDN，不算本模式的真實 CDN 證據。
 結果見 [2026-11-17 圖譜驗證](VERIFICATION-2026-11-17-GRAPH-LIVE.md)。
+
+### 事件頁單一事件選取與相容性重驗（2026-11-19）
+
+M6 預演在 `d8d0e29` 發現事件頁 smoke 中止。在乾淨候選
+`d4eb91e60079ff13d3571a6fa604f8f3cef080b3` 分別從記憶體與原生 HTTP 入口重現，
+兩者皆 exit 1。月營收區首批 25 個分組選單與 1 個單一事件選單都符合舊定位，
+Playwright 在選取前回報 strict mode violation。修正後兩個入口皆以
+`combobox` 角色與完整名稱「月營收提醒事件單一事件」操作該選單。
+HTTP 路徑在桌面和手機寬度來回切換事件，並核對所選事件的 ID、凍結基準與來源報告雜湊。
+
+以下均測於乾淨候選 `2f5c0733d9de935a4add592e87e32ef321cb8970`，環境為 macOS arm64、
+Python 3.11.11、uv 0.6.13、Node 22.16.0、Playwright 1.65.2、Chromium 159.0.8154.6。
+
+| 輸入 | 實際驗證 | 結果 |
+| --- | --- | --- |
+| 合成事件與研究庫 | `event_browser_smoke.py` 記憶體及 `--live-http`、`event_facts_browser_smoke.py` 的完整、混合與舊版報告 | 三個入口皆 exit 0，分別通過 11、7、14 項檢查 |
+| 合成歷史與圖譜、既有公開示範 | `history_browser_smoke.py --live-http`、`browser_smoke.py --live-cdn` | 兩者 exit 0，原 CDN 與唯讀 Pages 示範通過 |
+| 合成／離線套件 | `uv run --locked python -m local.check --frontend` | exit 0，654 個 pytest、402 個 subtests、56 個 Node 測試通過 |
+| M6 先前從真實來源重建後還原的私有研究庫 | 37 個版本；上市與上櫃各驗圖譜、歷史及事件，桌面與 390px 手機寬度 | 12 個頁面／寬度組合通過，兩市場原 CDN 皆 HTTP 200 且內容雜湊相符 |
+
+要重現兩個直接受影響的入口，在相應 Commit 下，以已備妥 Playwright 的 Python、
+Chromium 路徑 `$BROWSER` 及新的私有報告目錄 `$OUT` 執行：
+
+```bash
+TMPDIR=/private/tmp python scripts/event_browser_smoke.py --chromium "$BROWSER" --report "$OUT/event-memory.json"
+TMPDIR=/private/tmp python scripts/event_browser_smoke.py --live-http --chromium "$BROWSER" --report "$OUT/event-live.json"
+```
+
+主要工作區的 `local/private/m6-browser-regression/` 保留修正前的 `d4eb91e-red/` 與修正後的
+`2f5c073-green/`。後者有完整命令、退出碼、報告與截圖，真實來源結果在
+`real-restored/browser.json`。本輪真實資料驗證沿用 M6 `d8d0e29-run01` 的還原庫，
+同候選的完整來源重建與獨立還原依 [M6 驗收票](../.scratch/m6-private-acceptance/issues/01-real-rehearsal.md) 追蹤。

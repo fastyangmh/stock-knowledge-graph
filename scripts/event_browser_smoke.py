@@ -56,7 +56,7 @@ async def run(args):
         assert await page.locator('#event-overview img').count()==0 and not await page.evaluate('Boolean(window.injected)')
         checks.append('untrusted strings rendered as text; no HTML execution')
         section=page.locator('[data-event-category="monthly_revenue"]')
-        await section.locator('select').select_option(index=1)
+        await section.get_by_role('combobox', name='月營收提醒事件單一事件', exact=True).select_option(index=1)
         await section.locator('details').last.locator('summary').click()
         assert 'source_id' in await section.inner_text() or 'baseline' in await section.inner_text()
         checks.append('select individual event and inspect frozen baseline/follow-up evidence')

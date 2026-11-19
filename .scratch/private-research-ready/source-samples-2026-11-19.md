@@ -29,3 +29,7 @@
 | [上櫃每日重大訊息](https://data.gov.tw/dataset/18418) | 54 × 9 | 出表 1151119、發言 1151118，含引號內跨行文字，逐行切割會錯算列數 |
 
 私有證據在 `local/private/source-review-2026-11-19/`。目錄讀取的 DNS 與 403 結果分存 `sandbox/manifest.json`、`official/manifest.json`。CSV 的首次 DNS 失敗與實際成功分存 `resource-sandbox/manifest.json`、`official-resources/manifest.json`，可依 ID 找來源 URL、擷取時間、HTTP 狀態、大小、原件及 SHA256。九份 CSV 存於 `official-resources/`，逐檔結構核對存於 `csv-audit.json`。各資料集的欄位定義、獨立參考及研究可比較性仍應在採用前逐票記錄。
+
+### 歷史樣本的再取得條件
+
+同日再核對 11549、11371 的正式目錄，兩者各列一個每日更新的 CSV。本次在歷史資料專區與歷史查詢提案中，未找到可定位到較早日期的同資源原件與其當時版本。提案頁標示已回覆，頁面上可讀的「目前只能提取更新後單筆」是提案者的說明，不能作為提供機關的正式定義。若之後取得合法的同來源歷史快照，應按實際取得時間登錄；要重建「當時首次保存」，另需原收據或當時已保存的研究版本。[上市 11549](https://data.gov.tw/dataset/11549) · [上櫃 11371](https://data.gov.tw/dataset/11371) · [政府資料歷史專區](https://data.gov.tw/datasets/history) · [歷史查詢提案](https://data.gov.tw/suggests/136936)
