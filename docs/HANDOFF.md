@@ -6,7 +6,7 @@
 
 ## 1. 接手時先知道的事
 
-P2-02 六票已交付合成 CLI 與兩市場 11/14～17 的官方日曆驗收。11/18 的實際報價超出已核對日曆，事件報告能顯示第 1 筆已保存觀察，交易日序號維持未知。雙軸審查發現的截止及首存衝突正在修復。[真實日曆驗收](VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) · [逐項清單與後續規格](../.scratch/private-research-ready/completion.md)
+P2-02 六票已交付合成 CLI 與兩市場 11/14～17 的官方日曆驗收。11/18 的實際報價超出已核對日曆，事件報告能顯示第 1 筆已保存觀察，交易日序號維持未知。候選 `f45a8ac` 已修復未來截止、當日待到與同時首存衝突，並通過完整套件及真實重播。P2-02 在已記錄的範圍完成。[雙軸審查及重驗](VERIFICATION-2026-11-19-CALENDAR-REVIEW.md) · [真實日曆驗收](VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) · [逐項清單與後續規格](../.scratch/private-research-ready/completion.md)
 
 最新一期季報、籌碼與重大訊息已開始分來源核對。11/17 與 11/18 的兩市場真實研究版本可供後續品質驗證。[真實後續行情及官方原件索引](../.scratch/private-research-ready/source-samples-2026-11-19.md) · [兩家發行人季報核對](../.scratch/m3-evidence-sources/issuer-reference-2026-11-19.md)
 
@@ -14,7 +14,7 @@ P2-02 六票已交付合成 CLI 與兩市場 11/14～17 的官方日曆驗收。
 
 **M1 尚未全過。** 01～08、11／12 已完成各票範圍；09 的行情交易範圍／獨立同日參考仍不足，正式兩市場抽檢皆 exit 2、`compared_fields=0`，10 依賴 gate 保持 `needs-info`。財務月營收已核對的新版單位不代表行情尺度已確認。Linux／NAS 未驗證，但使用者已要求本輪在當前環境測試，因此不是本輪 blocker；將來移轉需重驗。
 
-下一步補 09 的來源定義證據；不需等待外部即可推進 M2～M5 中獨立工程工作。P2-01 未裁剪事實與新版事件讀者已完成工程交付及本輪真實來源串接；日曆審查結案、公司行為、完整撤回／修訂歷史、其他資料適配、研究品質、容量與 NAS 復原仍在 backlog。
+下一步補 09 的來源定義證據；不需等待外部即可推進 M2～M5 中獨立工程工作。P2-01 未裁剪事實與新版事件讀者已完成工程交付及本輪真實來源串接；公司行為、完整撤回／修訂歷史、其他資料適配、研究品質、容量與 NAS 復原仍在 backlog。
 
 Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/private-research-ready`，尚不能把開發分支驗收視為 `main` 已更新。
 
@@ -43,6 +43,7 @@ Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/pri
 | --- | --- | --- |
 | 公司／月營收快照與正規化 | `local.collect_official`、`local.official_import`；[資料管線](DATA_PIPELINE.md) | 兩市場公司／月營收真實全檔與月營收單位抽檢完成；季度尚未適配 |
 | 盤後行情 | `local.market_prices`、`local.market_graph`；[行情](MARKET_PRICES.md) | 兩市場真實全檔及私有串接完成；單位／交易範圍抽檢未過，保留 source_reported |
+| 行情交易日完整性 | `local.calendar_coverage`；[私有日曆 CLI](CALENDAR_COVERAGE.md) | 逐日查開休市與缺觀察、獨立序號、證據截止與時序衝突；官方日曆目前核至 11/14～17 |
 | SQLite／語意／展示子圖 | `core.py`、`semantic.py`、`neighbors.py`、`lifecycle.py`、`export_json.py` | 向量與關聯快取、精確Top-K、裁剪、JSON校驗；不是ANN |
 | 私有研究版本 | `local.research`、`research_history.py`；[私有研究](PRIVATE_RESEARCH.md) | 觀察ledger、獨立bundle、latest指標與跨版本快取；不是完整市場雙時間資料庫 |
 | 獨立研究提醒 | `alerts.py`、`alert_inputs.py`；[提醒規則](RESEARCH_ALERTS.md) | 2條價量、4條營收規則；未經真實績效校準 |

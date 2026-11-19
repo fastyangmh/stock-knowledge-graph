@@ -26,3 +26,5 @@ P1-03。2026-11-19 正常閱覽兩家公司分別公布的 2026 年第 3 季合�
 | [上櫃保險業綜合損益表](https://data.gov.tw/dataset/94855) | 0 | 26 |
 
 有代號者均為民國 115 年第 3 季。最後三檔各有一列無公司代號、無季別，須保留原件並回報沒有可用觀察，不能以空列驗收產業。上櫃保險業資產負債表的官方資源回 403，本次未封存該資源。重新驗收條件是可依授權取得原件且有可核對公司與期別。[上櫃保險業資產負債表](https://data.gov.tw/dataset/91969)
+
+另以環球晶圓 6488 合併財務報告暨會計師核閱報告核對上櫃一般業。PDF 第 4 頁 9 月 30 日資產總計、第 5 頁前九月營業收入及基本 EPS 均與 91967／94853 原件零容差相符，單位分別為新台幣千元及元／股。三欄原件 hash、定位及比較在 `local/private/source-review-2026-11-19/issuer-6488-view-comparison.json`。8069 中文 PDF 在本次閱覽逾時，英文目錄註明 2026Q3 英譯本仍在準備，故未計入第二個上櫃樣本。[環球晶圓原始合併財報](https://www.sas-globalwafers.com/wp-content/uploads/2026/05/GlobalWafers_2026Q3-consolidated-financial-statement_CN.pdf) · [元太中文投資人財報入口](https://tw.eink.com/investor/finance?bookmark=quarter) · [元太英文財報入口](https://www.eink.com/investor/finance?bookmark=quarter)

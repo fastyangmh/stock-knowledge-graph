@@ -24,7 +24,7 @@
 | P1-04 | 法人／融資融券等籌碼適配 | 待開發 | 逐資料集來源審核；資料工程 |
 | P1-05 | 重大訊息／新聞／產業證據 | 待開發 | 逐來源使用範圍；資料工程 |
 | P2-01 | 未裁剪、版本化的研究數值契約 | 工程完成；真實來源串接已驗 | research／bundle／event介面；研究工程 |
-| P2-02 | 官方交易日曆與缺交易日辨識 | 六票已驗，整批審查修復中 | 權威日曆與P1-01；資料工程 |
+| P2-02 | 官方交易日曆與缺交易日辨識 | 本輪完成，真實日曆限兩市場四日 | 權威日曆與P1-01；資料工程 |
 | P2-03 | 公司行為與明確價格基準 | 待開發 | 公司行為資料；研究工程 |
 | P2-04 | 修訂、撤回與完整時間語意 | 待開發 | 來源修訂規則；資料工程 |
 | P2-05 | 大規模量測與候選索引／ANN | 待開發 | 可重現負載與精確基準；開發者 |
@@ -115,7 +115,7 @@
 
 [01 逐日覆蓋](../.scratch/m2-trading-calendar/issues/01-daily-coverage.md) 與 [03 事件後序號](../.scratch/m2-trading-calendar/issues/03-session-ordinal.md) 已完成合成 CLI 驗收。[02 個股與擷取證據](../.scratch/m2-trading-calendar/issues/02-gap-evidence.md) 已用同一 CLI 驗證缺口原因及晚到回播。讀取方法見[私有日曆報告](CALENDAR_COVERAGE.md)。
 
-[04 上市日曆](VERIFICATION-2026-11-19-TWSE-CALENDAR.md)、[05 上櫃日曆](VERIFICATION-2026-11-19-TPEX-CALENDAR.md) 與 [06 真實驗收](VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) 已在指定 macOS 完成。兩市場的正式樣本限於 2026-11-14～17，另驗 11-18 有保存行情且日曆未涵蓋的情境。候選 `832d1e8` 完整檢查通過 518 pytest、275 subtests、55 Node。對 `49fee88` 的雙軸審查另發現未來截止、當日尚未到應到時間與同時首存相異行情三項行為，整批結案待修復重驗。
+[04 上市日曆](VERIFICATION-2026-11-19-TWSE-CALENDAR.md)、[05 上櫃日曆](VERIFICATION-2026-11-19-TPEX-CALENDAR.md) 與 [06 真實驗收](VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) 已在指定 macOS 完成。兩市場的正式樣本限於 2026-11-14～17，另驗 11-18 有保存行情且日曆未涵蓋的情境。候選 `832d1e8` 完整檢查通過 518 pytest、275 subtests、55 Node。審查發現的未來截止、當日待到與同時首存相異行情均已修復。最終產品候選 `f45a8ac` 通過 521 pytest、282 subtests、55 Node，16 次真實 CLI 重播通過。本輪 P2-02 完成。[雙軸審查及重驗](VERIFICATION-2026-11-19-CALENDAR-REVIEW.md)
 
 **工作：** 串接權威日曆與例外休市資料，區分休市、停牌、無成交、抓取失敗及缺檔；用完整性報告決定能否稱為交易日序列。
 
