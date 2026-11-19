@@ -64,4 +64,44 @@ uv run --locked python -m local.calendar_coverage \
 
 預設整個研究目錄、索引與適用原檔合計預算 256 MiB、50 個版本及 50,000 個「股票 × 曆日」列，可用 `--max-mib`、`--max-runs`、`--max-rows` 調整。日曆索引上限 4 MiB、512 個條目，單份封存證據 32 MiB；另設日曆判讀工作量與報告大小上限。既有 `local.trading_calendar` 的 CSV 判讀入口仍用於原盤後流程。
 
-01 的合成 SQLite／CLI 驗收見 [01 票](../.scratch/m2-trading-calendar/issues/01-daily-coverage.md)。缺口原因、事件後序號及分市場官方樣本依後續票驗收。
+01 的合成 SQLite／CLI 驗收見 [01 票](../.scratch/m2-trading-calendar/issues/01-daily-coverage.md)。事件後序號及分市場官方樣本依對應票驗收。
+
+## 以證據說明個股缺口
+
+於同一命令加上 `--gap-evidence local/private/calendar/gaps.json` 可提供已核對的個股公告、資料應到時點或擷取紀錄。使用 `market-gap-evidence-1` 的 UTF-8 JSON 索引。每筆 `source_id` 指向受診斷的行情資料集，上市為 `twse_daily_11549`，上櫃為 `tpex_daily_11371`。下例欄位及檔名均為合成範例。
+
+```json
+{
+  "schema_version": "market-gap-evidence-1",
+  "entries": [
+    {
+      "id": "synthetic-fetch-1",
+      "market": "twse",
+      "source_id": "twse_daily_11549",
+      "date": "2019-01-07",
+      "saved_at": "2019-01-07T19:00:00+08:00",
+      "kind": "fetch_failed",
+      "run_id": "attempt-1",
+      "failure": "download failed",
+      "locator": "執行紀錄內的 attempt-1",
+      "path": "attempt-1.json",
+      "sha256": "<封存檔的 SHA256>"
+    }
+  ]
+}
+```
+
+每筆使用唯一 `id`，`date` 為台北交易日期。提供本地可證實的 `saved_at`、原始封存檔相對路徑、SHA256 與可回查的 `locator`。維護者先核對原始文件與逐筆解讀，程式檢查檔案雜湊並套用截止、行情來源、市場、交易日與個股範圍。每次只納入截止時已保存的證據。索引與封存檔也使用整體讀取預算。
+
+| `kind` | 額外欄位與判讀 |
+| --- | --- |
+| `suspended`、`no_trade` | `stock_id` 如 `TW:1000`；`source_url` 指向對應交易所官方 HTTPS 來源。需有明示個股停牌或當日無成交的證據。僅存零量或缺收盤價者保留原值與未知狀態。有正成交量或成交筆數時遇到相反公告會列 `conflict`，兩份證據均保留。 |
+| `fetch_failed` | `run_id` 與 `failure` 定位對應市場、行情來源與交易日的失敗執行紀錄。 |
+| `due` | `due_at` 為該行情文件有依據的應到時點，必須帶時區。無法證實時點時可省略這筆證據。多份紀錄的時點相異會列 `due_conflict`。 |
+| `missing_file` | 提供 `quote_file`、`expected_files`、`missing_files` 及帶時區的 `checked_at`。必須在預期及缺件清單均找到指定行情檔，且清點已達可判定的應到時點，才列缺檔。 |
+
+逐股逐日的 `status` 與 `stock_counts` 仍回答有無保存行情。另讀 `diagnosis` 的 `stock_state`、`acquisition`、`timing` 與 `gap`；證據 ID 可對回 `gap_evidence.versions`。停牌、抓取失敗及缺檔可以同時存在。即使證據解釋缺列，該日仍計入 `missing_observation`。已存列會顯示原 `close`、`volume_shares`、`turnover_raw`、`turnover_unit`、`price_unit` 及 `trades`。完全無行情列時 `observation` 保持 null。
+
+`diagnosis_counts` 按股分別統計各狀態。`gap.unresolved` 是範圍內已開市、缺觀察且原因待查的日數。`pending` 是已知應到時點尚未到；應到時間不明時 `timing=due_unknown`。取得狀態按每一種成立原因各計一天，同日有兩種原因會計入兩類。
+
+`late_first_bundle` 表示該日行情首次出現在所提供且已稽核的研究版本時已過應到時點；依據是 `observation.captured_at` 與 `timing_evidence_ids`。行情來源的 `observed_at` 與供應端實際晚發是不同判斷。原始本地登錄時間未知時，`recorded_at` 保持 null。
