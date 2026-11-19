@@ -35,8 +35,10 @@ def read_receipt(manifest: Path, source_id: str, catalog_id: int):
         raise ValueError(f'expected one receipt for {catalog_id}')
     entry = matches[0]
     mime = entry.get('mime')
-    if not isinstance(mime, str) or mime.partition(';')[0].strip().lower() not in ('application/csv', 'text/csv'):
-        raise ValueError(f'expected CSV MIME type for {catalog_id}')
+    types = {'csv': {'application/csv', 'text/csv'}, 'rss': {'text/xml', 'application/xml', 'application/rss+xml'}}
+    fmt = source['format']
+    if not isinstance(mime, str) or mime.partition(';')[0].strip().lower() not in types.get(fmt, set()):
+        raise ValueError(f'expected {fmt.upper()} MIME type for {catalog_id}')
     if (entry.get('catalog') != source['dataset_url'] or entry.get('url') != source['resource_url']
             or entry.get('status') != '200' or type(entry.get('exit')) is not int
             or entry['exit'] != 0 or entry.get('error') != ''

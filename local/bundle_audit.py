@@ -16,6 +16,7 @@ import tempfile
 
 from .alerts import validate as validate_alert, policy
 from .dates import timestamp
+from .news_index import audit_indexes
 from .research_history import canonical, strict_json, MAX_INPUT_BYTES
 from .research import ENGINE_VERSION, guarded
 from .validate_release import validate_data_dir
@@ -130,6 +131,10 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
     warnings = report.get("quality", {}).get("warnings")
     _require(isinstance(warnings, list) and all(isinstance(s, str) for s in warnings), "invalid_quality_warnings")
     _require(isinstance(report.get("analysis"), dict), "invalid_analysis_metadata")
+    try:
+        audit_indexes(report['quality'], cutoff)
+    except (AttributeError, IndexError, KeyError, TypeError, ValueError) as exc:
+        raise AuditError('invalid_news_index') from exc
     data_files = {name: body for name, body in captured.items() if name.startswith("data/")}
     # Reuse the exact release validator on the captured bytes, not a second read
     # of files that an uncooperative writer may have replaced in the meantime.
