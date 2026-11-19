@@ -43,3 +43,7 @@ uv run --locked python local/private/m3-institutional-2026-11-19/replay.py \
 2026-11-19 在整合候選 `50497f0` 以 `uv run --locked python -m local.check --frontend` 完整驗收，exit 0，564 個 Python 測試、311 個 subtests、55 個 Node 測試通過。真實重播於同候選執行，私有摘要為 `local/private/m3-institutional-2026-11-19/candidate/summary.json`。本票未變更前端，未另做瀏覽器驗收。
 
 公開 repo 可用 `uv run --locked pytest -q local/tests/test_institutional_import.py` 執行合成收據驗證。來源範圍、獨立抽檢與使用限制沿用[法人買賣票](../.scratch/m3-evidence-sources/issues/04-institutional.md)。
+
+## 收據與歷史重播
+
+v2 私有輸入在 `source_csv_b64` 保存原始 CSV bytes。研究與 bundle audit 會核對收據並從原件重算所選投影，按 normalized SHA 保存於 bundle 的 `chips/`。舊 v1 可讀，會標示 `legacy_chip_projection_only`；原件逐格重算需重新執行來源匯入。[M3 04～07 雙軸審查與組合重播](VERIFICATION-2026-11-19-M3-SOURCE-REVIEW.md)

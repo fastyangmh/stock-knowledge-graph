@@ -61,3 +61,7 @@ uv run --locked python -m local.bundle_audit --root local/private/announcements/
 - `uv run --locked python -m local.check --frontend` exit 0，613 pytest、378 subtests、55 Node tests。合成案例含跨市場同文、惡意文字、明示多股連結、同時歧義、收據損壞、明示撤回與原截止重讀。本次未另執行瀏覽器。兩份單日原件未驗證正式撤回、逐日連續涵蓋、外部轉載及新聞權利；明示更正限上述上櫃兩組。
 
 真實重播程式在主工作區 `local/private/m3-announcements-2026-11-19/replay.py`。從候選工作目錄以 `PYTHONPATH=. uv run --locked python /path/to/replay.py new-run-name` 建立新的私有輸出。正式結果在同一私有目錄的 `replay-4f36d7e/result.json`、`check-report.json`（該次重播子目錄）及 `reference-review.json`（上層）。[本地票單](../.scratch/m3-evidence-sources/issues/06-announcements.md)
+
+## 收據與歷史重播
+
+重新取得相同發言保留原收據時間及已審的跨股連結，明示撤回仍可按截止排除。缺公司主檔時，股票節點會附資料集、提供者、授權、署名與原件列欄；跨股公司可定位至同檔經人工核對的公司代號列。[M3 04～07 雙軸審查與組合重播](VERIFICATION-2026-11-19-M3-SOURCE-REVIEW.md)

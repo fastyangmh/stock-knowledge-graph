@@ -54,3 +54,7 @@ uv run --locked python local/private/m3-margin-2026-11-19/replay.py \
   --source-root local/private/source-review-2026-11-19 \
   --dest local/private/m3-margin-2026-11-19/replay-new
 ```
+
+## 收據與歷史重播
+
+v2 私有輸入在 `source_csv_b64` 保存原始 CSV bytes。研究與 bundle audit 會核對收據並從原件重算所選投影，按 normalized SHA 保存於 bundle 的 `chips/`。舊 v1 可讀，會標示 `legacy_chip_projection_only`；原件逐格重算需重新執行來源匯入。[M3 04～07 雙軸審查與組合重播](VERIFICATION-2026-11-19-M3-SOURCE-REVIEW.md)
