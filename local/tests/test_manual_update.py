@@ -117,6 +117,19 @@ class ManualUpdateTests(unittest.TestCase):
                                          if row['field'] not in ('acquisition_receipt_sha256', 'source_registry_sha256')]
         save(manifest, legacy)
         main(['verify', '--bundle', str(archive)])
+        # The released v1 contract verified the raw files without an archived registry.
+        (archive/'payload/config'/registry.name).unlink()
+        legacy['files'] = [row for row in legacy['files'] if row['class'] != 'configuration']
+        save(manifest, legacy)
+        import subprocess, sys
+        restored = self.base/'restored-v1'
+        result = subprocess.run([sys.executable, '-m', 'local.portable_backup', 'restore',
+                                 '--bundle', str(archive), '--destination', str(restored)], capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        scope = json.loads(result.stdout)['verification']
+        self.assertEqual(scope['contract'], 'legacy_v1')
+        self.assertIn('registry', scope['source_replay_gaps'][0]['reason'])
+        self.assertEqual((restored/'runs/latest.json').read_bytes(), (runs/'latest.json').read_bytes())
 
     def test_same_job_retry_and_candidate_audit_failure_keep_prior_success(self):
         self.replay_sources()
@@ -213,6 +226,40 @@ class ManualUpdateTests(unittest.TestCase):
         report_path.rmdir()
         self.assertEqual(self.invoke('next')[0], 0)
         self.assertEqual(catalog(self.market/'runs')[0]['counts']['valid'], 2)
+
+    def test_foreign_candidate_pointer_cannot_claim_prior_success(self):
+        self.replay_sources()
+        self.assertEqual(self.invoke('prior')[0], 0)
+        current = (self.market/'runs/latest.json').read_bytes()
+        self.assertEqual(self.invoke('next', through='research')[0], 0)
+        (self.market/'jobs/next/candidate/latest.json').write_bytes(current)
+        code, _ = self.invoke('next', through='research')
+        self.assertEqual(code, 2)
+        self.assertEqual((self.market/'runs/latest.json').read_bytes(), current)
+        self.assertEqual(self.invoke('next')[0], 0)
+
+    def test_interrupted_pointer_commit_is_hidden_and_same_job_can_resume(self):
+        from unittest.mock import patch
+        from local.bundle_audit import audit_bundle, catalog
+        self.replay_sources()
+        self.assertEqual(self.invoke('prior')[0], 0)
+        previous = (self.market/'runs/latest.json').read_bytes()
+        code, candidate = self.invoke('next', through='research')
+        self.assertEqual(code, 0)
+        run = candidate['stages']['research']['run']
+        replace = Path.replace
+        def interrupt(src, target):
+            if target == self.market/'runs/latest.json':
+                raise KeyboardInterrupt
+            return replace(src, target)
+        with patch.object(Path, 'replace', interrupt), self.assertRaises(KeyboardInterrupt):
+            self.invoke('next')
+        self.assertEqual((self.market/'runs/latest.json').read_bytes(), previous)
+        self.assertNotIn(run, catalog(self.market/'runs')[1])
+        with self.assertRaisesRegex(ValueError, 'unpublished'):
+            audit_bundle(self.market/'runs', run)
+        self.assertEqual(self.invoke('next')[0], 0)
+        self.assertEqual(set(catalog(self.market/'runs')[1]), {json.loads(previous)['run'], run})
 
     def test_newer_price_observation_cannot_silently_replace_job_input(self):
         self.replay_sources()

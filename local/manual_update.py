@@ -98,6 +98,7 @@ def update(plan, market, job, through, report):
                      output_root=candidate, prices_db=guarded(market/'prices.db'), price_snapshots=market/'prices',
                      trade_date=plan['trade_date'], price_market=plan['market'], alerts=True,
                      analysis=plan.get('analysis', 'none'), revision=plan.get('revision'))
+    current = optional_json(pointer_path)
     try:
         pointer = read_json(candidate/'latest.json')
         if (not re.fullmatch(r'[0-9a-f]{32}', pointer['run']) or
@@ -106,15 +107,17 @@ def update(plan, market, job, through, report):
             raise ValueError('invalid candidate pointer')
         final = guarded(runs/pointer['run'])
         bundle_root = runs if final.exists() else candidate
+        pending = optional_json(pending_pointer(runs, pointer['run']))
+        if final.exists() and pending != pointer and (current != pointer or previous == pointer):
+            raise ValueError('candidate points to a different published job')
         bundle = audit_bundle(bundle_root, pointer['run'], expected_report_sha=pointer['report_sha256'],
-                              allow_pending=bundle_root == runs and optional_json(pending_pointer(runs, pointer['run'])) == pointer)
+                              allow_pending=pending == pointer)
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         candidate.rename(guarded(job/('rejected-candidate-'+uuid.uuid4().hex)))
         raise
     report['stages']['research'].update(status='success', run=pointer['run'])
     if through != 'research':
         report['stage'] = 'audit'
-    current = optional_json(pointer_path)
     if current not in (previous, pointer):
         raise ValueError('another job advanced the last success pointer')
     if bundle.report['input_sha256'] != detail['input_sha256'] or bundle.alerts is None:
@@ -172,7 +175,9 @@ def execute(plan, market, job, through):
             source = guarded(job/'candidate'/run)
             # Until the marker itself becomes latest, catalog and event readers exclude this run.
             if not pending.exists():
-                atomic_bytes(pending, canonical(candidate))
+                marker = guarded(job/'pending-pointer.json')
+                atomic_bytes(marker, canonical(candidate))
+                marker.rename(pending)
             if read_json(pending) != candidate:
                 raise ValueError('pending pointer differs from the audited job')
             try:

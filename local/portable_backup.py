@@ -116,7 +116,7 @@ def inventory(root):
     return {"files": files, "directories": directories}
 
 
-def verify_payload(root, manifest):
+def verify_payload(root, manifest, verification=None):
     members = inventory(root)
     legacy = manifest.get("schema_version") == LEGACY_VERSION
     keys = {"schema_version", "files", "directories", "audit"}
@@ -126,7 +126,10 @@ def verify_payload(root, manifest):
             or any(manifest[key] != value for key, value in members.items())):
         raise ValueError("archive manifest or file checksum mismatch")
     limits = audit_limits(DEFAULT_LIMITS if legacy else manifest["catalog_limits"])
-    rebuilt = audit(root, members["files"], **limits)
+    gaps = [] if legacy else None
+    rebuilt = audit(root, members["files"], **limits, legacy_gaps=gaps)
+    if verification is not None:
+        verification.update(contract="legacy_v1" if legacy else "v2", source_replay_gaps=gaps or [])
     if legacy:
         added_fields = {"acquisition_receipt_sha256", "source_registry_sha256", "announcement_review_sha256",
                         "universe_input_sha256", "snapshot_evidence_sha256"}
@@ -135,7 +138,7 @@ def verify_payload(root, manifest):
         raise ValueError("archive manifest or file checksum mismatch")
 
 
-def verify(bundle):
+def verify(bundle, *, verification=None):
     bundle = guarded(bundle)
     if not bundle.is_dir() or {p.name for p in bundle.iterdir()} != {"payload", "manifest.json"}:
         raise ValueError("invalid archive layout")
@@ -144,7 +147,7 @@ def verify(bundle):
     if not stat.S_ISREG(mode.st_mode) or mode.st_nlink != 1:
         raise ValueError("invalid archive manifest")
     manifest = read_json(manifest_path)
-    verify_payload(guarded(bundle / "payload"), manifest)
+    verify_payload(guarded(bundle / "payload"), manifest, verification)
     return manifest
 
 
@@ -212,7 +215,7 @@ def create(args):
     return manifest
 
 
-def restore(bundle, destination):
+def restore(bundle, destination, *, verification=None):
     bundle = guarded(bundle)
     target = new_target(destination, [bundle])
     with exclusive_lock(target), tempfile.TemporaryDirectory(dir=target.parent, prefix=".restore-") as tmp:
@@ -220,7 +223,7 @@ def restore(bundle, destination):
         stage = Path(tmp) / "restored"
         entries = scan([(bundle / "payload", Path("."))])
         copy_entries(entries, stage, online=False)
-        verify_payload(stage, manifest)
+        verify_payload(stage, manifest, verification)
         install_new(stage, target)
     return manifest
 
@@ -243,16 +246,17 @@ def main(argv=None):
         if command == "restore":
             sub.add_argument("--destination", type=Path, required=True)
     args = parser.parse_args(argv)
+    verification = dict(contract="v2", source_replay_gaps=[])
     try:
         if args.command == "create":
             manifest = create(args)
         elif args.command == "verify":
-            manifest = verify(args.bundle)
+            manifest = verify(args.bundle, verification=verification)
         else:
-            manifest = restore(args.bundle, args.destination)
+            manifest = restore(args.bundle, args.destination, verification=verification)
     except (ValueError, TypeError, KeyError, OSError, RuntimeError, sqlite3.Error) as exc:
         parser.exit(1, f"{args.command} failed: {exc}\n")
-    print(json.dumps({"schema_version": manifest["schema_version"], "files": len(manifest["files"]), "runs": manifest["audit"]["runs"],
+    print(json.dumps({"schema_version": manifest["schema_version"], "verification": verification, "files": len(manifest["files"]), "runs": manifest["audit"]["runs"],
                       "events": manifest["audit"]["events"], "references": len(manifest["audit"]["references"])}))
     return 0
 

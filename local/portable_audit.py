@@ -64,7 +64,7 @@ class References:
         return [dict(owner=o, field=f, sha256=s, target=t) for o, f, s, t in sorted(self.rows)]
 
 
-def ledger_sources(root, conn, refs, inputs):
+def ledger_sources(root, conn, refs, inputs, legacy_gaps):
     sizes = conn.execute("SELECT length(CAST(payload_json AS BLOB)) FROM research_snapshots LIMIT ?",
                          (MAX_REPLAY_SNAPSHOTS + 1,))
     total = 0
@@ -96,7 +96,12 @@ def ledger_sources(root, conn, refs, inputs):
                 for document in decision["references"]:
                     target = relative_target(receipt, document["path"])
                     refs.require_file(receipt, "reference_sha256", document["sha256"], {"raw"}, path=target)
-        inputs.validate(payload, owner)
+        try:
+            inputs.validate(payload, owner)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            if legacy_gaps is None:
+                raise
+            legacy_gaps.append(dict(snapshot=sha, adapter=meta.get("adapter_version"), reason=str(exc)))
         snapshots[sha] = (observed, recorded)
     return snapshots
 
@@ -211,7 +216,7 @@ def check_event(root, path, bundles, refs):
             refs.record(path, "report_sha256", obj["report_sha256"], f"runs/{run}/report.json")
 
 
-def audit(root, files, *, max_runs, max_mib):
+def audit(root, files, *, max_runs, max_mib, legacy_gaps=None):
     summary, bundles = catalog(root / "runs", max_runs=max_runs, max_bytes=max_mib*1024**2)
     if not summary["latest_valid"] or summary["counts"]["invalid"] or summary["counts"]["staging_residues"]:
         raise ValueError("incomplete or invalid research catalog")
@@ -222,7 +227,7 @@ def audit(root, files, *, max_runs, max_mib):
     if (root / "prices.db").exists():
         price_sources(root, refs)
     with closing(read_database(root / "ledger.db")) as conn:
-        snapshots = ledger_sources(root, conn, refs, SourceInputs(root, files, refs))
+        snapshots = ledger_sources(root, conn, refs, SourceInputs(root, files, refs), legacy_gaps)
         for bundle in bundles.values():
             check_bundle(root, bundle, conn, snapshots, refs)
     events = [entry["path"] for entry in files if entry["class"] == "event_report"]
