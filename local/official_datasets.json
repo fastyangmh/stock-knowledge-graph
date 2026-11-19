@@ -218,5 +218,21 @@
     "reviewed_at": "2026-11-19",
     "usage": "offline_saved_receipt_only",
     "attribution": "證券櫃檯買賣中心，上櫃股票三大法人買賣明細，政府資料開放授權條款第 1 版。"
+  },
+  {
+    "dataset_id": "tpex_margin_11387",
+    "title": "上櫃股票融資融券餘額",
+    "kind": "margin_trading",
+    "enabled": false,
+    "format": "csv",
+    "provider": "金融監督管理委員會證券期貨局／證券櫃檯買賣中心",
+    "dataset_url": "https://data.gov.tw/dataset/11387",
+    "resource_url": "https://www.tpex.org.tw/web/stock/margin_trading/margin_balance/margin_bal_result.php?l=zh-tw&o=data",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": false,
+    "reviewed_at": "2026-11-19",
+    "usage": "offline_saved_receipt_only",
+    "attribution": "證券櫃檯買賣中心，上櫃股票融資融券餘額，政府資料開放授權條款第 1 版。"
   }
 ]
