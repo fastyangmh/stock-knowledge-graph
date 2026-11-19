@@ -22,7 +22,7 @@ from .safety import exclusive_lock
 VERSION = "private-sqlite-backup-1"
 
 
-def _consistent_copy(source, target):
+def consistent_copy(source, target):
     with closing(sqlite3.connect(Path(source).as_uri()+"?mode=ro", uri=True)) as src:
         src.execute("PRAGMA trusted_schema=OFF")
         with closing(sqlite3.connect(target)) as dst:
@@ -47,7 +47,7 @@ def create(database, output_root):
         with tempfile.TemporaryDirectory(prefix=".backup-stage-", dir=root) as temporary:
             stage = Path(temporary)
             target = stage/"database.sqlite"
-            _consistent_copy(source, target)
+            consistent_copy(source, target)
             manifest = {"schema_version": VERSION, "created_at": utc_now(), "sha256": file_digest(target),
                         "bytes": target.stat().st_size, "scope": "SQLite only; raw snapshots require separate backup"}
             atomic_bytes(stage/"manifest.json", canonical(manifest))
@@ -85,7 +85,7 @@ def restore(bundle, database):
         # concurrently created file. No unsafe overwrite fallback on NAS errors.
         with tempfile.TemporaryDirectory(prefix=".restore-stage-", dir=target.parent) as temporary:
             prepared = Path(temporary)/"restore.sqlite"
-            _consistent_copy(root/"database.sqlite", prepared)
+            consistent_copy(root/"database.sqlite", prepared)
             os.chmod(prepared, 0o600)
             os.link(prepared, target)
     return target
