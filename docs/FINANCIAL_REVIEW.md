@@ -85,7 +85,7 @@ raw bytes 不改寫。`statement_scope` 與 `consolidation`、`report_basis` 與
 `value_basis` 一一對應；兩名稱同時出現卻不同時，驗證／抽檢／研究即拒絕。
 
 **遷移採獨立 ledger 與輸出目錄。** 新尺度 metadata 有版本；`record_snapshot`
-拒絕與任何不同 metadata normalization_version 的快照共用 ledger，包含無版本的舊資料。
+按來源檢查正規化定義；兩市場月營收共用一份版本政策。換成不同的月營收尺度或無版本舊資料時，登錄會中止。其他來源（例如季度三表）可加入相同 ledger。[月營收與季報混合重播](QUARTERLY_STATEMENTS.md#月營收與季報共用研究版本)
 使用新 `--history-db`、`--output-root` 重新產生研究；不要更改 observed_at 或
 available_at 來迴避同時衝突，不修改原 ledger 或 bundle。
 新版本記錄原擷取時間，本地首次登錄時間仍為現在，不能倒填為早已知道。
