@@ -14,6 +14,7 @@ from pathlib import Path
 from .alerts import RULES
 from .bundle_audit import Bundle, audit_bundle, _require
 from .dates import timestamp
+from .market_units import DEFINITION_KEYS
 from .research_history import canonical
 
 VERSION = "research-comparison-1.0"
@@ -57,12 +58,14 @@ def _rule_diff(rule, before_report, before, after_report, after):
         return result
     if RULES[rule][0] == "price_volume" and before["status"] in EVALUATED and after["status"] in EVALUATED:
         def identities(check):
-            return {(row.get("market"), row.get("price_unit"), row.get("price_basis")) for row in check["evidence"]}
+            return {(row.get("market"), *(row.get(k) for k in DEFINITION_KEYS)) for row in check["evidence"]}
         a_id, b_id = identities(before), identities(after)
-        if not a_id or not b_id or any(None in row for row in a_id | b_id):
+        if not a_id or not b_id or any(
+                any(row.get(k) is None for k in ("market", "price_unit", "price_basis"))
+                for check in (before, after) for row in check["evidence"]):
             result.update(transition="definition_unknown", reason="legacy_price_basis_not_recorded")
             return result
-        if a_id != b_id:
+        if a_id != b_id or len(a_id) != 1:
             result.update(transition="definition_changed", reason="price_basis_or_scale_changed")
             return result
     result["changed_fields"] = [key for key in sorted(set(before) | set(after))

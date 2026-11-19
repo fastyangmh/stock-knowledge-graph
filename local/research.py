@@ -168,23 +168,26 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
         body = source.read(MAX_INPUT_BYTES+1)
     input_payload = strict_json(body)
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
-    with exclusive_lock(root):
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    with exclusive_lock(root), closing(sqlite3.connect(ledger)) as ledger_conn:
         prior = _read_last(root)
-        ledger.parent.mkdir(parents=True, exist_ok=True)
-        with closing(sqlite3.connect(ledger)) as history:
-            with history:
-                history.execute("BEGIN IMMEDIATE")
-                snapshot = record_snapshot(history, input_payload, enable_source_revisions=enable_source_revisions)
+        # Closing an uncommitted connection rolls back every staged observation.
+        ledger_conn.execute("BEGIN IMMEDIATE")
+        snapshot = record_snapshot(ledger_conn, input_payload, enable_source_revisions=enable_source_revisions)
         cutoff = timestamp(known_at or utc_now()).isoformat(timespec="microseconds")
-        # Replay deliberately uses registration time as well as source observation.
-        with closing(sqlite3.connect(ledger.as_uri()+"?mode=ro", uri=True)) as history:
-            payload, quality = replay(history, stock_ids, cutoff)
+        payload, quality = replay(ledger_conn, stock_ids, cutoff)
         from .research_facts import build_facts, load_market_history
         market_history = load_market_history(guarded(prices_db), price_market, sorted(s[3:] for s in stock_ids),
             trade_date, cutoff, guarded(price_snapshots), HistoryBudget()) if prices_db else []
         prices = [item for item in market_history if item["record"]["trade_date"] == trade_date]
         if prices_db and {"TW:"+item["record"]["symbol"] for item in prices} != stock_ids:
             raise ValueError("market coverage missing at known_at")
+        revision_files = {}
+        for item in quality['snapshots']:
+            if 'revision_payload' in item:
+                path = 'revisions/' + item['sha256'] + '.json'
+                revision_files[path] = item.pop('revision_payload')
+                item['revision_path'] = path
         facts = build_facts(payload, quality, stock_ids, cutoff, market_history,
                             price_market if prices_db else None, trade_date)
         alert_report = None
@@ -273,6 +276,10 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
                     "triggered_by_category":{category:sum(c["status"] == "triggered"
                         for r in alert_report.values() for c in r["categories"][category])
                         for category in ("price_volume", "monthly_revenue")}}
+            if revision_files:
+                (stage/'revisions').mkdir()
+                for path, envelope in revision_files.items():
+                    atomic_bytes(stage/path, canonical(envelope))
             facts_body = canonical(facts)
             atomic_bytes(stage/"research-facts.json", facts_body)
             report["research_facts"] = {"schema_version": facts["schema_version"], "path": "research-facts.json",
@@ -282,6 +289,7 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
             atomic_bytes(stage/"report.json", report_body)
             from .bundle_audit import audit_bundle
             audit_bundle(Path(temporary), name)
+            ledger_conn.commit()
             stage.rename(final)
             # A pointer failure leaves a complete but unreferenced bundle, never corrupts the old one.
             atomic_bytes(root/"latest.json", canonical({"engine": ENGINE_VERSION, "run": name,

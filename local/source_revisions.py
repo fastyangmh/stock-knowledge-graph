@@ -18,6 +18,16 @@ def record_key(group, row):
     return tuple(row[field] for field in KEY_FIELDS[group])
 
 
+def record_available_at(group, row):
+    if group == 'documents':
+        return max(timestamp(row['published_at']), timestamp(row.get('available_at', row['published_at'])))
+    return timestamp(row['available_at'])
+
+
+def record_scope(group, row):
+    return set(row.get('stock_ids', [])) if group == 'documents' else {row['stock_id']}
+
+
 def validate_notice(notice):
     if not isinstance(notice, dict) or set(notice) != FIELDS or notice['schema_version'] != 'source-revision-1':
         raise ValueError('invalid source revision notice')
@@ -55,7 +65,9 @@ def validate_envelope(payload):
         row = payload[group][0]
         if row['source_id'] != notice['source_id'] or record_key(group, row) != record_key(group, notice['key']):
             raise ValueError('revision replacement differs from target identity')
-        if timestamp(row.get('available_at', row.get('published_at'))) < max(
+        if record_scope(group, row) != {stock['stock_id'] for stock in payload['stocks']}:
+            raise ValueError('revision replacement stock coverage differs from envelope')
+        if record_available_at(group, row) < max(
                 timestamp(notice['published_at']), timestamp(notice['effective_at'])):
             raise ValueError('replacement availability precedes revision effective time or publication')
 
@@ -78,11 +90,6 @@ class RevisionTarget:
         self.rank = None
         self.target_scope = None
         self.version = None
-        if self.notice['action'] != 'withdraw' and self.scope(payload[self.group][0]) != self.stock_ids:
-            raise ValueError('revision replacement stock coverage differs from envelope')
-
-    def scope(self, record):
-        return set(record['stock_ids']) if self.group == 'documents' else {record['stock_id']}
 
     def inspect(self, sha, observed, prior, now):
         if sha == self.notice['target_snapshot_sha256'] and not any(
@@ -108,30 +115,36 @@ class RevisionTarget:
         for record in prior.get(self.group, []):
             if record_key(self.group, record) != self.key:
                 continue
+            available = record_available_at(self.group, record)
+            if available > now:
+                continue
             if record['source_id'] != self.notice['source_id']:
                 raise ValueError('revision target source mismatch')
-            available = timestamp(record.get('available_at', record.get('published_at')))
-            if self.latest_notice or available > now:
+            if self.latest_notice:
                 continue
             rank = timestamp(observed), available
             if self.rank == rank and self.latest_record != record:
                 raise ValueError('conflicting same-time revision target')
             if self.rank is None or rank > self.rank:
                 self.rank, self.latest_record = rank, record
-                self.version, self.target_scope = sha, self.scope(record)
+                self.version, self.target_scope = sha, record_scope(self.group, record)
 
     def verify(self):
         if self.version != self.notice['target_snapshot_sha256'] or self.target_scope != self.stock_ids:
             raise ValueError('unknown, stale or conflicting revision target or stock coverage')
-        withdrawn = self.latest_notice and self.latest_notice['action'] == 'withdraw'
-        if bool(withdrawn) != (self.notice['action'] == 'republish'):
-            raise ValueError('invalid revision action for target state')
-        if self.rank and self.observed < self.rank[0]:
+        validate_transition(self.notice, self.activation, self.latest_notice, self.latest_activation)
+        prior_observed = self.latest_observed or (self.rank and self.rank[0])
+        if prior_observed and self.observed < prior_observed:
             raise ValueError('revision observation precedes target')
-        if self.latest_notice:
-            if (timestamp(self.notice['published_at']) <= timestamp(self.latest_notice['published_at'])
-                    or self.observed < self.latest_observed or self.activation < self.latest_activation):
-                raise ValueError('conflicting or out-of-order revision publication')
+
+
+def validate_transition(notice, active, previous, previous_active):
+    withdrawn = bool(previous and previous['action'] == 'withdraw')
+    if withdrawn != (notice['action'] == 'republish'):
+        raise ValueError('invalid revision action for target state')
+    if previous and (timestamp(notice['published_at']) <= timestamp(previous['published_at'])
+                     or active < previous_active):
+        raise ValueError('conflicting or out-of-order revision publication')
 
 
 def activation(payload):
@@ -139,7 +152,7 @@ def activation(payload):
     times = [timestamp(notice['effective_at']), timestamp(payload['metadata']['observed_at'])]
     if notice['action'] != 'withdraw':
         row = payload[notice['group']][0]
-        times.append(timestamp(row.get('available_at', row.get('published_at'))))
+        times.append(record_available_at(notice['group'], row))
     return max(times)
 
 
@@ -150,7 +163,7 @@ def revision_entry(snapshot, stock_ids):
             'observed_at': snapshot['observed_at'], 'recorded_at': snapshot['recorded_at']}
 
 
-def audit_revisions(snapshots, entries, facts, stock_ids, cutoff):
+def audit_revisions(snapshots, entries, facts, stock_ids, cutoff, graphs):
     import hashlib
     from .research_history import canonical, validate_payload
 
@@ -177,23 +190,19 @@ def audit_revisions(snapshots, entries, facts, stock_ids, cutoff):
         if ((prior and prior['sha256'] != previous['sha256'])
                 or ('revision_payload' in previous and not prior)):
             raise ValueError('conflicting source revision branch')
-        withdrawn = bool(prior and prior['revision_payload']['source_revision']['action'] == 'withdraw')
-        if withdrawn != (notice['action'] == 'republish'):
-            raise ValueError('invalid archived revision transition')
-        if prior:
-            prior_payload = prior['revision_payload']
-            if (timestamp(prior_payload['source_revision']['published_at']) >= timestamp(notice['published_at'])
-                    or activation(prior_payload) > activation(payload)):
-                raise ValueError('out-of-order archived revision transition')
+        prior_payload = prior['revision_payload'] if prior else None
+        validate_transition(notice, activation(payload), prior_payload and prior_payload['source_revision'],
+                            prior_payload and activation(prior_payload))
         heads[key] = snapshot
         if activation(payload) <= cutoff:
             expected.append(revision_entry(snapshot, stock_ids))
             visible[key] = snapshot
-    if expected != entries or any(not entry['stock_ids'] for entry in expected):
+    if expected != entries:
         raise ValueError('source revision replay evidence mismatch')
 
     if not visible:
         return
+    audit_document_nodes(visible, graphs)
     kinds = {'financial_metric': 'financial_metrics', 'chip_metric': 'chip_metrics'}
     numeric = {(kinds[f['kind']], f['source_id'], record_key(kinds[f['kind']], f)): f
                for f in facts if f['kind'] in kinds}
@@ -214,3 +223,32 @@ def audit_revisions(snapshots, entries, facts, stock_ids, cutoff):
                     or fact['source_available_at'] != row['available_at']
                     or any(fact.get(k) != row.get(k) for k in fields)):
                 raise ValueError('source revision replacement differs from facts')
+
+
+def audit_document_nodes(visible, graphs):
+    targets = {'doc:' + key[2][0]: snapshot for key, snapshot in visible.items() if key[0] == 'documents'}
+    if not targets:
+        return
+    identities = {s['sha256']: node_id for node_id, s in targets.items()}
+    for graph in graphs.values():
+        for node in graph['nodes']:
+            node_id = node['id']
+            identity = identities.get(node.get('input_snapshot_sha256'))
+            if identity and node_id != identity:
+                raise ValueError('source revision document identity mismatch')
+            if node_id not in targets:
+                continue
+            snapshot = targets[node_id]
+            payload = snapshot['revision_payload']
+            if payload['source_revision']['action'] == 'withdraw':
+                raise ValueError('withdrawn source revision still visible in graph')
+            row = payload['documents'][0]
+            expected = {'label': row['title'], 'description': row.get('content', '')[:240],
+                        'type': row['doc_type'], 'published_at': row['published_at'], 'source_id': row['source_id'],
+                        'input_snapshot_sha256': snapshot['sha256'], 'registered_at': snapshot['recorded_at'],
+                        'available_at': max(activation(payload), timestamp(snapshot['recorded_at'])).isoformat(timespec='microseconds')}
+            for field in ('source_url', 'license_url', 'attribution', 'period_end', 'unit',
+                          'availability_basis', 'source_report_date'):
+                expected[field] = row.get(field)
+            if any(node.get(k) != v for k, v in expected.items()):
+                raise ValueError('source revision replacement differs from visible document')
