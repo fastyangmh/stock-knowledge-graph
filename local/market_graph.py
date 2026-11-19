@@ -45,7 +45,8 @@ class HistoryBudget:
         return int(self.exhausted)
 
 
-def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, snapshot_dir=None, *, budget=None) -> list[dict]:
+def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, snapshot_dir=None, *, budget=None, notice_history=None) -> list[dict]:
+    from .market_notices import entries_for, resolve
     info = source_info(feed)
     symbols = list(symbols)
     if not symbols or len(set(symbols)) != len(symbols) or any(not re.fullmatch(r"[0-9]{4}", s) for s in symbols):
@@ -76,6 +77,7 @@ def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, sn
                 for size, in sizes:
                     budget.consume('record_bytes', size)
             rows = conn.execute(query + " ORDER BY observed_at LIMIT 10001", (info["source_id"], trade_date, *symbols)).fetchall()
+            notices = {symbol: entries_for(conn, info["source_id"], symbol, trade_date, budget) for symbol in symbols}
         except sqlite3.OperationalError as exc:
             if budget and budget.exhausted:
                 raise ValueError('market history SQL work budget exceeded') from exc
@@ -83,6 +85,7 @@ def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, sn
     if len(rows) > 10000:
         raise ValueError("market revision budget exceeded")
     latest = {}
+    bases = {symbol: {} for symbol in symbols if notices[symbol]}
     for row in rows:
         observed = timestamp(row["observed_at"])
         if observed > cutoff:
@@ -132,6 +135,8 @@ def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, sn
             verified = True
         item = {"record": record, "raw_snapshot_verified": verified, "source": source, "observed_at": row["observed_at"],
                 "raw_sha256": row["raw_sha256"], "acquisition": row["acquisition"]}
+        if row["symbol"] in bases:
+            bases[row["symbol"]][(item["raw_sha256"], item["observed_at"])] = item
         prior = latest.get(row["symbol"])
         if prior is not None and observed == timestamp(prior["observed_at"]) and item != prior:
             raise ValueError("conflicting market revisions at the same instant")
@@ -139,7 +144,10 @@ def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, sn
             latest[row["symbol"]] = item
     if set(latest) != set(symbols):
         raise ValueError("market coverage missing at known_at: " + ",".join(sorted(set(symbols)-set(latest))))
-    return [latest[symbol] for symbol in sorted(latest)]
+    for symbol, originals in bases.items():
+        latest[symbol] = resolve(notices[symbol], originals, latest[symbol], feed, symbol, trade_date,
+                                 cutoff, snapshot_dir, budget, notice_history)
+    return [latest[symbol] for symbol in sorted(latest) if latest[symbol] is not None]
 
 
 def attach_prices(conn, observations: list[dict]) -> int:
@@ -154,7 +162,8 @@ def attach_prices(conn, observations: list[dict]) -> int:
         node_id = f"market:{source['source_id']}:{record['symbol']}:{record['trade_date']}"
         props = {**record, "source_id": source["source_id"], "source_url": source["dataset_url"],
                  "license_url": source["license_url"], "attribution": source["attribution"],
-                 "available_at": item["observed_at"], "observed_at": item["observed_at"],
+                 "available_at": item.get("available_at", item["observed_at"]), "observed_at": item["observed_at"],
+                 **{k: item[k] for k in ("notice_sha256", "recorded_at", "source_available_at") if k in item},
                  "raw_sha256": item["raw_sha256"], "acquisition": item["acquisition"],
                  "raw_snapshot_verified": item["raw_snapshot_verified"],
                  "description": "盤後數值觀察；未還原價格，非語意分數或投資訊號。"}

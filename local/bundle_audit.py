@@ -180,6 +180,9 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
         facts = strict_json(captured["research-facts.json"])
         from .research_facts import validate_facts
         validate_facts(facts, report)
+        if facts.get("market_notices"):
+            from .market_notices import audit_bundle_prices
+            audit_bundle_prices(facts, report, graphs, alerts)
     else:
         _require("research-facts.json" not in captured, "unlisted_facts")
     return Bundle(report, digests["report.json"], manifest, graphs, data_files,

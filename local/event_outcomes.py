@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 
 from .alerts import number, text_number
 from .market_units import DEFINITION_KEYS
+from .research_facts import SCHEMA, NOTICE_SCHEMA
 from .dates import iso_date, timestamp
 from .financial_definitions import financial_definition, unverified_definition
 
@@ -49,7 +50,7 @@ snapshot references, and validate numeric/time contracts before calculation.
         raise ValueError("capture is earlier than source knowledge cutoff")
     items, seen = [], set()
     complete = bundle.facts is not None
-    if complete and bundle.facts.get("schema_version") != "research-facts-1.0":
+    if complete and bundle.facts.get("schema_version") not in (SCHEMA, NOTICE_SCHEMA):
         raise ValueError("unsupported research facts schema")
     rows = bundle.facts["facts"] if complete else bundle.graphs[sid]["nodes"]
     for node in rows:
@@ -92,6 +93,8 @@ snapshot references, and validate numeric/time contracts before calculation.
             body.update({key: copy.deepcopy(node.get(key)) for key in (
                 "source", "source_available_at", "observed_at", "recorded_at", "recorded_at_status",
                 "normalization_version", "normalization", "raw_value", "raw_unit", "statement_scope", "report_basis")})
+        if complete and "notice_sha256" in node:
+            body["notice_sha256"] = node["notice_sha256"]
         identity = {"fact_id": node["id"]} if complete else {"node_id": node["id"]}
         source_url = (node["source"].get("dataset_url") or node["source"].get("url")) if complete else node.get("source_url")
         items.append({"metric": metric, "period": period, "stock_id": sid,

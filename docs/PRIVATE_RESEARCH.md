@@ -170,7 +170,7 @@ uv run --locked python -m local.model_check --offline \
 | `financial_metrics` | `stock_id, metric, period_end, period_type` | 已正規化單筆財務事實 |
 | `chip_metrics` | `stock_id, metric, trade_date` | 已正規化單筆籌碼事實；真實來源適配另列 P1-04 |
 | `documents` | `document_id` | 同來源、同一組股票連結的文件；整份撤回或用完整新文件更正／重發 |
-| 行情 | 獨立的行情觀察 DB | 此通知入口拒絕行情目標。來源明示的盤後行情撤回、其本地登錄時間及適配仍待建立 |
+| 行情 | 獨立的行情觀察 DB | 行情使用獨立的[行情來源通知入口](MARKET_PRICES.md#行情來源明示更正撤回與重發)，按市場、股票與交易日重播 |
 
 每份通知只處理一筆，`withdraw` 不含替代列；`correct`、`republish` 只在同名 group 放入一筆完整替代列，保留邏輯鍵與股票範圍。外部身分或股票範圍變動須先核對。替代列的來源可得時間須涵蓋公告及生效時間；`published_at` 不得晚於觀察。截止時，通知的生效、公告、觀察、本地首次登錄及替代列可得時間均須已到達。之後一般快照中的舊值或缺列仍保留於 ledger；該邏輯紀錄繼續採用通知版本。撤回後僅接受指向撤回版本的 `republish`。相同來源公告時間的矛盾通知、錯誤來源、舊版目標會拒絕；重送同一份正規化 JSON 沿用首次登錄。
 

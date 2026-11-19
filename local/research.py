@@ -180,10 +180,17 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
         with closing(sqlite3.connect(ledger.as_uri()+"?mode=ro", uri=True)) as history:
             payload, quality = replay(history, stock_ids, cutoff)
         from .research_facts import build_facts, load_market_history
+        notices = []
         market_history = load_market_history(guarded(prices_db), price_market, sorted(s[3:] for s in stock_ids),
-            trade_date, cutoff, guarded(price_snapshots), HistoryBudget()) if prices_db else []
+            trade_date, cutoff, guarded(price_snapshots), HistoryBudget(), notice_history=notices) if prices_db else []
         prices = [item for item in market_history if item["record"]["trade_date"] == trade_date]
-        if prices_db and {"TW:"+item["record"]["symbol"] for item in prices} != stock_ids:
+        covered = {"TW:"+item["record"]["symbol"] for item in prices}
+        if notices:
+            from .market_notices import active_heads
+            quality['market_notices'] = notices
+            covered.update('TW:'+symbol for (symbol, day), entry in active_heads(notices, timestamp(cutoff)).items()
+                           if day == trade_date and entry['notice']['action'] == 'withdraw')
+        if prices_db and covered != stock_ids:
             raise ValueError("market coverage missing at known_at")
         facts = build_facts(payload, quality, stock_ids, cutoff, market_history,
                             price_market if prices_db else None, trade_date)
@@ -260,7 +267,8 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
                       "market_observations": [{"source_id": p["source"]["source_id"], "symbol": p["record"]["symbol"],
                           "trade_date": p["record"]["trade_date"], "observed_at": p["observed_at"],
                           "raw_sha256": p["raw_sha256"], "acquisition": p["acquisition"],
-                          "raw_snapshot_verified": p["raw_snapshot_verified"]} for p in prices],
+                          "raw_snapshot_verified": p["raw_snapshot_verified"],
+                          **{k: p[k] for k in ("notice_sha256", "recorded_at", "available_at", "source_available_at") if k in p}} for p in prices],
                       "graph_db_sha256": file_digest(stage/"graph.db"),
                       "manifest_sha256": hashlib.sha256((stage/"data/manifest.json").read_bytes()).hexdigest(),
                       "public_publish": False,
