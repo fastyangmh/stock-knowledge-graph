@@ -83,3 +83,26 @@ uv run --locked python -m local.publish
 ## 本機版本容量與完整性巡檢
 
 `local.bundle_audit`預設只檢查50個版本／合計256MiB，超額明確停止；可人工調整預算，不會自動刪除舊版本。毀損bundle及暫存殘留列入報告。`local.research_archive`只以loopback提供已驗證圖譜和摘要，保留同機使用者可存取的警告。沒有新增排程或遠端服務。操作與exit code見[研究歷史](RESEARCH_HISTORY.md)。
+
+### 私有容量、增長與封存規劃
+
+以維護者選定的私有目錄為範圍，每次將報告存於範圍外的新檔案。例如盤點保存在 `local/private/collection` 的一批研究資料：
+
+```bash
+uv run --locked python -m local.storage_inventory \
+  --root local/private/collection --class raw=downloaded \
+  --budget total=10737418240 --budget raw=2147483648 \
+  --output local/private/inventories/001.json
+
+uv run --locked python -m local.storage_inventory \
+  --root local/private/collection --class raw=downloaded \
+  --budget total=10737418240 --budget raw=2147483648 \
+  --previous local/private/inventories/001.json \
+  --output local/private/inventories/002.json
+```
+
+- `files` 列出相對路徑。一般檔案的 `size_bytes` 是邏輯長度，`counted_bytes` 可逐檔加總。Hard link 依排序走訪的第一個名稱歸類、只計一次，其他名稱標記 `same_file_as`。Symlink 與特殊檔僅列型別，計入 0 bytes。目錄項目、壓縮、稀疏檔、APFS clone 等實體占用需由檔案系統工具另查。
+- `--class` 可重複，採最深的相對路徑優先，適用整個子樹。預設先依備份、研究版本、原始快照和模型的已知目錄名稱歸類，再辨識 DB 副檔名與 WAL／SHM／journal，其餘列 `unknown`。可用類別為 `database`、`raw`、`bundle`、`backup`、`model`、`unknown`。`--budget` 接受上述類別或 `total`，以 bytes 為單位。`budget_exceeded` 列出限額、觀測值、差額與計量路徑。
+- `growth` 比較同根目錄、同目錄身分及分類規則的兩次觀測，列出新增、移除、大小差與計量差。權限錯誤保存在 `scan_errors`，可觀測的部分仍會輸出，exit 2。兩次觀測中任一次不完整時，總增長為 null，讀不到的子樹標 `unobserved`。完整掃描即使超出配額仍 exit 0。
+- `archive_plan.bundle_copies` 選出已辨識研究版本的整個目錄，列出從 latest、事件等文件可解析的引用者。`bundle_requirements` 保存報告宣告的來源、資料集與語意模型 revision。`references` 按包含引用的檔案列 SHA256、已知契約路徑及解析狀態，`content_paths` 連回同範圍內實際讀到相符 bytes 的檔案。相同內容可能保存在多處。只有路徑、無法在範圍內匹配、存在於 ledger 內、超出讀取預算的引用可維持 `unresolved`。JSON 解析失敗或未讀內容列於 `uninspected`。計畫一律保留原件，實際整組封存、還原及 audit 見 [M5-02](../.scratch/m5-private-operations/issues/02-restore.md)。
+- 私有報告含路徑與來源雜湊。預設最多讀取 256 MiB 內容，可用 `--content-budget BYTES` 調整，0 適用僅盤點容量。單份 JSON 解析上限 8 MiB。最多走訪 100,000 個項目、深度 128、100,000 筆不同引用及 100,000 個版本連結，報告上限 64 MiB。超出硬限額 exit 2，報告以完整寫入後的獨佔建檔交付。需要一致的跨檔時間點時，應選擇停止寫入的資料或檔案系統快照。
