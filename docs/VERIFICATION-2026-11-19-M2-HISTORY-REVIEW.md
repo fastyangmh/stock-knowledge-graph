@@ -28,3 +28,9 @@ macOS arm64、Python 3.11.11、Node v22.16.0。候選工作樹乾淨。完整 `u
 重跑時以候選工作樹為目前目錄並將其設為 `PYTHONPATH`。在主要工作區 `local/private/m2-revisions/` 執行 `verify.py <新輸出目錄>` 與 `real-notices.py <新子目錄名>`。價格驗收將原 `check-intervals.py` 複製到 `local/private/` 下新的同層資料夾執行，保留各輪結果。
 
 本輪使用已保存的官方原件及研究版本。來源正式撤回、財務及籌碼真實更正、行情 ledger 的通知適配、Linux／NAS 與真實瀏覽器均未在本次驗收。價格區間與原件定位另見[價格操作與限制](PRICE_ACTION_REVIEW.md)及[公告逐列核對](../.scratch/m2-price-history/official-document-corrections-2026-11-19.md)。
+
+## 整合候選與真實瀏覽器
+
+`9a0bce94dea56f23079ae8655af0bdf85f9ebc29` 在乾淨 macOS 開發工作區執行完整 `local.check --frontend`，10 個步驟皆通過，包含 550 個 pytest、286 個 subtests、55 個 Node 測試。報告 `local/private/m2-revisions/check-9a0bce9-merged.json` 的 SHA256 為 `f789a3e453defa81874981cb08e059c57ffe697e121897a8db7fa7d547077219`。先前保存的 924 個來源及基準檔逐一重算雜湊，全部一致。
+
+同一候選另啟本機 Chromium，以正常 HTTP 開啟兩市場歷史與事件四頁。歷史頁每市場各讀到三版，實際點選比較後，每市場兩檔股票的 12 個提醒狀態均與該次 API 回應一致。事件頁各讀到既有 `event-study-2.0` 報告。四頁均在 1280、390 像素寬度驗證，無橫向溢出或頁面錯誤，保留八張私有截圖。第一次在受限環境啟動 Chromium 時遭終止，以本機瀏覽器及 loopback 權限重跑後四頁通過。程式及結果位於 `local/private/m2-browser-9a0bce9/{replay.py,verified/results.json}`。本次瀏覽器覆蓋歷史與事件；圖譜頁上一次真實驗收另見[M1 紀錄](VERIFICATION-2026-11-17-REVIEW.md)。
