@@ -106,3 +106,30 @@ uv run --locked python -m local.storage_inventory \
 - `growth` 比較同根目錄、同目錄身分及分類規則的兩次觀測，列出新增、移除、大小差與計量差。權限錯誤保存在 `scan_errors`，可觀測的部分仍會輸出，exit 2。兩次觀測中任一次不完整時，總增長為 null，讀不到的子樹標 `unobserved`。完整掃描即使超出配額仍 exit 0。
 - `archive_plan.bundle_copies` 選出已辨識研究版本的整個目錄，列出從 latest、事件等文件可解析的引用者。`bundle_requirements` 保存報告宣告的來源、資料集與語意模型 revision。`references` 按包含引用的檔案列 SHA256、已知契約路徑及解析狀態，`content_paths` 連回同範圍內實際讀到相符 bytes 的檔案。相同內容可能保存在多處。只有路徑、無法在範圍內匹配、存在於 ledger 內、超出讀取預算的引用可維持 `unresolved`。JSON 解析失敗或未讀內容列於 `uninspected`。計畫一律保留原件，實際整組封存、還原及 audit 見 [M5-02](../.scratch/m5-private-operations/issues/02-restore.md)。
 - 私有報告含路徑與來源雜湊。預設最多讀取 256 MiB 內容，可用 `--content-budget BYTES` 調整，0 適用僅盤點容量。單份 JSON 解析上限 8 MiB。最多走訪 100,000 個項目、深度 128、100,000 筆不同引用及 100,000 個版本連結，報告上限 64 MiB。超出硬限額 exit 2，報告以完整寫入後的獨佔建檔交付。需要一致的跨檔時間點時，應選擇停止寫入的資料或檔案系統快照。
+
+## 私有研究整組備份與還原
+
+`local.portable_backup` 以一個研究版本目錄和配對的 ledger 為單位。備份前保留各版本實際使用的正規化輸入原檔。正式來源的收據、CSV、單位核對檔及其引用文件須維持收據所寫的相對目錄結構。若各市場使用不同 ledger，分別建立封存。以下範例的私有路徑需換成實際位置。
+
+```bash
+uv run --locked python -m local.portable_backup create \
+  --ledger local/private/history.db --runs local/private/research-runs \
+  --input local/private/normalized.json --raw local/private/official \
+  --prices-db local/private/prices.db --price-snapshots local/private/prices \
+  --event local/private/events/report.json --config local/private/event-policy.json \
+  --output local/private/backups/portfolio-001
+
+uv run --locked python -m local.portable_backup verify \
+  --bundle local/private/backups/portfolio-001
+
+uv run --locked python -m local.portable_backup restore \
+  --bundle local/private/backups/portfolio-001 --destination local/private/restored-001
+
+uv run --locked python -m local.bundle_audit --root local/private/restored-001/runs
+```
+
+- 每個 `--input`、`--event`、`--config` 指定一個檔案，`--raw` 可指定檔案或目錄，各旗標皆可重複。同類輸入的末段名稱須唯一。有行情時同時提供行情庫和對應 CSV 目錄。設定隨版本報告保留，另有私有設定檔時可明示封存。只選本次用途所需的原件和設定。
+- `manifest.json` 記錄相對目錄、逐檔路徑、類別、大小與 SHA256，以及研究版本所需來源和模型 revision。引用清單將 ledger、原始快照、收據、單位核對與事件對回封存內的檔案。模型權重不在這個介面的資料類別內。既有單一 SQLite 工作仍用 `local.backup`。
+- 建立時使用 SQLite online backup 取得已提交的 WAL。不可變研究版本內的 `graph.db` 按原始 bytes 複製，維持舊報告的 hash。程式持有研究及所選來源目錄的協作鎖，檢查建檔前後的目錄、檔案身分、大小、時間戳，以及 SQLite WAL／journal。來源正在更新而導致拒絕時，待寫入者完成後再執行。
+- 還原先檢查完整目錄與檔案清單，再於目的地同一檔案系統暫存、重播 ledger、按歷史 cutoff 重讀行情原件、稽核 graph 和重算列入的事件報告。目的檔案系統須支援排他目錄 rename。遇到檔案缺漏、引用不符、連結或既有目的地時會回傳非零。收到成功退出後再使用新目錄的 `runs/latest.json`。強制終止可能留有隱藏暫存目錄，舊成功版本仍可讀。
+- 2026-11-19 的真實驗證使用 macOS 同一 APFS 裝置的不同目錄。移轉後須在 Linux／NAS 和獨立媒體上重跑建立、離線驗證與全新還原。實際停電後的耐久性需在目標設備另驗。[P0-03 演練紀錄](../.scratch/m5-private-operations/issues/02-restore.md)
