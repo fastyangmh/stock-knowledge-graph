@@ -36,3 +36,5 @@
 - 合成研究驗證完整 20 筆前窗及四個相鄰營收月份、日期缺口、除權息列號、來源設定分組、舊格式、同時衝突與撤回。真實兩市場三條無有效樣本的規則分別保留零有效與不足分母。
 
 在乾淨候選 `0a8ffa1`（macOS arm64、Python 3.11.11、Node v22.16.0）執行 `uv run --locked python -m local.check --frontend`，exit 0，604 個 pytest、341 個 subtests、55 個 Node 測試通過，SQLite 匯出及檢查通過。完整輸出在主工作區 `local/private/m4-quality/cli-2026-11-19/full-0a8ffa1.json`。在此候選再次逐檔讀原始 CSV，28 筆可計算值均符合獨立算式至六位小數，另 44 筆均維持 null；各 run、報告 SHA256 與重跑命令保存在該私有目錄的 `0a8ffa1/verification.json`。本票未更動介面，未執行瀏覽器驗收。
+
+`alert-quality-2` 合併相同數值設定的首次案例，仍保留各次原存提醒。候選 `135b36d` 重驗 32 個首存案例與 72 筆保存，實際長窗及誤報標籤維持待補。[雙軸審查、入口與真實結果](../../../docs/VERIFICATION-2026-11-19-M4-REVIEW.md)
