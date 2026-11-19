@@ -237,3 +237,17 @@ class EvidenceTests(unittest.TestCase):
         for bundle, sector, checksum in ((old, '測試業', sha), (later, '修訂分類', revised)):
             [doc] = [n for n in bundle.graphs['TW:1000']['nodes'] if n['type'] == 'industry_report']
             self.assertEqual((doc['industry'], doc['raw_sha256'], doc['period_end']), (sector, checksum, '2020-09-30'))
+
+    def test_company_master_identity_survives_a_later_industry_report(self):
+        self.output.write_text(json.dumps(dict(
+            stocks=[dict(stock_id='TW:1000', ticker='1000', market='TW', name='主檔公司名', industry='01')],
+            documents=[], sources=[], chip_metrics=[], financial_metrics=[],
+            metadata=dict(observed_at='2020-11-01T00:00:00+00:00'))))
+        self.research()
+        self.output = self.root/'sector.json'
+        self.capture(20757, csv_body(FIELDS, [ROW]))
+        self.normalize(20757)
+        graph = self.research().graphs['TW:1000']
+        stock, = [n for n in graph['nodes'] if n['type'] == 'stock']
+        self.assertEqual((stock['label'], stock['industry']), ('主檔公司名', '01'))
+        self.assertIn('合成甲', next(n['label'] for n in graph['nodes'] if n['type'] == 'industry_report'))

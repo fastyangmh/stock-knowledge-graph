@@ -341,7 +341,10 @@ notices control corrections, withdrawals and republications of managed records.
                     # v1 also wrote report-specific attribution on the issuer.
                     stock = {k: v for k, v in stock.items()
                              if k not in ('source_id', 'source_url', 'license_url', 'attribution')}
-                keep("stocks", stock["stock_id"], stock, observed)
+                # The quarterly industry table names its issuer for row identification.
+                # Its minimal identity serves only as fallback for a standalone import.
+                primary_identity = payload['metadata'].get('adapter_version') != 'official-industry-v1'
+                keep("stocks", stock["stock_id"], stock, (primary_identity, observed))
         for doc in payload.get("documents", []):
             links = set(doc.get("stock_ids", [])) & stock_ids
             if not links and doc["document_id"] not in selected["documents"]:

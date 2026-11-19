@@ -72,7 +72,7 @@ def industry(payload, source, receipt, body, market):
 
 def rss_articles(body):
     xml = body.decode('utf-8-sig')
-    if '<!DOCTYPE' in xml or '<!ENTITY' in xml:
+    if '\x00' in xml or '<!DOCTYPE' in xml or '<!ENTITY' in xml:
         raise ValueError('RSS document type/entity declarations are unsupported')
     try:
         root = ElementTree.fromstring(xml)

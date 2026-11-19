@@ -1,6 +1,5 @@
 """Stock-independent news metadata reviewed for inclusion in private research reports."""
 import hashlib
-
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
@@ -27,7 +26,8 @@ def validate_articles(source_id, articles, observed):
     for position, entry in enumerate(articles, 1 if is_rss else 2):
         fields = {'external_id', 'title', 'link', 'row_number'}
         fields.update(('published_at', 'has_description') if is_rss else ('published_date',))
-        if not isinstance(entry, dict) or entry.keys() != fields or entry['row_number'] != position:
+        if (not isinstance(entry, dict) or entry.keys() != fields or type(entry['row_number']) is not int
+                or entry['row_number'] != position):
             raise ValueError(f'article {position}: unexpected index fields')
         key, title = entry['external_id'], entry['title']
         if not isinstance(key, str) or not key or key in seen or not isinstance(title, str) or not title.strip():
