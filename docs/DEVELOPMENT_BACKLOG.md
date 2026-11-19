@@ -81,6 +81,8 @@
 
 ### P1-03｜季度財報
 
+兩市場月營收已與季度三表同庫重播。合併候選 `63e0f49` 的 80 筆事實、五次歷史截止與 26 份研究版本皆驗證。損益與資產負債共 45 欄零容差相符，11 欄仍待核。現金流各產業適用範圍與原件封存繼續逐源驗證。[共用 ledger、來源及稽核紀錄](VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md)
+
 [損益票](../.scratch/m3-evidence-sources/issues/01-income.md)與[資產負債票](../.scratch/m3-evidence-sources/issues/02-balance.md)已在記錄樣本範圍完成；[現金流票](../.scratch/m3-evidence-sources/issues/03-cashflow.md)維持 `needs-info`。三表整合候選已重播十個私有研究版本。損益 22 筆均與發行人財報等值，資產負債 34 筆中有 22 筆等值。現金流的兩份發行人核對筆記共 12 筆，其原件封存與獨立文件差異仍待核。[三表整合驗收與適用範圍](VERIFICATION-2026-11-19-M3-FINANCIALS.md)
 
 複驗已在相同 ledger 合併兩市場月營收與三份報表，五個歷史截止的事實檔逐一相同。銀行附註新增一筆等值覆核，資產負債目前 23/34 等值。[雙軸審查、樣本與重播步驟](VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md)
