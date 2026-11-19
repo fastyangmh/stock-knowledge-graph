@@ -26,3 +26,5 @@
 - 另以 UTC 週日晚間首次保存的週五提醒，驗到台北週一同日行情排除。週二首存缺收盤價，較晚修訂仍保留原事實 ID 與缺值理由。原報告的事件 ID、首次基準、首次後續、`quote_observations`、分母 1／可計算 0，及原價量提醒 20 筆設定／結果均經比對。
 - 候選 `6754e80` 的 `uv run --locked python -m local.check` exit 0，507 個 pytest、266 個 subtests、SQLite 匯出與驗證通過。沙箱首次阻擋既有 HTTP 測試的本機 port，完整結果來自獲准使用 loopback 的重跑。JSON 保存於私有 `local/private/m2-calendar/03/check-6754e80.json`。
 - 本票的研究版本使用合成行情與日曆。兩市場正式來源與行情的整合驗收見 [06 票](06-real-acceptance.md)。本票未執行前端或 Linux／NAS 驗收。
+
+併入 02 與整合分支 `c1d5063` 後再驗證同一 CLI 的市場範圍與應到時點。合成 TPEx 週一報價沒有填入 TWSE 的週一缺口；TWSE 週二仍為第 1 筆，原事件工具的跨市場目標另列日期與不可比較原因。另以 02 的截止前應到證據驗到 `pending`，以首存缺收盤價驗到 `observation_continuity=complete`、`close_continuity=incomplete`。三份 CLI 測試 `test_calendar_ordinals.py`、`test_calendar_coverage.py`、`test_gap_evidence.py` 共 28 個測試、29 個 subtests 通過。

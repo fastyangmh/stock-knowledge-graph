@@ -113,7 +113,7 @@
 
 **2026-11-19 進度：** 已核准[私有完整性報告規格與六票](../.scratch/m2-trading-calendar/spec.md)。起始候選 `798ae6d` 在 macOS 通過完整 `local.check --frontend`（490 pytest、246 subtests、55 Node）。新增功能與正式日曆驗收按票記錄。跨里程碑進度見[私有研究交付清單](../.scratch/private-research-ready/completion.md)。
 
-[01 逐日覆蓋](../.scratch/m2-trading-calendar/issues/01-daily-coverage.md) 與 [03 事件後序號](../.scratch/m2-trading-calendar/issues/03-session-ordinal.md) 已完成合成 CLI 驗收。讀取方法見[私有日曆報告](CALENDAR_COVERAGE.md)。
+[01 逐日覆蓋](../.scratch/m2-trading-calendar/issues/01-daily-coverage.md) 與 [03 事件後序號](../.scratch/m2-trading-calendar/issues/03-session-ordinal.md) 已完成合成 CLI 驗收。[02 個股與擷取證據](../.scratch/m2-trading-calendar/issues/02-gap-evidence.md) 已用同一 CLI 驗證缺口原因及晚到回播。讀取方法見[私有日曆報告](CALENDAR_COVERAGE.md)。
 
 **工作：** 串接權威日曆與例外休市資料，區分休市、停牌、無成交、抓取失敗及缺檔；用完整性報告決定能否稱為交易日序列。
 

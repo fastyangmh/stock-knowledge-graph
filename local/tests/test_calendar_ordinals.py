@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from local.core import ROOT
-from local.market_prices import ingest
+from local.market_prices import FEEDS, ingest
 from local.research import run
 from local.research_history import canonical
 from test_alert_integration import csv_data
@@ -47,7 +47,7 @@ class EventCalendarTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(output.read_bytes())
 
-    def coverage(self, event_id, explicit, *, weekdays=None, name='coverage.json', success=True, market='twse'):
+    def coverage(self, event_id, explicit, *, weekdays=None, name='coverage.json', success=True, market='twse', gaps=None):
         archive = self.root / 'synthetic-days.json'
         raw = canonical({'days': explicit, 'weekdays': weekdays})
         archive.write_bytes(raw)
@@ -62,7 +62,8 @@ class EventCalendarTests(unittest.TestCase):
         output = self.root / name
         result = self.cli('local.calendar_coverage', '--calendar', index, '--output', output,
                           '--market', market, '--symbols', '1000', '--start', self.start,
-                          '--end', self.end, *(['--event-id', event_id] if event_id else []))
+                          '--end', self.end, *(['--event-id', event_id] if event_id else []),
+                          *(['--gap-evidence', gaps] if gaps else []))
         if not success:
             return result
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -134,7 +135,7 @@ class EventCalendarTests(unittest.TestCase):
         first, fifth, last = report['horizons']
         self.assertEqual(first['session']['continuity'], 'complete')
         self.assertEqual(fifth['session'], {'date': '2019-01-07', 'availability': 'missing_observation',
-                                            'continuity': 'incomplete'})
+                                            'continuity': 'incomplete', 'close_continuity': 'incomplete'})
         self.assertEqual(fifth['quote']['date'], '2019-01-08')
         self.assertEqual((last['session']['date'], last['session']['continuity'], last['quote']['date']),
                          ('2019-01-28', 'incomplete', '2019-01-29'))
@@ -146,11 +147,11 @@ class EventCalendarTests(unittest.TestCase):
         report = self.coverage(event['event_id'], {}, weekdays=[0, 1, 2, 3, 4])
         first, fifth, _ = report['horizons']
         self.assertEqual(first['session'], {'date': '2019-01-07', 'availability': 'pending',
-                                            'continuity': 'pending'})
+                                            'continuity': 'pending', 'close_continuity': 'pending'})
         self.assertIsNone(first['quote']['date'])
         self.assertEqual(fifth['session']['availability'], 'outside_report_range')
 
-    def capture(self, day, saved_at, *, alerts=False, known_at=None):
+    def capture(self, day, saved_at, *, alerts=False, known_at=None, market='twse'):
         path = self.root / 'normalized.json'
         self.data['metadata']['observed_at'] = day + 'T20:00:00+08:00'
         path.write_bytes(canonical(self.data))
@@ -158,7 +159,7 @@ class EventCalendarTests(unittest.TestCase):
                 'local.research_history.utc_now', return_value=saved_at):
             return run(path, ['1000'], history_db=self.root / 'ledger.db', output_root=self.runs,
                        prices_db=self.root / 'prices.db', price_snapshots=self.root / 'raw',
-                       trade_date=day, known_at=known_at, alerts=alerts)
+                       trade_date=day, known_at=known_at, price_market=market, alerts=alerts)
 
     def test_first_capture_taipei_midnight_and_missing_close_survive_revisions(self):
         self.save('2019-01-03', '100')
@@ -190,6 +191,10 @@ class EventCalendarTests(unittest.TestCase):
         self.assertEqual((seq['days'][0]['quote_ordinal'], seq['days'][0]['continuity']), (1, 'complete'))
         self.assertEqual(seq['days'][0]['quote']['run'], followup['run'])
         self.assertIsNone(seq['days'][0]['quote']['close'])
+        self.assertEqual(seq['days'][0]['close_continuity'], 'incomplete')
+        self.assertEqual(seq['days'][-1]['close_continuity'], 'incomplete')
+        range_report = self.coverage(None, {}, weekdays=[0, 1, 2, 3, 4], name='range.json')
+        self.assertEqual(range_report['days'][-1]['stocks'][SID]['close_continuity'], 'incomplete')
         self.assertEqual(event['baseline']['market']['close'], '110')
         self.assertEqual(event['repeated_captures'], 1)
         change = next(row for row in event['outcomes'] if row['metric'] == 'close_change_pct' and row['horizon'] == 1)
@@ -219,3 +224,41 @@ class EventCalendarTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 2)
                 self.assertIn(diagnostic, result.stderr)
                 self.assertEqual(output.read_bytes(), prior)
+
+    def test_pending_deadline_from_gap_evidence_keeps_session_without_a_confirmed_gap(self):
+        self.anchor()
+        self.save('2019-01-08', '121')
+        event, = self.study()['categories']['price_volume']['events']
+        raw = self.root / 'deadline.txt'
+        raw.write_text('Synthetic Monday report due Jan 10')
+        evidence = dict(id='due-monday', kind='due', market='twse', date='2019-01-07',
+                        source_id='twse_daily_11549', locator='synthetic notice',
+                        due_at='2019-01-10T00:00:00Z', saved_at='2019-01-07T00:00:00Z',
+                        path=raw.name, sha256=hashlib.sha256(raw.read_bytes()).hexdigest())
+        gaps = self.root / 'gap-evidence.json'
+        gaps.write_bytes(canonical({'schema_version': 'market-gap-evidence-1', 'entries': [evidence]}))
+        report = self.coverage(event['event_id'], {}, weekdays=[0, 1, 2, 3, 4], gaps=gaps)
+        first = report['horizons'][0]
+        self.assertEqual(first['session'], {'date': '2019-01-07', 'availability': 'pending', 'continuity': 'pending', 'close_continuity': 'pending'})
+        self.assertEqual(first['quote']['date'], '2019-01-08')
+        self.assertEqual(report['days'][-1]['continuity'], 'pending')
+
+    def test_other_market_does_not_fill_session_or_increment_selected_quote_ordinal(self):
+        self.anchor()
+        other = '2019-01-07'
+        header = ','.join(FEEDS['tpex']['columns']).encode()
+        row = csv_data(other, '120').splitlines()[1]
+        ingest(header + b'\n' + row + b'\n', 'tpex', ['1000'], other, db=self.root/'prices.db',
+               output=self.root/'raw', observed_at=other+'T18:00:00+08:00', acquisition='local_file_unverified')
+        self.capture(other, other+'T20:00:00+08:00', market='tpex')
+        self.save('2019-01-08', '121')
+        event, = self.study()['categories']['price_volume']['events']
+        seq = self.coverage(event['event_id'], {}, weekdays=[0, 1, 2, 3, 4])
+        monday, tuesday = seq['days'][-2:]
+        self.assertEqual((monday['quote_ordinal'], monday['availability']), (None, 'missing_observation'))
+        self.assertEqual((tuesday['session_ordinal'], tuesday['quote_ordinal']), (2, 1))
+        first = seq['horizons'][0]
+        self.assertEqual(first['quote']['date'], '2019-01-08')
+        original = first['event_study_close_target']
+        self.assertEqual((original['date'], original['market'], original['reason']),
+                         ('2019-01-07', 'TPEX', 'quote_source_or_basis_changed'))

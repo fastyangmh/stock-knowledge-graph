@@ -39,6 +39,7 @@ def range_positions(days, stock_ids, as_of):
     sessions = 0
     calendar_known = True
     continuity = dict.fromkeys(stock_ids, 'no_sessions')
+    closes = dict.fromkeys(stock_ids, 'no_sessions')
     for day in days:
         market = day['market_status']
         if market in ('unknown', 'conflict'):
@@ -50,15 +51,17 @@ def range_positions(days, stock_ids, as_of):
             stock = day['stocks'][sid]
             status = availability(day, stock, cutoff_day)
             current = daily_continuity(market, status)
-            if CONTINUITY_PRIORITY[current] > CONTINUITY_PRIORITY[continuity[sid]]:
-                continuity[sid] = current
-            yield day, sid, ordinal, status, continuity[sid]
+            close = 'incomplete' if market == 'open' and status == 'missing_close' else current
+            continuity[sid] = max(continuity[sid], current, key=CONTINUITY_PRIORITY.__getitem__)
+            closes[sid] = max(closes[sid], close, key=CONTINUITY_PRIORITY.__getitem__)
+            yield day, sid, ordinal, status, continuity[sid], closes[sid]
 
 
 def set_range_positions(report):
-    for day, sid, ordinal, _, continuity in range_positions(report['days'], report['stock_ids'], report['as_of']):
+    positions = range_positions(report['days'], report['stock_ids'], report['as_of'])
+    for day, sid, ordinal, _, continuity, closes in positions:
         day['session_ordinal'] = ordinal
-        day['stocks'][sid]['observation_continuity'] = continuity
+        day['stocks'][sid].update(observation_continuity=continuity, close_continuity=closes)
 
 
 def event_sequence(report, bundles, event_id):
@@ -80,6 +83,7 @@ def event_sequence(report, bundles, event_id):
     cutoff = timestamp(report['as_of'])
     for bundle in bundles:
         if (bundle.facts is not None and sid in bundle.facts['scope']['stock_ids']
+                and bundle.facts['scope']['market']['market'] == report['market']
                 and timestamp(bundle.report['completed_at']) <= cutoff):
             facts.extend(saved_facts(bundle, sid))
     quotes = {quote['period']: (i, quote) for i, quote in
@@ -88,24 +92,30 @@ def event_sequence(report, bundles, event_id):
     anchor['taipei_date'] = anchor_day.isoformat()
     rows = []
     after = (day for day in report['days'] if day['date'] > anchor['taipei_date'])
-    for day, _, session, available, continuity in range_positions(after, [sid], report['as_of']):
+    for day, _, session, available, continuity, closes in range_positions(after, [sid], report['as_of']):
         date = day['date']
         ordinal, quote = quotes.get(date, (None, None))
         rows.append({'date': date, 'session_ordinal': session,
-                     'quote_ordinal': ordinal, 'availability': available, 'continuity': continuity,
+                     'quote_ordinal': ordinal, 'availability': available, 'continuity': continuity, 'close_continuity': closes,
                      'quote': {k: quote[k] for k in ('run', 'captured_at', 'market', 'fact_id', 'close', 'volume_shares')}
                               if quote else None})
     horizons = []
     unresolved = any(day['market_status'] in ('unknown', 'conflict')
                      for day in report['days'] if day['date'] > anchor['taipei_date'])
-    for horizon in study['configuration']['quote_horizons']:
+    for outcome in event['outcomes']:
+        if outcome['metric'] != 'close_change_pct':
+            continue
+        horizon = outcome['horizon']
         target = next((day for day in rows if day['session_ordinal'] == horizon), None)
-        session = ({k: target[k] for k in ('date', 'availability', 'continuity')} if target else
+        session = ({k: target[k] for k in ('date', 'availability', 'continuity', 'close_continuity')} if target else
                    {'date': None, 'availability': 'unknown_calendar' if unresolved else 'outside_report_range',
-                    'continuity': None})
+                    'continuity': None, 'close_continuity': None})
         target = next((day for day in rows if day['quote_ordinal'] == horizon), None)
         quote = ({'date': target['date'], **target['quote']} if target else
                  {'date': None, 'availability': 'no_saved_quote_in_range_by_cutoff'})
-        horizons.append({'horizon': horizon, 'session': session, 'quote': quote})
+        original = {'date': outcome['target_period'], 'horizon_unit': outcome['horizon_unit'],
+                    'market': outcome['followup']['market'] if outcome['followup'] else None,
+                    'status': outcome['status'], 'reason': outcome['reason']}
+        horizons.append({'horizon': horizon, 'session': session, 'quote': quote, 'event_study_close_target': original})
     return {'event_study_version': study['schema_version'], 'fact_scope': study['fact_scope'],
             'anchor': anchor, 'days': rows, 'horizons': horizons}

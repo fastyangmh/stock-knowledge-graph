@@ -16,7 +16,7 @@ from test_alert_integration import csv_data
 from test_alerts import payload
 
 
-class CalendarCoverageTests(unittest.TestCase):
+class CalendarCoverageFixture:
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
@@ -71,6 +71,8 @@ class CalendarCoverageTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(self.output.read_bytes())
 
+
+class CalendarCoverageTests(CalendarCoverageFixture, unittest.TestCase):
     def test_explicit_calendar_separates_closed_missing_unknown_and_saved_prices(self):
         self.entry('daily', days={'2019-01-05':'closed', '2019-01-07':'open', '2019-01-08':'open'})
         report = self.report()
