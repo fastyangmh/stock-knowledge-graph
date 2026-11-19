@@ -46,6 +46,7 @@ Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/pri
 | 能力 | 程式／文件 | 已完成與剩餘界線 |
 | --- | --- | --- |
 | 公司／月營收快照與正規化 | `local.collect_official`、`local.official_import`；[資料管線](DATA_PIPELINE.md) | 兩市場公司／月營收真實全檔與月營收單位抽檢完成；[季度三表](QUARTERLY_STATEMENTS.md)有逐來源私有適配及抽檢 |
+| 官方新聞索引與季度產業分類 | `local.news_industry`；[逐來源權利與驗收](NEWS_AND_INDUSTRY.md) | 兩份全市場新聞索引及兩市 Q3 公司分類可回溯；獨立分類與第三方來源待核 |
 | 盤後行情 | `local.market_prices`、`local.market_graph`；[行情](MARKET_PRICES.md) | 兩市場真實全檔及私有串接完成；單位／交易範圍抽檢未過，保留 source_reported |
 | 行情交易日完整性 | `local.calendar_coverage`；[私有日曆 CLI](CALENDAR_COVERAGE.md) | 逐日查開休市與缺觀察、獨立序號、證據截止與時序衝突；官方日曆目前核至 11/14～17 |
 | SQLite／語意／展示子圖 | `core.py`、`semantic.py`、`neighbors.py`、`lifecycle.py`、`export_json.py` | 向量與關聯快取、精確Top-K、裁剪、JSON校驗；不是ANN |
