@@ -69,7 +69,28 @@ def load_gaps(path, cutoff, budget, market, start, end, stock_ids):
 def diagnose(market_status, row, index, day, sid, cutoff):
     diagnosis = {'stock_state': 'unknown', 'stock_evidence_ids': [], 'acquisition': {},
                  'timing': 'not_applicable', 'timing_evidence_ids': [], 'gap': 'not_applicable'}
-    if market_status != 'open' or row['status'] == 'insufficient_scope':
+    beyond_trade_date = row['reason'] == 'after_market_trade_date'
+    if market_status != 'open' or (row['status'] == 'insufficient_scope' and not beyond_trade_date):
+        return diagnosis
+    feed = index.get((day, None), [])
+    deadlines = {timestamp(e['due_at']) for e in feed if e['kind'] == 'due'}
+    if beyond_trade_date and not deadlines:
+        return diagnosis
+    deadline = next(iter(deadlines)) if len(deadlines) == 1 else None
+    diagnosis['timing_evidence_ids'] = sorted(e['id'] for e in feed if e['kind'] == 'due')
+    if deadline is None:
+        timing = 'due_conflict' if deadlines else 'due_unknown'
+    elif row['observation']:
+        captured = timestamp(row['observation']['captured_at'])
+        timing = 'late_first_bundle' if captured > deadline else 'saved_by_due'
+    elif cutoff < deadline:
+        timing = 'pending'
+    else:
+        timing = 'due_passed_outside_scope' if beyond_trade_date else 'overdue_unobserved'
+    diagnosis['timing'] = timing
+    if beyond_trade_date:
+        if timing == 'pending':
+            diagnosis['gap'] = 'pending'
         return diagnosis
     entries = index.get((day, sid), [])
     if entries:
@@ -81,18 +102,6 @@ def diagnose(market_status, row, index, day, sid, cutoff):
         else:
             state = 'suspended' if 'suspended' in states else 'no_trade'
         diagnosis.update(stock_state=state, stock_evidence_ids=sorted(e['id'] for e in entries))
-    feed = index.get((day, None), [])
-    deadlines = {timestamp(e['due_at']) for e in feed if e['kind'] == 'due'}
-    deadline = next(iter(deadlines)) if len(deadlines) == 1 else None
-    diagnosis['timing_evidence_ids'] = sorted(e['id'] for e in feed if e['kind'] == 'due')
-    if deadline is None:
-        timing = 'due_conflict' if deadlines else 'due_unknown'
-    elif row['observation']:
-        captured = timestamp(row['observation']['captured_at'])
-        timing = 'late_first_bundle' if captured > deadline else 'saved_by_due'
-    else:
-        timing = 'pending' if cutoff < deadline else 'overdue_unobserved'
-    diagnosis['timing'] = timing
     acquisition = defaultdict(list)
     for entry in feed:
         kind = entry['kind']

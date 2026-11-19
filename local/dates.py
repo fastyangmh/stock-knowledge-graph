@@ -16,3 +16,10 @@ def timestamp(value: str) -> datetime:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("timestamp must include timezone")
     return parsed.astimezone(timezone.utc)
+
+
+def analysis_cutoff(value: str) -> datetime:
+    cutoff = timestamp(value)
+    if cutoff > datetime.now(timezone.utc):
+        raise ValueError("analysis cutoff cannot be in the future")
+    return cutoff

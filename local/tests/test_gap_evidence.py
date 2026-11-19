@@ -122,6 +122,34 @@ class GapEvidenceTests(CalendarCoverageFixture, unittest.TestCase):
                 diag = self.report()['days'][0]['stocks']['TW:1000']['diagnosis']
                 self.assertEqual((diag['timing'], diag['gap'], diag['acquisition']), (timing, gap, {}))
 
+    def test_known_deadline_after_latest_bundle_preserves_scope_and_pending_continuity(self):
+        self.start = self.end = '2019-01-09'
+        self.symbols = ['1000', '1009']
+        self.entry('today', days={self.start: 'open'})
+        deadline = self.start + 'T18:00:00+08:00'
+        self.evidence('today-due', 'due', due_at=deadline)
+        self.evidence('other-market', 'due', market='tpex', source_id='tpex_daily_11371',
+                      due_at=self.start + 'T08:00:00+08:00')
+        for cutoff, due_at, timing, gap, continuity in (
+                ('2019-01-09T09:00:00+08:00', deadline, 'pending', 'pending', 'pending'),
+                ('2019-01-10T01:00:00+08:00', '2019-01-10T02:00:00+08:00', 'pending', 'pending', 'pending'),
+                (deadline, deadline, 'due_passed_outside_scope', 'not_applicable', 'unknown')):
+            with self.subTest(cutoff=cutoff):
+                self.as_of = cutoff
+                self.gaps[0]['due_at'] = due_at
+                self.output = self.root / (cutoff.replace(':', '') + '.json')
+                report = self.report()
+                stocks = report['days'][0]['stocks']
+                row = stocks['TW:1000']
+                self.assertEqual((row['status'], row['reason']), ('insufficient_scope', 'after_market_trade_date'))
+                self.assertEqual(row['diagnosis']['timing_evidence_ids'], ['today-due'])
+                self.assertEqual((row['diagnosis']['timing'], row['diagnosis']['gap']), (timing, gap))
+                self.assertEqual((row['observation_continuity'], row['close_continuity']), (continuity, continuity))
+                self.assertEqual(report['diagnosis_counts']['TW:1000']['gap'], {gap: 1})
+                self.assertEqual(stocks['TW:1009']['reason'], 'stock_not_selected')
+                self.assertEqual(stocks['TW:1009']['diagnosis']['timing'], 'not_applicable')
+                self.assertEqual(stocks['TW:1009']['observation_continuity'], 'unknown')
+
     def test_invalid_reason_evidence_cannot_replace_report_or_guess_a_cause(self):
         self.evidence('attempt', 'fetch_failed', run_id='attempt-1', failure='synthetic error')
         valid = self.report()['days'][0]['stocks']['TW:1000']

@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import copy
 from collections import Counter
-from datetime import datetime, timezone
 from decimal import Decimal, localcontext
 import hashlib
 from pathlib import Path
@@ -18,7 +17,7 @@ from pathlib import Path
 from .alerts import RULES, number, text_number, validate as validate_alert
 from .bundle_audit import catalog, _require
 from .core import ROOT
-from .dates import iso_date, timestamp
+from .dates import analysis_cutoff, iso_date, timestamp
 from .event_outcomes import STATES, METRICS, baseline_facts, basis, measure, saved_facts
 from .financial_definitions import DEFINITION_KEYS as FINANCIAL_DEFINITION_KEYS
 from .market_units import DEFINITION_KEYS as MARKET_DEFINITION_KEYS
@@ -128,10 +127,8 @@ def summarize(events):
 def analyze(bundles, analysis_at, config=None, *, cohort=None):
     """Caller provides audited Bundle objects; no file access. Deterministic output."""
     settings = policy(config)
-    cutoff = timestamp(analysis_at)
+    cutoff = analysis_cutoff(analysis_at)
     analysis_at = cutoff.isoformat()
-    if cutoff > datetime.now(timezone.utc):
-        raise ValueError("analysis cutoff cannot be in the future")
     ordered = sorted(bundles, key=lambda b:(timestamp(b.report["completed_at"]), b.report["run"]))
     if len({b.report["run"] for b in ordered}) != len(ordered):
         raise ValueError("duplicate research bundle")
@@ -260,9 +257,7 @@ def build(root, analysis_at, *, config=None, max_runs=50, max_mib=256, cohort=No
     if type(max_mib) is not int or not 1 <= max_mib <= 4096:
         raise ValueError("invalid catalog size budget")
     policy(config)
-    cutoff = timestamp(analysis_at)
-    if cutoff > datetime.now(timezone.utc):
-        raise ValueError("analysis cutoff cannot be in the future")
+    analysis_cutoff(analysis_at)
     summary, bundles = catalog(root, max_runs=max_runs, max_bytes=max_mib*1024*1024)
     if summary["counts"]["invalid"] or not summary["latest_valid"]:
         raise ValueError("invalid catalog/latest; do not silently omit invalid events")
