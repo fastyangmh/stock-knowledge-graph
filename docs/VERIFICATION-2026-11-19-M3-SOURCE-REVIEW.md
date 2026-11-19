@@ -32,3 +32,7 @@
 主工作區 `local/private/m3-source-fixes-d0a54bc/` 保留 `commands.json`、各次輸出與 `check-report.json`。`combined-current.py` 與既有 `m6-preflight/combined-sources.py` 使用相同驗收步驟，改用本候選重新正規化的輸入。新聞的逐格比較與四次截止重播在 `local/private/m3/07-news-industry/fixes-d0a54bc/verification.json`。從候選 checkout 執行私有腳本時，`PYTHONPATH` 設為該 checkout；建立新目錄並把 commands 中的輸出路徑換成該處，再依序執行各來源與組合重播。
 
 這次使用已存原件、合成回歸與本機研究流程。上市籌碼封存權、籌碼獨立同日抽檢、融資券數量尺度、公告正式撤回、部分產業獨立來源及外部新聞權利維持 `needs-info`。本次未另執行瀏覽器、Linux／NAS 或公開發布驗收。
+
+## 合併到開發分支的重驗
+
+在 `2b03884` 重新執行完整 `local.check --frontend`，633 個 pytest、402 個 subtests、55 個 Node 測試全數通過。再用修復後的 v2 籌碼輸入、單一研究 ledger、同一行情庫與同一個版本目錄，執行 22 次來源、研究、稽核、比較及事件 CLI。全部 37 個版本有效。上市首版編碼 9 篇、上櫃 11 篇，第二版各為 0。Chromium 實際讀取兩市場的圖譜、歷史與事件六頁，桌機與手機寬度均通過，並已重新驗證原有 924 個基準檔案與兩市場各三個舊版本。私有證據位於 `local/private/m6-preflight/{portfolio-2b03884,browser-portfolio-2b03884,post-2b03884}/` 及同層 `check-2b03884.json`。行情 09／10 的比較欄數仍為 0。
