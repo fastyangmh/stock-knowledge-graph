@@ -6,6 +6,8 @@
 
 ## 1. 接手時先知道的事
 
+2026-11-19 已提交[行情缺口研究](../.scratch/private-research-ready/research-market-gaps-2026-11-18.md)並開始 [P2-02 六票](../.scratch/m2-trading-calendar/spec.md)。TPEx 個股查詢已出現原交易日資料，同範圍與獨立性仍待證實。逐項驗收與相依見[私有研究交付清單](../.scratch/private-research-ready/completion.md)。
+
 專案已以真實官方快照、固定真實模型，在使用者指定的當前 macOS arm64／Python 3.11 環境完成兩市場各兩版私有研究、提醒、audit、歷史比較、事件報告及三頁真實 HTTP 驗收。公開 `data/` 仍為示範；沒有啟用發布、排程或交易。
 
 **M1 尚未全過。** 01～08、11／12 已完成各票範圍；09 的行情交易範圍／獨立同日參考仍不足，正式兩市場抽檢皆 exit 2、`compared_fields=0`，10 依賴 gate 保持 `needs-info`。財務月營收已核對的新版單位不代表行情尺度已確認。Linux／NAS 未驗證，但使用者已要求本輪在當前環境測試，因此不是本輪 blocker；將來移轉需重驗。
