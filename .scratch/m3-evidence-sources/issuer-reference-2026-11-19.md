@@ -38,3 +38,6 @@ P1-03。2026-11-19 正常閱覽兩家公司分別公布的 2026 年第 3 季合�
 | 四份資產負債表，同六家公司 | 34 | 22 筆等值，另有 12 筆可保存但尚未獨立核對。原始快照中另有兩個空欄 | `local/private/m3-balance-issuer-expanded/out-bd878ea/summary.json` |
 
 每份原件均以私有 CLI 正規化、經 SQLite 建立研究版本並執行 bundle audit，每組 12 次命令全數 exit 0。重算八個政府 CSV 與研究版本引用的 SHA256 一致。群聯的流動資產取流動資產區段小計，母公司業主權益與含非控制權益的權益總計各自核對。核對值、時間及逐欄頁碼僅保存在私有 review。每組目錄的 `replay.py` 可從相應產品 checkout 對全新目的地重跑。本次抽樣未解決上櫃金融／保險來源缺值、現金流原件、正式修訂或早年期間的涵蓋。
+### 上市金融業淨放款追加核對
+
+再讀高雄銀行 115 年第三季報表附註「（八）貼現及放款－淨額」，以 9 月 30 日欄扣除備抵損失後的淨額核對 94829。此欄零容差等值。以加入此欄的新 review 在 `b0807dd` 重做四份資產負債表，仍為 34 筆，23 筆等值、11 筆待核。保留原 22 筆等值的舊版驗收與時間。私有程式與結果位於 `local/private/m3-balance-issuer-bank/{replay.py,out-b0807dd/summary.json}`。[高雄銀行原始季報](https://www.bok.com.tw/zh/-107?_com_khb_announcearea_AnnounceListN_INSTANCE_dsew_fileID=1301958&p_p_cacheability=cacheLevelPage&p_p_id=com_khb_announcearea_AnnounceListN_INSTANCE_dsew&p_p_lifecycle=2&p_p_mode=view&p_p_resource_id=download&p_p_state=normal)
