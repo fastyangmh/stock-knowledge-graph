@@ -1,7 +1,9 @@
 # M2 歷史重建與價格可比性
 
 **Parent:** [P2-03](../../docs/DEVELOPMENT_BACKLOG.md#p2-03公司行為與價格基準)、[P2-04](../../docs/DEVELOPMENT_BACKLOG.md#p2-04修訂與撤回)
-**Status:** ready-for-agent
+**Status:** needs-info
+
+價格比較、修訂與截止重播已通過[整合審查](../../docs/VERIFICATION-2026-11-19-M2-HISTORY-REVIEW.md)及[原生行情通知驗證](../../docs/VERIFICATION-2026-11-19-MARKET-NOTICE-REVIEW.md)。兩份正式更正可定位；實際撤回與其他受影響財務、籌碼原件尚缺。逐項恢復條件見[完成清單](../private-research-ready/completion.md)。
 
 ## Problem Statement
 
