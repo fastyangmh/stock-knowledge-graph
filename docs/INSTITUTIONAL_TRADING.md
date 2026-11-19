@@ -40,4 +40,6 @@ uv run --locked python local/private/m3-institutional-2026-11-19/replay.py \
   --dest local/private/m3-institutional-2026-11-19/replay-new
 ```
 
+2026-11-19 在整合候選 `50497f0` 以 `uv run --locked python -m local.check --frontend` 完整驗收，exit 0，564 個 Python 測試、311 個 subtests、55 個 Node 測試通過。真實重播於同候選執行，私有摘要為 `local/private/m3-institutional-2026-11-19/candidate/summary.json`。本票未變更前端，未另做瀏覽器驗收。
+
 公開 repo 可用 `uv run --locked pytest -q local/tests/test_institutional_import.py` 執行合成收據驗證。來源範圍、獨立抽檢與使用限制沿用[法人買賣票](../.scratch/m3-evidence-sources/issues/04-institutional.md)。
