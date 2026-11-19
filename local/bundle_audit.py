@@ -16,6 +16,7 @@ import tempfile
 
 from .alerts import validate as validate_alert, policy
 from .dates import timestamp
+from .news_index import audit_indexes
 from .research_history import canonical, strict_json, MAX_INPUT_BYTES
 from .research import ENGINE_VERSION, guarded
 from .validate_release import validate_data_dir
@@ -81,7 +82,7 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
         if path.is_file():
             relative = path.relative_to(bundle).as_posix()
             _require(relative in expected or relative in ("alerts.json", "research-facts.json") or
-                     re.fullmatch(r"revisions/[a-f0-9]{64}\.json", relative) or
+                     re.fullmatch(r"(?:revisions|chips)/[a-f0-9]{64}\.json", relative) or
                      re.fullmatch(r"data/stocks/[A-Za-z0-9_.-]+/graph\.json", relative), "unexpected_bundle_file")
             if relative != "graph.db":
                 _require(path.stat().st_size <= MAX_INPUT_BYTES, "json_size_budget_exceeded")
@@ -130,6 +131,10 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
     warnings = report.get("quality", {}).get("warnings")
     _require(isinstance(warnings, list) and all(isinstance(s, str) for s in warnings), "invalid_quality_warnings")
     _require(isinstance(report.get("analysis"), dict), "invalid_analysis_metadata")
+    try:
+        audit_indexes(report['quality'], cutoff)
+    except (AttributeError, IndexError, KeyError, TypeError, ValueError) as exc:
+        raise AuditError('invalid_news_index') from exc
     data_files = {name: body for name, body in captured.items() if name.startswith("data/")}
     # Reuse the exact release validator on the captured bytes, not a second read
     # of files that an uncooperative writer may have replaced in the meantime.
@@ -181,27 +186,27 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
         facts = strict_json(captured["research-facts.json"])
         from .research_facts import validate_facts
         snapshots = report['quality']['snapshots']
-        paths = {s['revision_path'] for s in snapshots if 'revision_path' in s}
-        _require(paths == {p for p in captured if p.startswith('revisions/')}, 'revision_file_set_mismatch')
-        archived = []
-        for snapshot in snapshots:
-            if 'revision_path' in snapshot:
-                path = snapshot['revision_path']
-                sha = snapshot['sha256']
-                _require('revision_payload' not in snapshot and path == f'revisions/{sha}.json'
-                         and digests[path] == sha, 'revision_file_mismatch')
-                snapshot = {**snapshot, 'revision_payload': strict_json(captured[path])}
-            archived.append(snapshot)
+        archived = [dict(s) for s in snapshots]
+        for kind, directory in [('revision', 'revisions'), ('chip', 'chips')]:
+            paths = {s[kind+'_path'] for s in archived if kind+'_path' in s}
+            _require(paths == {p for p in captured if p.startswith(directory+'/')}, kind+'_file_set_mismatch')
+            for snapshot in archived:
+                _require(kind+'_payload' not in snapshot, kind+'_unexpected_inline_payload')
+                if kind+'_path' in snapshot:
+                    path, sha = snapshot[kind+'_path'], snapshot['sha256']
+                    _require(path == f'{directory}/{sha}.json' and digests[path] == sha, kind+'_file_mismatch')
+                    snapshot[kind+'_payload'] = strict_json(captured[path])
         market_items = validate_facts(facts, report, archived_snapshots=archived, graphs=graphs)
         if facts.get("market_notices"):
             from .market_notices import audit_bundle_prices
             audit_bundle_prices(market_items, facts['scope']['market']['trade_date'], report, graphs, alerts)
     else:
         _require("research-facts.json" not in captured, "unlisted_facts")
-        _require(not any(p.startswith('revisions/') for p in captured) and
+        _require(not any(p.startswith(('revisions/', 'chips/')) for p in captured) and
                  not report.get('quality', {}).get('source_revisions') and
                  not report.get('quality', {}).get('market_notices') and
-                 not any('revision_payload' in s or 'revision_path' in s
+                 not any('revision_payload' in s or 'revision_path' in s or 'chip_path' in s
+                         or s.get('metadata', {}).get('adapter_version') in ('tpex-institutional-2', 'tpex-margin-2')
                          for s in report['quality'].get('snapshots', [])), 'revision_facts_missing')
     return Bundle(report, digests["report.json"], manifest, graphs, data_files,
                   alerts, read_bytes, expected_report_sha is not None, facts)

@@ -4,6 +4,8 @@
 
 整理日期：**2026-11-19（Asia/Taipei）**。M1 審查修復實測候選：`ecd176b3069a62aaa98c7a641496af45b8c415f2`；證據見[審查與重驗](VERIFICATION-2026-11-17-REVIEW.md)。原 `3834c19` 的[整合驗證](VERIFICATION-2026-11-17-M1.md)保留為歷史；其後文件提交不代表重新執行產品測試，推送由整合流程處理。
 
+四個 M3 來源家族已完成收據衝突、籌碼原件、公告跨股關聯與公司主檔的審查修復。七家公司財務庫分別併入新版及舊版輸入重播，兩次上市各 36 筆、上櫃各 104 筆事實。來源權利、獨立抽檢及真實撤回仍按各票追蹤。[M3 04～07 雙軸審查與組合重播](VERIFICATION-2026-11-19-M3-SOURCE-REVIEW.md)
+
 ## 1. 接手時先知道的事
 
 開發候選 `63e0f49` 已整合 M2 行情通知審查修正與 M3 季度三表。完整套件通過 597 個 pytest、341 個 subtests、55 個 Node；七家公司 26 版季報、兩市場各兩日行情完成實際重播。M1 09／10 與需要真實撤回證據的項目維持待驗。[整合驗收與私有重跑位置](VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md#價格通知與季度財報整合後的驗證)
@@ -46,6 +48,7 @@ Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/pri
 | 能力 | 程式／文件 | 已完成與剩餘界線 |
 | --- | --- | --- |
 | 公司／月營收快照與正規化 | `local.collect_official`、`local.official_import`；[資料管線](DATA_PIPELINE.md) | 兩市場公司／月營收真實全檔與月營收單位抽檢完成；[季度三表](QUARTERLY_STATEMENTS.md)有逐來源私有適配及抽檢 |
+| 官方新聞索引與季度產業分類 | `local.news_industry`；[逐來源權利與驗收](NEWS_AND_INDUSTRY.md) | 兩份全市場新聞索引及兩市 Q3 公司分類可回溯；獨立分類與第三方來源待核 |
 | 盤後行情 | `local.market_prices`、`local.market_graph`；[行情](MARKET_PRICES.md) | 兩市場真實全檔及私有串接完成；單位／交易範圍抽檢未過，保留 source_reported |
 | 行情交易日完整性 | `local.calendar_coverage`；[私有日曆 CLI](CALENDAR_COVERAGE.md) | 逐日查開休市與缺觀察、獨立序號、證據截止與時序衝突；官方日曆目前核至 11/14～17 |
 | SQLite／語意／展示子圖 | `core.py`、`semantic.py`、`neighbors.py`、`lifecycle.py`、`export_json.py` | 向量與關聯快取、精確Top-K、裁剪、JSON校驗；不是ANN |

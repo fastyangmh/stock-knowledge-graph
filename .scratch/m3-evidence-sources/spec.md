@@ -1,6 +1,8 @@
 # M3 · 以來源為單位擴充私有研究證據
 
-**Status:** ready-for-agent
+**Status:** needs-info
+
+七張來源票均有私有 CLI、測試與實際來源驗證。兩市場合併研究已重播；逐欄抽檢、使用權與正式撤回等未完成條件由各票追蹤。[季度三表](../../docs/VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md) · [籌碼、公告、新聞與產業](../../docs/VERIFICATION-2026-11-19-M3-SOURCE-REVIEW.md) · [逐項恢復條件](../private-research-ready/completion.md)
 
 ## Problem Statement
 

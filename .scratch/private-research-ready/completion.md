@@ -13,8 +13,8 @@
 | M2 | [P2-03](../../docs/DEVELOPMENT_BACKLOG.md#p2-03公司行為與價格基準) | [兩市場真實區間與六類來源](../../docs/PRICE_ACTION_REVIEW.md)已核對，個別除權息證據與未知期間可讀 | 兩市場原始價格警告及跨幣別拒比已驗。較長歷史與其他公司行為的完整涵蓋仍未知。[修復驗收](../../docs/VERIFICATION-2026-11-19-M2-HISTORY-REVIEW.md) |
 | M2 | [P2-04](../../docs/DEVELOPMENT_BACKLOG.md#p2-04修訂與撤回) | 已驗舊庫重播與[兩份正式重大訊息更正](../m2-price-history/official-document-corrections-2026-11-19.md)，已通過[原生行情通知雙軸審查](../../docs/VERIFICATION-2026-11-19-MARKET-NOTICE-REVIEW.md)，合成案例涵蓋撤回及重新發布 | 正式撤回、財務與籌碼的真實更正待驗。[行情 SQLite 通知的獨立票](../m2-market-revisions/issues/01-market-notices.md) |
 | M3 | [P1-03](../../docs/DEVELOPMENT_BACKLOG.md#p1-03季度財報) | [兩市場六家公司季報抽樣](../m3-evidence-sources/issuer-reference-2026-11-19.md)已核對 22 筆損益與 23 筆資產負債，另 11 筆資產負債待核 | [三表與兩市場月營收已同庫](../../docs/VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md)。現金流私有筆記兩家 12 筆可重播，正式原件封存、獨立金額差額與其他產業仍待驗 |
-| M3 | [P1-04](../../docs/DEVELOPMENT_BACKLOG.md#p1-04籌碼資料) | 有籌碼數值的保存與重播契約 | 核對官方法人／融資融券來源，驗證方向、尺度、修訂與冪等 |
-| M3 | [P1-05](../../docs/DEVELOPMENT_BACKLOG.md#p1-05重大訊息新聞與產業證據) | 已支援文件、股票對應與文字語意 | 每來源確認使用條件，驗證版本、重複、撤回與報表變更 |
+| M3 | [P1-04](../../docs/DEVELOPMENT_BACKLOG.md#p1-04籌碼資料) | [已依上櫃原始 CSV 重建兩股 44 筆法人與 34 筆融資融券；新版 audit 會偵測改值與刪格](../../docs/VERIFICATION-2026-11-19-M3-SOURCE-REVIEW.md) | 待同日同範圍獨立抽檢、數量尺度與上市來源證據 |
+| M3 | [P1-05](../../docs/DEVELOPMENT_BACKLOG.md#p1-05重大訊息新聞與產業證據) | [兩市場共 148 筆正式公告、跨兩股關聯、兩組更正、兩份新聞索引與產業季表已重播](../../docs/VERIFICATION-2026-11-19-M3-SOURCE-REVIEW.md) | 需可定位的真實撤回、第三方新聞權利及獨立產業分類 |
 | M4 | [P3-01](../../docs/DEVELOPMENT_BACKLOG.md#p3-01提醒品質與可解釋性) | [四檔股票 32 個規則／期間組合已對照來源](../m4-research-quality/issues/01-alert-quality.md)，私有 CLI 的 72 筆保存與逐例核算相符 | 補 20 筆同來源較早行情、相鄰營收月份及 P1-02 行情定義，核對長窗與修訂等真實案例 |
 | M4 | [P4A-01](../../docs/DEVELOPMENT_BACKLOG.md#p4a-01事件後描述統計擴充) | [兩市場新舊事件報告及六規則整合重驗](../../docs/VERIFICATION-2026-11-19-EVENT-COHORTS.md#整合六條提醒與事件報告後的重驗)，各驗一個首次事件、兩次重複保存與兩個第 1 筆後續值 | 補第 5／20 筆行情、到期的 1／3／6 月營收、同股不同事件重疊及正式公司行為案例 |
 | M5 | [P0-03](../../docs/DEVELOPMENT_BACKLOG.md#p0-03復原與備份) | 在 macOS 同一裝置還原兩市場四組共十個版本，另以[混合財報庫還原 26 個版本、618 條引用](../m6-private-acceptance/issues/01-real-rehearsal.md) | 待全部必要來源整合後重跑，並在 Linux／NAS 與獨立儲存實測 |
@@ -42,5 +42,7 @@
 | M1 P1-02／09、10 | 2026-11-17 的 TWSE 11549、TPEx 11371 原快照各七欄的適用交易型態、幣別、尺度與版本，及同一交易日、同一股票、同範圍的獨立原始參考。上市選股 2330／2454，上櫃 6488／8069。後到資料須證明可對應原先取得時點。[已查來源與逐欄限制](research-market-gaps-2026-11-18.md) |
 | P2-04 | 指明受影響的來源、股票、交易日／期別、原件版本及更正／撤回動作的正式通知，連同可定位的前版原件。兩份同源格式、下載失敗、普通日檔缺列或只更正另一財報附註均不足。[已找到的更正及受影響項目](../m2-price-history/official-document-corrections-2026-11-19.md) |
 | P1-03 | 可合法私有封存並校驗原件雜湊的現金流正式報表、可核至相同精度的獨立參考，以及非空的上櫃金融／保險產業樣本。可提供本地檔案位置及用途依據；台積公司特定 SEC 6-K 下載曾因缺少該筆檔案明確授權而遭自動核准審查拒絕。[已閱原表、抽檢差額與 SEC 附件定位](../../docs/QUARTERLY_CASHFLOW.md) |
+| P1-04 | 上市法人／信用交易的逐來源私有保存依據、帶日期且可證明同交易範圍的原件、欄位單位，以及上櫃同日兩檔可獨立核對的原始值。上市融資券的兩種官方表示有 6,725 格空白／零的差異；上櫃原檔內部加總僅能核算術。[法人](../m3-evidence-sources/issues/04-institutional.md) · [融資融券](../m3-evidence-sources/issues/05-margin.md) |
+| P1-05 | 可指明公告前版、撤回事由與來源時點的原件；網站准許使用第三方新聞的明確範圍；可依同季、公司與分類版本核對的另一份正式證據。[公告](../m3-evidence-sources/issues/06-announcements.md) · [新聞與產業](../m3-evidence-sources/issues/07-news-industry.md) |
 | P3-01／P4A-01 | 保留原始來源日期與實際首次保存時間的連續行情、月營收及後續研究版本，以實測 20 筆量基準、跨月提醒及 5／20 筆、1／3／6 曆月事件結果。可用合成案例驗工程邊界，真正右設限樣本依日期繼續觀察。[已保存案例與分母](../m4-research-quality/spec.md) |
 | P0-03／M6 | 可供測試的 Linux／NAS 目標與獨立儲存位置，用有權存放金融資料的備份在新目的地實際完整還原及 audit。可提供主機別名、允許的目錄、檔案系統及備份位置，憑證留在使用者自己的環境。[使用者已指定的 macOS 與後續移轉條件](../m5-private-operations/issues/02-restore.md) |
