@@ -149,11 +149,17 @@ def _result(metric, horizon, base, target=None):
             "basis": basis(base), "observations_available": 0}
 
 
+def post_event_quotes(facts, event_at):
+    """One first-saved market fact per Taipei date strictly after event capture."""
+    day = timestamp(event_at).astimezone(ZoneInfo("Asia/Taipei")).date()
+    periods = _first_saved([f for f in facts if iso_date(f["period"]) > day], "market", event_at)
+    return [periods[p] for p in sorted(periods)]
+
+
 def _market(event, facts, config):
     base = event["baseline"]["market"]
     day = timestamp(event["event_at"]).astimezone(ZoneInfo("Asia/Taipei")).date()
-    periods = _first_saved([f for f in facts if iso_date(f["period"]) > day], "market", event["event_at"])
-    ordered = [periods[p] for p in sorted(periods)]
+    ordered = post_event_quotes(facts, event["event_at"])
     result = []
     for horizon in config["quote_horizons"]:
         for metric in ("close_change_pct", "volume_ratio"):
