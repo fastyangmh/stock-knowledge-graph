@@ -188,12 +188,13 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
             covered.update(withdrawn_stocks(notices, trade_date, timestamp(cutoff)))
         if prices_db and covered != stock_ids:
             raise ValueError("market coverage missing at known_at")
-        revision_files = {}
+        evidence_files = {}
         for item in quality['snapshots']:
-            if 'revision_payload' in item:
-                path = 'revisions/' + item['sha256'] + '.json'
-                revision_files[path] = item.pop('revision_payload')
-                item['revision_path'] = path
+            for kind, directory in [('revision', 'revisions'), ('chip', 'chips')]:
+                if kind+'_payload' in item:
+                    path = f"{directory}/{item['sha256']}.json"
+                    evidence_files[path] = item.pop(kind+'_payload')
+                    item[kind+'_path'] = path
         facts = build_facts(payload, quality, stock_ids, cutoff, market_history,
                             price_market if prices_db else None, trade_date)
         alert_report = None
@@ -279,10 +280,9 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
                     "triggered_by_category":{category:sum(c["status"] == "triggered"
                         for r in alert_report.values() for c in r["categories"][category])
                         for category in ("price_volume", "monthly_revenue")}}
-            if revision_files:
-                (stage/'revisions').mkdir()
-                for path, envelope in revision_files.items():
-                    atomic_bytes(stage/path, canonical(envelope))
+            for path, envelope in evidence_files.items():
+                (stage/path).parent.mkdir(exist_ok=True)
+                atomic_bytes(stage/path, canonical(envelope))
             facts_body = canonical(facts)
             atomic_bytes(stage/"research-facts.json", facts_body)
             report["research_facts"] = {"schema_version": facts["schema_version"], "path": "research-facts.json",

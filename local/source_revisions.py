@@ -84,6 +84,37 @@ def validate_envelope(payload):
             raise ValueError('replacement availability precedes revision effective time or publication')
 
 
+def announcement_records(payload):
+    if payload['metadata'].get('adapter_version') != 'mops-announcement-1':
+        return {}
+    return {r['document_id']: r for r in payload['metadata']['records']}
+
+
+class AnnouncementObservations:
+    """Retain the first evidence of a posting and any subsequent explicit link review."""
+
+    def __init__(self):
+        self.postings = {}
+
+    def repeated(self, doc, locator):
+        if locator is None:
+            return False
+        did = doc['document_id']
+        posting = {k: v for k, v in doc.items() if k not in ('stock_ids', 'available_at')}
+        posting.update(event_date=locator['event_date'], clause=locator['clause'])
+        links = sorted(doc['stock_ids'])
+        prior = self.postings.get(did)
+        reviewed = 'reviewed_links' in locator
+        if prior:
+            old_posting, old_links, old_review = prior
+            if posting != old_posting or (reviewed and old_review and links != old_links):
+                raise ValueError('conflicting announcement posting or reviewed links')
+            if old_review or not reviewed:
+                return True
+        self.postings[did] = posting, links, reviewed
+        return False
+
+
 class RevisionTarget:
     """Find the current version of one logical record during the bounded ledger scan."""
 
@@ -98,6 +129,7 @@ class RevisionTarget:
         self.latest_observed = None
         self.latest_activation = None
         self.activation = activation(payload)
+        self.announcements = AnnouncementObservations()
         self.latest_record = None
         self.rank = None
         self.target_scope = None
@@ -135,6 +167,11 @@ class RevisionTarget:
             if self.latest_notice:
                 continue
             rank = observation_rank(timestamp(observed), available, record)
+            if self.group == 'documents':
+                locator = announcement_records(prior).get(record['document_id'])
+                if self.announcements.repeated(record, locator):
+                    continue
+                rank = (*rank, bool(locator and 'reviewed_links' in locator))
             if self.rank == rank and self.latest_record != record:
                 raise ValueError('conflicting same-time revision target')
             if self.rank is None or rank > self.rank:

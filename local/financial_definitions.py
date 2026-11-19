@@ -46,7 +46,9 @@ def source_definitions(payload):
         # Notices name an immutable target. Legacy notices carry its unit
         # policy but are not produced by the target's source adapter.
         if 'source_revision' not in payload:
-            definitions[('adapter', sid)] = adapter
+            # Chip v2 adds the original bytes to the same unit and column contract.
+            definitions[('adapter', sid)] = {'tpex-margin-2': 'tpex-margin-1',
+                                             'tpex-institutional-2': 'tpex-institutional-1'}.get(adapter, adapter)
         if sid in ('twse_monthly_revenue', 'tpex_monthly_revenue'):
             definitions[('family', 'official_monthly_revenue')] = version
     return definitions
