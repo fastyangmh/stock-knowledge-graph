@@ -14,3 +14,9 @@
 - [ ] 儲存可重跑程序及去敏摘要，以原 backlog 條件評定整體狀態。只有工程通過時將真實證據另列待驗。
 
 查證起點：[上櫃每日重大訊息](https://data.gov.tw/dataset/18418)
+
+## 正式樣本定位
+
+- 2026-11-19 取得兩市場的 11/18 每日重大訊息 CSV。上市 94 筆、上櫃 54 筆，均 9 欄，採含引號跨行的 CSV 語意。政府目錄針對各資源列 OGDL-1.0。私有原件與雜湊分存 `local/private/source-review-2026-11-19/listed-notices-official/` 與 `official-resources/18418.response`。[上市每日重大訊息](https://data.gov.tw/dataset/18415) · [上櫃每日重大訊息](https://data.gov.tw/dataset/18418)
+- 上市 94 篇的主旨有 11 筆提及更正。依「作廢、撤回、撤銷、取消、誤發」比對主旨，這份快照沒有命中的資料列。此項搜尋旨在定位後續人工查核候選，未據此判定全部公告均無撤回。詳細命中列號與原件 hash 在 `listed-notices-audit.json`。
+- 上櫃兩組原公告與同日明示的主旨更正已有逐股人工定位，並經新建私有 ledger、八次 research 與 audit 檢查早／晚本地截止及冪等，供自動適配的整合驗證使用。[正式更正重播](../../m2-price-history/official-document-corrections-2026-11-19.md)
