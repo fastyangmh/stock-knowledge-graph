@@ -127,7 +127,14 @@ class MarketNoticeTests(unittest.TestCase):
         self.assertEqual(next(f for f in fourth.facts['facts'] if f.get('trade_date') == DAY)['close'], '11.50')
         old = audit_bundle(self.root/'runs', first.report['run'])
         self.assertEqual(old.report_sha256, first.report_sha256)
-        events = analyze([first, second, third, fourth], T5)['categories']['price_volume']['events']
+        report = analyze([first, second, third, fourth], T5)
+        events = report['categories']['price_volume']['events']
+        third_input = next(b for b in report['inputs'] if b['run'] == third.report['run'])
+        self.assertEqual([(m['action'],m['notice_sha256']) for m in third_input['market_notices']],
+                         [('correct',ck),('withdraw',sha(canonical(withdrawal)))])
+        self.assertEqual(third_input['market_notices'][-1]['recorded_at'], T3)
+        early = analyze([first, second, third, fourth], T1)
+        self.assertEqual(early['inputs'][0]['market_notices'], [])
         self.assertEqual([(e['baseline']['market']['close'], e['baseline']['market']['raw_sha256']) for e in events],
                          [('11.00', sha(CSV))])
 

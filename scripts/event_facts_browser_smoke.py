@@ -76,6 +76,13 @@ async def run(args):
                     assert 'different_fact_scope' in await page.locator('#event-overview').inner_text()
                 if name == 'complete':
                     assert '10.000000' in await page.locator('#event-results').inner_text()
+                    category = page.locator('[data-event-category="price_volume"]')
+                    chooser = category.get_by_role('combobox', name='查看此分組的事件', exact=True).first
+                    selected = await chooser.select_option(index=1)
+                    assert await category.get_by_role('combobox', name='價量提醒事件單一事件').input_value() == selected[0]
+                    assert '同股重疊' in await category.inner_text()
+                    assert '右設限' in await category.inner_text()
+                    checks.append('cohort member opens its frozen event, overlap and censoring evidence')
                     await page.locator('[data-event-category="price_volume"] details').filter(has=page.get_by_text('事件基準與原始提醒', exact=True)).locator('summary').click()
                     assert 'fact_id' in await page.locator('#event-results').inner_text()
                 checks.append(name+': real HTTP version, scope, cohort disclosure and event results')
@@ -95,7 +102,7 @@ async def run(args):
         'python':sys.version, 'finished_at':datetime.now(timezone.utc).isoformat(),
         'commit':subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT, text=True).strip(),
         'source_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in
-            ('event-study.html','js/event-study.js','css/style.css','local/event_study.py','local/event_outcomes.py','scripts/event_facts_browser_smoke.py')}}
+            ('event-study.html','js/event-study.js','css/style.css','local/event_study.py','local/event_outcomes.py','local/event_cohorts.py','scripts/event_facts_browser_smoke.py')}}
     args.report.write_bytes(canonical(result))
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if errors:

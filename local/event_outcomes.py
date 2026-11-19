@@ -14,6 +14,7 @@ from decimal import Decimal, localcontext
 from zoneinfo import ZoneInfo
 
 from .alerts import number, text_number
+from .price_action_review import ACTION_TYPES
 from .market_units import DEFINITION_KEYS
 from .research_facts import SCHEMA, NOTICE_SCHEMA
 from .dates import iso_date, timestamp
@@ -124,6 +125,12 @@ def baseline_facts(facts):
                for key in REVENUE_KEYS}}
 
 
+def fact_content(fact):
+    # Storage locations can differ across runs that captured identical evidence.
+    return {key: value for key, value in fact.items()
+            if key not in ("run", "report_sha256", "node_id", "fact_id")} if fact else None
+
+
 def _first_saved(facts, metric, event_at):
     """First captured eligible value per period, not final revised history."""
     found = {}
@@ -134,10 +141,8 @@ def _first_saved(facts, metric, event_at):
         if day in found:
             prior = found[day]
             # Equal capture times with conflicting facts have no principled order.
-            ignored = {"run", "report_sha256", "node_id", "fact_id"}
             if (timestamp(prior["captured_at"]) == timestamp(fact["captured_at"])
-                    and {k:v for k,v in prior.items() if k not in ignored} !=
-                        {k:v for k,v in fact.items() if k not in ignored}):
+                    and fact_content(prior) != fact_content(fact)):
                 raise ValueError("conflicting same-time outcome capture")
             continue
         found[day] = fact
@@ -167,6 +172,7 @@ def _market(event, facts, config):
     for horizon in config["quote_horizons"]:
         for metric in ("close_change_pct", "volume_ratio"):
             row = _result(metric, horizon, base)
+            row["unknown_action_coverage"] = list(ACTION_TYPES)
             row["observations_available"] = len(ordered)
             result.append(row)
             if base is None:
@@ -183,6 +189,9 @@ def _market(event, facts, config):
             future = ordered[horizon-1]
             row.update(target_period=future["period"], followup=copy.deepcopy(future))
             path = [base] + ordered[:horizon]
+            last_needed = max(path, key=lambda p: timestamp(p["captured_at"]))
+            row["sequence_known_at"] = last_needed["captured_at"]
+            row["sequence_known_run"] = last_needed["run"]
             if any(basis(p) != basis(base) for p in path):
                 row.update(status="not_comparable", reason="quote_source_or_basis_changed")
                 continue

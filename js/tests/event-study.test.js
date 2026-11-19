@@ -38,3 +38,18 @@ test('new version cannot omit cohort disclosure or claim mixed denominator',()=>
   r.fact_scope='unpruned_facts';assert.throws(()=>validate(r));
   r.schema_version='event-study-1.0';assert.throws(()=>validate(r));
 });
+test('versioned cohort reader checks both directions of event membership and exclusion reasons',()=>{
+  const r=sample(), group=r.categories.price_volume.summaries[0], event=r.categories.price_volume.events[0];
+  const row=event.outcomes[0], settings='d'.repeat(64);
+  r.cohort_policy={version:'event-cohorts-1',settings_id:settings};
+  Object.assign(event,{settings_id:settings,event_at:'2020-08-15T12:00:00Z',repeat_runs:[],repeated_captures:0});
+  Object.assign(row,{group_id:group.group_id,reason:'target_calendar_month_not_ended',status:'pending',value:null,
+    followup_window:{start_at:event.event_at,end_at:'2020-08-16T12:00:00Z',right_censored:true,same_stock_overlapping_events:0}});
+  Object.assign(group,{settings_id:settings,n_right_censored:1,n_observed:0,n_unavailable:1,statistics:null,
+    status_counts:{observed:0,pending:1,insufficient_data:0,not_comparable:0},unavailable_by_reason:{[row.reason]:[event.event_id]}});
+  validate(r);
+  row.group_id='a'.repeat(64);assert.throws(()=>validate(r));row.group_id=group.group_id;
+  group.unavailable_by_reason={};assert.throws(()=>validate(r));group.unavailable_by_reason={[row.reason]:[event.event_id]};
+  group.n_right_censored=0;assert.throws(()=>validate(r));group.n_right_censored=1;
+  r.cohort_policy.version='unknown';assert.throws(()=>validate(r));
+});
