@@ -42,3 +42,7 @@ uv run --locked python -m local.research_compare \
 - 合成 `local/tests/test_price_action_review.py` 以 research → audit → 比較 CLI 檢查次日生效、邊界日期、不同股票／市場／幣別、來源校驗、晚到證據、未知涵蓋、舊版與同日重讀。另在比較介面以假設的第二價格基準驗證拒比。這些情境不替代 P1-02 行情尺度驗收。
 
 2026-11-19 macOS arm64／Python 3.11.11，實作 `10dee33` 合入已完成的日曆分支後，候選 `9630980` 的 `uv run --locked python -m local.check` exit 0，527 個 pytest、277 個 subtests，以及 SQLite 輸出與驗證通過。兩市場真實 CLI 在該候選重跑通過。完整離線報告為上述私有目錄內的 `full-check.json`。另保留沙箱未開放 loopback 時的測試失敗紀錄；最後一次使用正常 loopback 權限。本票未修改前端或執行瀏覽器驗收。
+
+## 11 月 18 日至 19 日的實際價格區間
+
+在 `67274f3`、macOS arm64，以前節的 `local.research_compare --price-review --action-manifest` 命令比較盤後新增版本與其前版，兩市場各自 exit 0。區間為 2026-11-18 收盤至 2026-11-19 收盤，上市與上櫃各兩檔股票均為 `coverage_unknown`。已核對 11633 原件 SHA256，該原件的 11 月 19 日資料只有日期，可辨識的個股事件為 0 筆。四檔的除權息、分割／併股、減資涵蓋均維持未知。原始收盤值及兩端版本可由私有目錄 `local/private/close-2026-11-19/live-1400/{twse,tpex}/price-review-18-19.json` 追查。[盤後版本與來源收據](VERIFICATION-2026-11-19-EVENT-COHORTS.md#11-月-19-日盤後的同股事件重疊)
