@@ -14,11 +14,12 @@ from decimal import Decimal, localcontext
 import hashlib
 from pathlib import Path
 
-from .alerts import RULES, number, text_number, validate as validate_alert
+from .alerts import RULES, definition_number, number, text_number, validate as validate_alert
 from .bundle_audit import catalog, _require
 from .core import ROOT
 from .dates import analysis_cutoff, iso_date, timestamp
-from .event_outcomes import STATES, METRICS, baseline_facts, basis, measure, saved_facts
+from .event_cohorts import attach_windows, input_coverage
+from .event_outcomes import STATES, METRICS, baseline_facts, basis, fact_content, measure, saved_facts
 from .financial_definitions import DEFINITION_KEYS as FINANCIAL_DEFINITION_KEYS
 from .market_units import DEFINITION_KEYS as MARKET_DEFINITION_KEYS
 from .preview import server_from_files
@@ -30,6 +31,8 @@ from .safety import exclusive_lock
 VERSION = "event-study-1.0"
 FACTS_VERSION = "event-study-2.0"
 DEFAULTS = {"quote_horizons": [1, 5, 20], "revenue_horizons": [1, 3, 6], "max_quote_gap_days": 10}
+LEGACY_COHORT = "event-cohorts-1"
+COHORT_VERSION = "event-cohorts-2"
 MAX_EVENTS = 2000
 MAX_FACTS = 100000
 MAX_FACT_VISITS = 5_000_000
@@ -68,7 +71,7 @@ def _id(value):
     return hashlib.sha256(canonical(value)).hexdigest()
 
 
-def _definition(report, check):
+def _definition(report, check, cohort_version):
     rule = check["rule_id"]
     sources = sorted({(row.get("source_id") or "", row.get("source_url") or "") for row in check["evidence"]})
     legacy_keys = ("market", "price_unit", "price_basis")
@@ -86,7 +89,18 @@ def _definition(report, check):
                            for r in check["evidence"]]
         if any(financial_bases):
             definition["financial_bases"] = sorted({canonical(row).decode() for row in financial_bases})
+    if cohort_version == COHORT_VERSION:
+        definition["config"] = {k: definition_number(k, v) for k, v in definition["config"].items()}
+        definition["threshold"] = definition_number(CONFIG_KEYS[rule][0], definition["threshold"])
     return definition
+
+
+def group_labels(event, row):
+    labels = {k:event[k] for k in ("category", "rule_id", "direction", "definition_id")}
+    if "settings_id" in event:
+        labels["settings_id"] = event["settings_id"]
+    labels.update({k:row[k] for k in ("metric", "horizon", "horizon_unit", "unit", "basis")})
+    return labels
 
 
 def summarize(events):
@@ -94,17 +108,24 @@ def summarize(events):
     groups = {}
     for event in events:
         for row in event["outcomes"]:
-            labels = {k:event[k] for k in ("category", "rule_id", "direction", "definition_id")}
-            labels.update({k:row[k] for k in ("metric", "horizon", "horizon_unit", "unit", "basis")})
+            labels = group_labels(event, row)
             key = _id(labels)
-            group = groups.setdefault(key, {**labels, "group_id":key, "events": [], "values":[], "statuses":Counter()})
+            group = groups.setdefault(key, {**labels, "group_id":key, "events": [], "values":[], "statuses":Counter(),
+                                             "unavailable_by_reason":{}, "n_right_censored":0})
             group["events"].append(event["event_id"])
             group["statuses"][row["status"]] += 1
             if row["status"] == "observed":
                 group["values"].append(number(row["value"]))
+            else:
+                group["unavailable_by_reason"].setdefault(row["reason"], []).append(event["event_id"])
+                if "settings_id" in event:
+                    group["n_right_censored"] += row["followup_window"]["right_censored"]
     output = []
     for key in sorted(groups):
         group = groups[key]
+        if "settings_id" not in group:
+            group.pop("n_right_censored")
+            group.pop("unavailable_by_reason")
         values = sorted(group.pop("values"))
         n = len(values)
         group["n_total"] = len(group["events"])
@@ -124,8 +145,50 @@ def summarize(events):
     return output
 
 
-def analyze(bundles, analysis_at, config=None, *, cohort=None):
-    """Caller provides audited Bundle objects; no file access. Deterministic output."""
+def replay_report(bundles, saved):
+    """Recompute a saved report from audited inputs using its original cohort contract."""
+    if saved.get("schema_version") not in (VERSION, FACTS_VERSION):
+        raise ValueError("unsupported saved event study version")
+    version = None
+    if "cohort_policy" in saved:
+        policy = saved["cohort_policy"]
+        if not isinstance(policy, dict) or policy.get("version") not in (LEGACY_COHORT, COHORT_VERSION):
+            raise ValueError("unsupported saved event cohort policy")
+        version = policy["version"]
+    available = {}
+    for bundle in bundles:
+        run = bundle.report["run"]
+        if run in available:
+            raise ValueError("duplicate research bundle")
+        available[run] = bundle
+    selected = {}
+    for key in ("inputs", "excluded_inputs"):
+        if not isinstance(saved.get(key), list):
+            raise ValueError("missing saved input list: " + key)
+        for ref in saved[key]:
+            if not isinstance(ref, dict) or not isinstance(ref.get("run"), str):
+                raise ValueError("missing saved run identity")
+            run = ref["run"]
+            if run in selected:
+                raise ValueError("duplicate saved run: " + run)
+            if run not in available:
+                raise ValueError("missing saved run: " + run)
+            if available[run].report_sha256 != ref.get("report_sha256"):
+                raise ValueError("saved report hash mismatch: " + run)
+            selected[run] = available[run]
+    cohort = saved["fact_scope"] if saved.get("cohort_selection") == "explicit" else None
+    rebuilt = analyze(selected.values(), saved["analysis_at"], saved["configuration"],
+                      cohort=cohort, cohort_version=version)
+    if canonical(rebuilt) != canonical(saved):
+        raise ValueError("saved report differs from its audited input replay")
+    return rebuilt
+
+
+def analyze(bundles, analysis_at, config=None, *, cohort=None, cohort_version=COHORT_VERSION):
+    """Analyze audited bundles. Older cohort versions reproduce archived definitions."""
+    if cohort_version not in (None, LEGACY_COHORT, COHORT_VERSION):
+        raise ValueError("unsupported saved event cohort policy")
+    trace = cohort_version is not None
     settings = policy(config)
     cutoff = analysis_cutoff(analysis_at)
     analysis_at = cutoff.isoformat()
@@ -140,10 +203,12 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
         raise ValueError("mixed fact scopes require an explicit cohort")
     fact_scope = cohort or next(iter(scopes), "display_graph_only")
     version = FACTS_VERSION if fact_scope == "unpruned_facts" else VERSION
+    settings_id = _id([cohort_version, fact_scope, settings])
     def scope_of(bundle):
         return "unpruned_facts" if bundle.facts is not None else "display_graph_only"
     included = [b for b in eligible if scope_of(b) == fact_scope]
     facts_by_run, timeline, events, origins, excluded_events = {}, {}, {}, {}, {}
+    coverage_by_run = {}
     counters = Counter()
     for bundle in eligible:
         selected = scope_of(bundle) == fact_scope
@@ -159,6 +224,8 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
             counters["saved_numeric_facts"] += len(facts) if bundle.facts is None else 0
             if counters["saved_numeric_facts"] > MAX_FACTS:
                 raise ValueError("saved-fact budget exceeded")
+        if selected and trace:
+            coverage_by_run[bundle.report["run"]] = input_coverage(bundle, stock_ids, facts_by_run)
         if bundle.alerts is None:
             counters["runs_without_alerts"] += int(selected)
             continue
@@ -174,7 +241,7 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
                     iso_date(check["target_period"])
                     if not check["evidence"]:
                         raise ValueError("triggered event lacks evidence")
-                    definition = _definition(report, check)
+                    definition = _definition(report, check, cohort_version)
                     value = number(check["value"])
                     direction = "positive" if value > 0 else "negative" if value < 0 else "zero"
                     key = _id([version,sid,check["rule_id"],check["target_period"],direction,definition])
@@ -189,10 +256,12 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
                     if not selected:
                         continue
                     if scope_of(origin) != fact_scope:
-                        excluded_events.setdefault(key, {"event_id":key, "stock_id":sid,
+                        excluded = excluded_events.setdefault(key, {"event_id":key, "stock_id":sid, "category":category,
                             "rule_id":check["rule_id"], "target_period":check["target_period"],
                             "first_run":origin.report["run"], "first_event_at":origin.report["completed_at"],
+                            "first_report_sha256":origin.report_sha256, "selected_runs":[],
                             "first_fact_scope":scope_of(origin), "reason":"first_trigger_saved_in_other_cohort"})
+                        excluded["selected_runs"].append(bundle.report["run"])
                         continue
                     if key in events:
                         prior = events[key]
@@ -201,6 +270,11 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
                             b = {k:v for k,v in check.items() if k != "id"}
                             if a != b:
                                 raise ValueError("conflicting same-time event trigger")
+                            baseline = baseline_facts(facts_by_run[bundle.report["run"],sid])
+                            if trace and any(fact_content(baseline[k]) != fact_content(prior["baseline"][k])
+                                   for k in baseline if k != "revenue_period"):
+                                raise ValueError("conflicting same-time event baseline")
+                        prior["repeat_runs"].append(bundle.report["run"])
                         prior["repeated_captures"] += 1
                         counters["duplicate_period_events_suppressed"] += 1
                         continue
@@ -208,16 +282,17 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
                         raise ValueError("event budget exceeded; choose a smaller research catalog")
                     events[key] = {"event_id":key,"stock_id":sid,"rule_id":check["rule_id"],
                         "category":category,"title":check["title"],"target_period":check["target_period"],
-                        "direction":direction,"definition":definition,"definition_id":_id(definition),
+                        "direction":direction,"settings_id":settings_id,"definition":definition,"definition_id":_id(definition),
                         "event_at":timestamp(bundle.report["completed_at"]).isoformat(),
                         "known_at":report["known_at"],"run":bundle.report["run"],"report_sha256":bundle.report_sha256,
                         "trigger":copy.deepcopy(check), "baseline":baseline_facts(facts_by_run[bundle.report["run"],sid]),
-                        "repeated_captures":0}
+                        "repeated_captures":0, "repeat_runs":[]}
     rows = sorted(events.values(),key=lambda e:(timestamp(e["event_at"]),e["stock_id"],e["rule_id"],e["event_id"]))
     if sum(len(timeline.get(e["stock_id"], [])) for e in rows) > MAX_FACT_VISITS:
         raise ValueError("event/fact work budget exceeded; narrow the saved catalog")
     for event in rows:
-        event["outcomes"] = measure(event, timeline.get(event["stock_id"],[]), settings, analysis_at)
+        event["outcomes"] = measure(event, timeline.get(event["stock_id"],[]), settings, analysis_at,
+                                    revised_policy=cohort_version == COHORT_VERSION)
     result = {"schema_version":version,"fact_scope":fact_scope,"analysis_at":analysis_at,"configuration":settings,
         "combined_score":False,"trade_assumptions":False,"warnings":CAVEATS,
         "event_policy":"first_saved_trigger_per_stock_rule_period_direction_definition_not_crossing_episodes",
@@ -229,7 +304,7 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
                     "triggered_checks_seen","duplicate_period_events_suppressed")}},
         "inputs":[{"run":b.report["run"],"report_sha256":b.report_sha256,
                    "known_at":b.report["known_at"],"completed_at":b.report["completed_at"],
-                   "fact_scope":scope_of(b)} for b in included],
+                   "fact_scope":scope_of(b), **coverage_by_run.get(b.report["run"], {})} for b in included],
         "cohort_selection":"explicit" if cohort else "automatic_single_scope",
         "cohorts":{scope:{"total_runs":sum(scope_of(b)==scope for b in ordered),
                           "included_runs":sum(scope_of(b)==scope for b in included),
@@ -241,16 +316,43 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
                                      else "different_fact_scope"}
                            for b in ordered if timestamp(b.report["completed_at"])>cutoff or scope_of(b)!=fact_scope],
         "excluded_events":list(excluded_events.values()),
-        "categories":{category:{"events":[e for e in rows if e["category"]==category],
-                   "summaries":summarize([e for e in rows if e["category"]==category])}
-                   for category in ("price_volume","monthly_revenue")},
         "scope":("saved_unpruned_numeric_facts_not_complete_market_history_or_total_returns"
                  if fact_scope == "unpruned_facts" else
                  "saved_display_numeric_facts_only_not_complete_market_history_or_total_returns")}
+    _finish_cohorts(result, rows, cohort_version, settings_id)
     result["study_id"] = _id(result)
     if len(canonical(result)) > MAX_REPORT_BYTES:
         raise ValueError("event study exceeds 32 MiB report budget")
     return result
+
+
+def _finish_cohorts(result, events, version, settings_id):
+    """Project the archived event shape before deriving summaries and report identity."""
+    excluded = result["excluded_events"]
+    categories = {name: {"events": []} for name in ("price_volume", "monthly_revenue")}
+    if version is None:
+        for event in events:
+            event.pop("settings_id")
+            event.pop("repeat_runs")
+            for row in event["outcomes"]:
+                for field in ("unknown_action_coverage", "sequence_known_at", "sequence_known_run"):
+                    row.pop(field, None)
+        for origin in excluded:
+            for field in ("category", "first_report_sha256", "selected_runs"):
+                origin.pop(field)
+    else:
+        result["cohort_policy"] = {"version": version, "settings_id": settings_id}
+        for category, group in categories.items():
+            group["excluded_by_origin"] = [e["event_id"] for e in excluded if e["category"] == category]
+        for event in events:
+            for row in event["outcomes"]:
+                row["group_id"] = _id(group_labels(event, row))
+        attach_windows(events, result["analysis_at"])
+    for event in events:
+        categories[event["category"]]["events"].append(event)
+    for group in categories.values():
+        group["summaries"] = summarize(group["events"])
+    result["categories"] = categories
 
 
 def build(root, analysis_at, *, config=None, max_runs=50, max_mib=256, cohort=None):

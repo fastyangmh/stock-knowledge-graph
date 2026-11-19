@@ -24,7 +24,8 @@ from test_alerts import payload, prices, TARGET, CUTOFF, SID, checks
 def csv_data(day, close='100', volume=1000):
     output=io.StringIO(newline='');writer=csv.writer(output)
     writer.writerow(FEEDS['twse']['columns'])
-    writer.writerow([day,'1000','Synthetic','100',max(100,float(close)),min(100,float(close)),close,volume,'200000',10])
+    price = 100 if close == '--' else float(close)
+    writer.writerow([day,'1000','Synthetic','100',max(100,price),min(100,price),close,volume,'200000',10])
     return output.getvalue().encode()
 
 

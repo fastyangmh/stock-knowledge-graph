@@ -18,7 +18,8 @@ import threading
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT/'local/tests'))
-from local.event_study import build, make_server
+from local.bundle_audit import catalog
+from local.event_study import analyze, build, make_server
 from local.research_history import canonical
 from local.safety import private_path
 from test_event_integration import research_run, ASOF, CONFIG
@@ -32,7 +33,7 @@ async def run(args):
         root = Path(directory)
         research_run(root, 0, '2020-08-14', '100', 1000, cap=0)
         first = research_run(root, 1, '2020-08-15', '110', 3000, alerts=True, cap=0)
-        research_run(root, 2, '2020-08-16', '121', 1500, cap=0)
+        research_run(root, 2, '2020-08-16', '121', 1500, alerts=True, cap=0)
         complete = build(root/'runs', ASOF, config=CONFIG)
         # Produce an authentic legacy file layout, then let catalog audit it.
         path = root/'runs'/first['run']
@@ -48,6 +49,9 @@ async def run(args):
             'report_sha256':hashlib.sha256(canonical(report)).hexdigest()}))
         pure_legacy = build(isolated, ASOF, config=CONFIG)
         reports = {'complete':complete, 'mixed':mixed, 'legacy':legacy, 'pure-legacy':pure_legacy}
+        _, archived_inputs = catalog(root/'runs')
+        reports['archived-mixed'] = analyze(archived_inputs.values(), ASOF, CONFIG,
+                                            cohort='unpruned_facts', cohort_version=None)
         urls = {}
         for name, report in reports.items():
             (args.report.parent/(name+'-study.json')).write_bytes(canonical(report))
@@ -74,8 +78,19 @@ async def run(args):
                 assert 'inputs' in await page.locator('#event-overview').inner_text()
                 if name == 'mixed':
                     assert 'different_fact_scope' in await page.locator('#event-overview').inner_text()
+                if name in ('mixed', 'archived-mixed'):
+                    section = page.locator('[data-event-category="monthly_revenue"]')
+                    assert '首次保存在另一範圍的事件有 4 筆，本組可納入 0 筆' in await section.inner_text()
+                    checks.append(name+': all four monthly origins identified in empty cohort')
                 if name == 'complete':
                     assert '10.000000' in await page.locator('#event-results').inner_text()
+                    category = page.locator('[data-event-category="price_volume"]')
+                    chooser = category.get_by_role('combobox', name='查看此分組的事件', exact=True).first
+                    selected = await chooser.select_option(index=1)
+                    assert await category.get_by_role('combobox', name='價量提醒事件單一事件').input_value() == selected[0]
+                    assert '同股重疊' in await category.inner_text()
+                    assert '右設限' in await category.inner_text()
+                    checks.append('cohort member opens its frozen event, overlap and censoring evidence')
                     await page.locator('[data-event-category="price_volume"] details').filter(has=page.get_by_text('事件基準與原始提醒', exact=True)).locator('summary').click()
                     assert 'fact_id' in await page.locator('#event-results').inner_text()
                 checks.append(name+': real HTTP version, scope, cohort disclosure and event results')
@@ -95,7 +110,7 @@ async def run(args):
         'python':sys.version, 'finished_at':datetime.now(timezone.utc).isoformat(),
         'commit':subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT, text=True).strip(),
         'source_sha256':{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in
-            ('event-study.html','js/event-study.js','css/style.css','local/event_study.py','local/event_outcomes.py','scripts/event_facts_browser_smoke.py')}}
+            ('event-study.html','js/event-study.js','css/style.css','local/event_study.py','local/event_outcomes.py','local/event_cohorts.py','scripts/event_facts_browser_smoke.py')}}
     args.report.write_bytes(canonical(result))
     print(json.dumps(result, ensure_ascii=False, indent=2))
     if errors:
