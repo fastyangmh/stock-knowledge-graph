@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from .bundle_audit import catalog
+from .calendar_ordinals import event_sequence, set_range_positions
 from .dates import iso_date, timestamp
 from .event_study import save_report
 from .research import guarded
@@ -127,12 +128,16 @@ def calendar_day(entries, market, day):
     return {'market_status': states.pop(), 'reason': 'calendar_entry', 'evidence_ids': surviving}
 
 
-def research_inputs(root, market, stock_ids, start, end, cutoff, max_runs, byte_budget):
+def audited_bundles(root, max_runs, byte_budget):
     summary, bundles = catalog(root, max_runs=max_runs, max_bytes=byte_budget)
     if summary['counts']['invalid'] or not summary['latest_valid']:
         raise ValueError('invalid research catalog or latest pointer')
+    return list(bundles.values())
+
+
+def research_inputs(bundles, market, stock_ids, start, end, cutoff):
     inputs, observations, covered_until, market_witnesses = [], {}, {}, {}
-    for bundle in sorted(bundles.values(), key=lambda b: (timestamp(b.report['completed_at']), b.report['run'])):
+    for bundle in sorted(bundles, key=lambda b: (timestamp(b.report['completed_at']), b.report['run'])):
         report = bundle.report
         if timestamp(report['completed_at']) > cutoff:
             continue
@@ -190,7 +195,8 @@ def stock_day(status, observation, insufficient_scope):
     return {'status': state, 'reason': reason, 'observation': observation}
 
 
-def build(root, calendar, market, symbols, start, end, as_of, *, max_runs=50, max_mib=256, max_rows=MAX_ROWS):
+def build(root, calendar, market, symbols, start, end, as_of, *,
+          event_id=None, max_runs=50, max_mib=256, max_rows=MAX_ROWS):
     stock_ids = validate_symbols(symbols)
     first, last, cutoff = iso_date(start), iso_date(end), timestamp(as_of)
     day_count = (last - first).days + 1
@@ -201,8 +207,9 @@ def build(root, calendar, market, symbols, start, end, as_of, *, max_runs=50, ma
     eligible, remaining = load_calendar(calendar, cutoff, max_mib * MIB)
     if day_count * len(eligible) > 1_000_000:
         raise ValueError('calendar evaluation budget exceeded')
+    bundles = audited_bundles(root, max_runs, remaining)
     inputs, observations, covered_until, market_witnesses = research_inputs(
-        root, market, stock_ids, start, end, cutoff, max_runs, remaining)
+        bundles, market, stock_ids, start, end, cutoff)
     outside = {sid: 'after_market_trade_date' if sid in covered_until else scope_reason(inputs, sid)
                for sid in stock_ids}
     days, market_counts = [], Counter()
@@ -220,9 +227,13 @@ def build(root, calendar, market, symbols, start, end, as_of, *, max_runs=50, ma
             row['stocks'][sid] = result
             stock_counts[sid][result['status']] += 1
         days.append(row)
-    return {'schema_version': 'calendar-coverage-1', 'market': market, 'stock_ids': sorted(stock_ids),
-            'start': start, 'end': end, 'as_of': as_of, 'calendar': {'versions': eligible},
-            'inputs': inputs, 'days': days, 'market_counts': market_counts, 'stock_counts': stock_counts}
+    report = {'schema_version': 'calendar-coverage-1', 'market': market, 'stock_ids': sorted(stock_ids),
+              'start': start, 'end': end, 'as_of': as_of, 'calendar': {'versions': eligible},
+              'inputs': inputs, 'days': days, 'market_counts': market_counts, 'stock_counts': stock_counts}
+    set_range_positions(report)
+    if event_id is not None:
+        report['event_sequence'] = event_sequence(report, bundles, event_id)
+    return report
 
 
 def main(argv=None):
@@ -233,6 +244,7 @@ def main(argv=None):
     parser.add_argument('--symbols', nargs='+', required=True)
     for option in ('start', 'end', 'as-of'):
         parser.add_argument('--' + option, required=True)
+    parser.add_argument('--event-id', help='First-saved event ID from the unpruned event study for this catalog')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--max-runs', type=int, default=50)
     parser.add_argument('--max-mib', type=int, default=256)
@@ -240,7 +252,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         report = build(args.root, args.calendar, args.market, args.symbols, args.start, args.end, args.as_of,
-                       max_runs=args.max_runs, max_mib=args.max_mib, max_rows=args.max_rows)
+                       event_id=args.event_id, max_runs=args.max_runs, max_mib=args.max_mib, max_rows=args.max_rows)
         save_report(report, args.output, args.root)
     except (ValueError, OSError, KeyError, TypeError, RuntimeError) as exc:
         parser.exit(2, f'{parser.prog}: {exc}\n')

@@ -17,6 +17,24 @@ uv run --locked python -m local.calendar_coverage \
 
 每次先稽核整個 `--root` 及其 latest 指標，只取截止時已完成的研究版本。私有檔案不接受 symlink。把報告放在研究輸入目錄外，重跑相同內容可沿用同一路徑，變更條件時使用新檔名。遭遇雜湊錯誤、無效契約或超額等錯誤時 CLI 以非零結束，保留舊檔。日曆未涵蓋、研究範圍不足等有效診斷可產生報告，exit 0 本身不證明行情連續。
 
+## 核對區間與事件後第幾日
+
+每個 `days[].session_ordinal` 從 `--start` 起算，第一個開市日為 1。休市日的值為 null。任一日缺日曆或有證據衝突，從該日起的序號都為 null。各股的 `observation_continuity` 涵蓋區間起日到該列日期，讀末列可得整段判定。
+
+| 區間判定 | 所用證據 |
+| --- | --- |
+| `complete` | 至少一天開市，且每個開市日都有該股的已保存行情列。缺收盤價仍保留位置，可用性另見 `missing_close` |
+| `incomplete` | 已確認有範圍內的開市日缺該股行情列；同段其他日期仍可另有未決證據 |
+| `unknown` | 有未決日曆或開市日超出研究範圍 |
+| `pending` | 沒有已知缺口或未決證據，仍有截止時未到期的開市日 |
+| `no_sessions` | 全段已知休市 |
+
+若要核對首次保存事件，從同一目錄的[事件統計](EVENT_STUDY.md)取得 `categories.*.events[].event_id`。在上面命令增加 `--event-id <事件ID>`，將 `--output` 改為新檔。選取該股並使用事件基準行情的市場，日期區間須涵蓋事件台北日的次日起點。工具從稽核後的未裁剪 cohort 及同一截止重新辨識錨點，日曆判讀只讀截止時可用的版本。
+
+報告的 `event_sequence.anchor` 列出事件 ID、首次觸發的版本、報告雜湊、完成時間與台北日期。`event_sequence.days` 從事件台北日期的次日起算，每列並列該市場的 `session_ordinal` 與原事件工具的 `quote_ordinal`。例如週一開市缺行情、週二才有該股第一筆報價，週二會列交易日 2、報價 1。首次保存的後續報價使用原有的市場、事實 ID、bundle 及數值；原本缺收盤價的一筆仍占其位置。
+
+`event_sequence.horizons` 並列第 1、5、20 個市場交易日與第 1、5、20 筆報價的目標日期。未到的已知開市日列 `pending`，無法確定日期列 `unknown_calendar`，區間太短列 `outside_report_range`。市場交易日的連續性與報價是否有足夠數值各自判讀。關於價格定義及來源能否比較，查原事件報告的 `status`、`reason` 與分母。[合成 CLI 驗收](../.scratch/m2-trading-calendar/issues/03-session-ordinal.md)
+
 ## 日曆輸入
 
 索引為 UTF-8 JSON。以下示意只包含一個單日明示的合成條目，執行前須將 `path` 指向實際封存檔、將 `sha256` 換成對該檔原始 bytes 計算的 64 位小寫十六進位 SHA256。
