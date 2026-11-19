@@ -10,7 +10,7 @@ P2-02 六票已交付合成 CLI 與兩市場 11/14～17 的官方日曆驗收。
 
 M2 價格基準與正規化來源通知已整合至 `9a0bce9`。兩市場四檔原始價格可查回原件，更正公告可按截止時間還原。已修補晚公告、跨選股撤回、舊格式文件、跨幣別比較與大通知的儲存及回滾。兩市場三版真實歷史與事件頁已在桌面及手機寬度複驗。獨立行情庫已支援明示更正、撤回與重發；兩市場兩日既有行情與研究按原截止重播一致。正式行情通知原件仍待驗。[行情通知實作及驗收](../.scratch/m2-market-revisions/issues/01-market-notices.md) [雙軸審查及整合驗證](VERIFICATION-2026-11-19-M2-HISTORY-REVIEW.md)
 
-最新一期季報、籌碼與重大訊息已開始分來源核對。11/17 與 11/18 的兩市場真實研究版本可供後續品質驗證。[真實後續行情及官方原件索引](../.scratch/private-research-ready/source-samples-2026-11-19.md) · [兩市場發行人季報抽檢](../.scratch/m3-evidence-sources/issuer-reference-2026-11-19.md)
+月營收與八份季報 CSV、兩份現金流私有筆記已在一個 ledger 分段驗收，五個截止均還原相同事實。[季報雙軸審查與混合驗收](VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md)。籌碼與重大訊息依來源分別核對。11/17 與 11/18 的兩市場真實研究版本可供後續品質驗證。[真實後續行情及官方原件索引](../.scratch/private-research-ready/source-samples-2026-11-19.md) · [兩市場發行人季報抽檢](../.scratch/m3-evidence-sources/issuer-reference-2026-11-19.md)
 
 專案已以真實官方快照、固定真實模型，在使用者指定的當前 macOS arm64／Python 3.11 環境完成兩市場各兩版私有研究、提醒、audit、歷史比較、事件報告及三頁真實 HTTP 驗收。公開 `data/` 仍為示範；沒有啟用發布、排程或交易。
 

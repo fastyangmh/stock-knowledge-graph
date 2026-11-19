@@ -22,3 +22,5 @@ TMPDIR=/private/tmp uv run --locked python -m local.check --frontend --report "$
 ```
 
 這次三組重播均 exit 0。完整檢查在 macOS arm64、Python 3.11.11、uv 0.6.13、Node v22.16.0 執行。第一次執行受 loopback 權限限制；取得本機 HTTP 權限後重跑，559 pytest、310 subtests、55 Node tests、編譯、SQLite／JSON smoke 與圖譜驗證均通過，exit 0。私有報告為 `local/private/m3-combined-6b0f9a5/full-check.json`。本次未驗瀏覽器、Linux／NAS、正式財報更正或撤回，其他產業與期間也仍待取得可用原件。
+
+後續修正、兩市場月營收與三表同庫的逐版重播，以及銀行附註新增的覆核，見[雙軸審查與混合研究驗收](VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md)。
