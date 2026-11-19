@@ -155,6 +155,10 @@ def main(argv=None):
     payload = normalize(manifest, args.dataset, args.symbols)
     if args.review:
         apply_review(payload, args.dataset, read_bytes(guarded(args.review), 4 * 1024 * 1024))
+    write_normalized(payload, output)
+
+
+def write_normalized(payload, output):
     validate_payload(payload)
     data = canonical(payload) + b'\n'
     with exclusive_lock(output):
