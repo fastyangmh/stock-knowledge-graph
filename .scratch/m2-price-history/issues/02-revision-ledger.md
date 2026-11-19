@@ -13,4 +13,4 @@
 - [x] 已保存的舊 ledger 可讀，有界、明示及可驗的遷移；immutable bundle/audit 保存修訂來源與重播範圍，較早的事件基準不變。來源不明拒絕並保全舊成功 pointer。
 - [x] 文件列清每種可撤回事實的支援範圍，包括財務、籌碼、文件與行情各自的適用性；未支援的輸入須明示與另列剩餘工作。
 
-[操作契約與適用範圍](../../../docs/PRIVATE_RESEARCH.md#來源明示更正撤回與重新發布)。合成 CLI 8 版逐版 audit；TWSE、TPEx 已保存的真實舊庫副本各保留 1 筆快照、重播 8 筆相同事實，原有兩版及各一個事件仍可重讀。真實官方通知與行情撤回未驗。私有證據位於主要工作區 `local/private/m2-revisions/`。
+[操作契約與適用範圍](../../../docs/PRIVATE_RESEARCH.md#來源明示更正撤回與重新發布)。合成 CLI 8 版逐版 audit；TWSE、TPEx 已保存的真實舊庫副本各保留 1 筆快照、重播 8 筆相同事實，原有兩版及各一個事件仍可重讀。兩家上櫃公司的真實重大訊息更正已通過私有 research 與 bundle audit，正式撤回、財務與籌碼的真實更正及行情庫適用性仍待驗。[更正原件與重播結果](../official-document-corrections-2026-11-19.md) 私有證據位於主要工作區 `local/private/m2-revisions/`。

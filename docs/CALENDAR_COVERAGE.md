@@ -4,7 +4,7 @@
 
 ## 產生報告
 
-先準備研究版本目錄及已人工核對的日曆索引，將原始檔放在索引所在的私有目錄或其子目錄。日期區間含首尾，`--as-of` 必須帶時區。以下日期與代碼是命令格式的示例。
+先準備研究版本目錄及已人工核對的日曆索引，將原始檔放在索引所在的私有目錄或其子目錄。日期區間含首尾，`--as-of` 必須帶時區，且最晚為執行當下。以下日期與代碼是命令格式的示例。
 
 ```bash
 uv run --locked python -m local.calendar_coverage \
@@ -16,6 +16,24 @@ uv run --locked python -m local.calendar_coverage \
 ```
 
 每次先稽核整個 `--root` 及其 latest 指標，只取截止時已完成的研究版本。私有檔案不接受 symlink。把報告放在研究輸入目錄外，重跑相同內容可沿用同一路徑，變更條件時使用新檔名。遭遇雜湊錯誤、無效契約或超額等錯誤時 CLI 以非零結束，保留舊檔。日曆未涵蓋、研究範圍不足等有效診斷可產生報告，exit 0 本身不證明行情連續。
+
+## 核對區間與事件後第幾日
+
+每個 `days[].session_ordinal` 從 `--start` 起算，第一個開市日為 1。休市日的值為 null。任一日缺日曆或有證據衝突，從該日起的序號都為 null。各股的 `observation_continuity` 涵蓋區間起日到該列日期，`close_continuity` 另核對每個應開市日是否有已保存收盤價。讀末列可得整段判定。
+
+| 區間判定 | 所用證據 |
+| --- | --- |
+| `complete` | 至少一天開市，且每個開市日都有該股的已保存行情列。缺收盤價仍保留位置，該列 `missing_close` 會使 `close_continuity` 成為 `incomplete` |
+| `incomplete` | 已確認有範圍內的開市日缺該股行情列；同段其他日期仍可另有未決證據 |
+| `unknown` | 有未決日曆或開市日超出研究範圍 |
+| `pending` | 沒有已知缺口或未決證據，仍有截止時未到期的開市日 |
+| `no_sessions` | 全段已知休市 |
+
+若要核對首次保存事件，從同一目錄的[事件統計](EVENT_STUDY.md)取得 `categories.*.events[].event_id`。在上面命令增加 `--event-id <事件ID>`，將 `--output` 改為新檔。選取該股並使用事件基準行情的市場，日期區間須涵蓋事件台北日的次日起點。工具從稽核後的未裁剪 cohort 及同一截止重新辨識錨點，日曆判讀只讀截止時可用的版本。
+
+報告的 `event_sequence.anchor` 列出事件 ID、首次觸發的版本、報告雜湊、完成時間與台北日期。`event_sequence.days` 從事件台北日期的次日起算，每列並列該市場的 `session_ordinal` 與限指定市場、其餘沿用原事件工具計數口徑的 `quote_ordinal`。例如週一開市缺行情、週二才有該股第一筆報價，週二會列交易日 2、報價 1。首次保存的後續報價使用原有的市場、事實 ID、bundle 及數值；原本缺收盤價的一筆仍占其位置。
+
+`event_sequence.horizons` 並列第 1、5、20 個市場交易日與第 1、5、20 筆報價的目標日期。未到的日期依截止時已保存的開市安排標示序號，可用性列 `pending`，無法確定日期列 `unknown_calendar`，區間太短列 `outside_report_range`。同一代碼曾在兩個市場留下資料時，只計選定市場的報價。`event_study_close_target` 另列原事件工具在同批 bundle 的收盤價變化目標日期、市場、狀態與原因，可核對舊口徑如何處理不具可比性的跨市場觀察。關於價格定義及來源能否比較，查原事件報告的 `status`、`reason` 與分母。[合成 CLI 驗收](../.scratch/m2-trading-calendar/issues/03-session-ordinal.md)
 
 ## 日曆輸入
 
@@ -60,8 +78,50 @@ uv run --locked python -m local.calendar_coverage \
 | 個股 `insufficient_scope` | 看 `reason` 區分截止前沒有版本、未選該股、僅展示圖、市場不符、超過行情截止 |
 | 個股 `closed`、`unknown_calendar` 或 `calendar_conflict` | 休市無行情、無行情且日曆未決、或存在日曆證據衝突；已保存列仍可由 `observation` 查回 |
 
-行情 `observed_at` 記錄來源觀察時間。`captured_at` 是供應版本中首份包含該日該股事實的 bundle 完成時間；原行情的本地登錄時間未知時保留 `recorded_at_status=unknown`。讀者應一起檢查市場與個股欄位，即使日曆未知也可能有已保存行情。
+行情 `observed_at` 記錄來源觀察時間。`captured_at` 是供應版本中首份包含該日該股事實的 bundle 完成時間。同市場、同日、同股的最早版本若同時完成且事實矛盾，CLI 會列出市場、日期與股票並以 exit 2 結束。原行情的本地登錄時間未知時保留 `recorded_at_status=unknown`。讀者應一起檢查市場與個股欄位，即使日曆未知也可能有已保存行情。
 
 預設整個研究目錄、索引與適用原檔合計預算 256 MiB、50 個版本及 50,000 個「股票 × 曆日」列，可用 `--max-mib`、`--max-runs`、`--max-rows` 調整。日曆索引上限 4 MiB、512 個條目，單份封存證據 32 MiB；另設日曆判讀工作量與報告大小上限。既有 `local.trading_calendar` 的 CSV 判讀入口仍用於原盤後流程。
 
-01 的合成 SQLite／CLI 驗收見 [01 票](../.scratch/m2-trading-calendar/issues/01-daily-coverage.md)。缺口原因、事件後序號及分市場官方樣本依後續票驗收。
+01 的合成 SQLite／CLI 驗收見 [01 票](../.scratch/m2-trading-calendar/issues/01-daily-coverage.md)。分市場官方樣本見 [06 票](../.scratch/m2-trading-calendar/issues/06-real-acceptance.md)。
+
+## 以證據說明個股缺口
+
+於同一命令加上 `--gap-evidence local/private/calendar/gaps.json` 可提供已核對的個股公告、資料應到時點或擷取紀錄。使用 `market-gap-evidence-1` 的 UTF-8 JSON 索引。每筆 `source_id` 指向受診斷的行情資料集，上市為 `twse_daily_11549`，上櫃為 `tpex_daily_11371`。下例欄位及檔名均為合成範例。
+
+```json
+{
+  "schema_version": "market-gap-evidence-1",
+  "entries": [
+    {
+      "id": "synthetic-fetch-1",
+      "market": "twse",
+      "source_id": "twse_daily_11549",
+      "date": "2019-01-07",
+      "saved_at": "2019-01-07T19:00:00+08:00",
+      "kind": "fetch_failed",
+      "run_id": "attempt-1",
+      "failure": "download failed",
+      "locator": "執行紀錄內的 attempt-1",
+      "path": "attempt-1.json",
+      "sha256": "<封存檔的 SHA256>"
+    }
+  ]
+}
+```
+
+每筆使用唯一 `id`，`date` 為台北交易日期。提供本地可證實的 `saved_at`、原始封存檔相對路徑、SHA256 與可回查的 `locator`。維護者先核對原始文件與逐筆解讀，程式檢查檔案雜湊並套用截止、行情來源、市場、交易日與個股範圍。每次只納入截止時已保存的證據。索引與封存檔也使用整體讀取預算。
+
+| `kind` | 額外欄位與判讀 |
+| --- | --- |
+| `suspended`、`no_trade` | `stock_id` 如 `TW:1000`；`source_url` 指向對應交易所官方 HTTPS 來源。需有明示個股停牌或當日無成交的證據。僅存零量或缺收盤價者保留原值與未知狀態。有正成交量或成交筆數時遇到相反公告會列 `conflict`，兩份證據均保留。 |
+| `fetch_failed` | `run_id` 與 `failure` 定位對應市場、行情來源與交易日的失敗執行紀錄。 |
+| `due` | `due_at` 為該行情文件有依據的應到時點，必須帶時區。無法證實時點時可省略這筆證據。多份紀錄的時點相異會列 `due_conflict`。 |
+| `missing_file` | 提供 `quote_file`、`expected_files`、`missing_files` 及帶時區的 `checked_at`。必須在預期及缺件清單均找到指定行情檔，且清點已達可判定的應到時點，才列缺檔。 |
+
+逐股逐日的 `status` 與 `stock_counts` 仍回答有無保存行情。另讀 `diagnosis` 的 `stock_state`、`acquisition`、`timing` 與 `gap`；證據 ID 可對回 `gap_evidence.versions`。停牌、抓取失敗及缺檔可以同時存在。即使證據解釋缺列，該日仍計入 `missing_observation`。已存列會顯示原 `close`、`volume_shares`、`turnover_raw`、`turnover_unit`、`price_unit` 及 `trades`。完全無行情列時 `observation` 保持 null。
+
+`diagnosis_counts` 按股分別統計各狀態。`gap.unresolved` 是範圍內已開市、缺觀察且原因待查的日數。`pending` 是已知應到時點尚未到；應到時間不明時 `timing=due_unknown`。取得狀態按每一種成立原因各計一天，同日有兩種原因會計入兩類。
+
+若已選股票的行情只保存到前一日，當天已確認開市，逐日列會保留 `insufficient_scope` 與原因 `after_market_trade_date`。有適用的應到時點時，期限前的 `timing`、`gap` 與該日連續性為 `pending`，即使期限跨至次日也同樣處理。期限已到時 `timing=due_passed_outside_scope`，稽核範圍仍不足，該日連續性為 `unknown`。區間連續性另計先前累積的缺口與未知日期。
+
+`late_first_bundle` 表示該日行情首次出現在所提供且已稽核的研究版本時已過應到時點；依據是 `observation.captured_at` 與 `timing_evidence_ids`。行情來源的 `observed_at` 與供應端實際晚發是不同判斷。原始本地登錄時間未知時，`recorded_at` 保持 null。

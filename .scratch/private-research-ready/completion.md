@@ -9,14 +9,14 @@
 | M1 | [P1-01](../../docs/DEVELOPMENT_BACKLOG.md#p1-01正式來源全檔驗收最高資料優先) | [兩市場公司、月營收及行情全檔已取得](../../docs/VERIFICATION-2026-11-17-M1.md) | 核定範圍限於記錄的來源與交易日 |
 | M1 | [P1-02](../../docs/DEVELOPMENT_BACKLOG.md#p1-02單位公告與人工抽檢) | 月營收已驗，行情正式抽檢兩市場各比較 0 欄、exit 2。[後續官方來源研究](research-market-gaps-2026-11-18.md) | 取得符合原快照版本的逐欄定義與同範圍獨立參考，再重驗 09／10 |
 | M2 | [P2-01](../../docs/DEVELOPMENT_BACKLOG.md#p2-01研究事實與展示裁剪分離優先) | [已保存未裁剪事實並驗證新舊讀者與分母](../../docs/VERIFICATION-2026-11-17-REVIEW.md) | 持續用既有首次保存口徑做相容性回歸 |
-| M2 | [P2-02](../../docs/DEVELOPMENT_BACKLOG.md#p2-02交易日完整性) | [六票已核准並開始執行](../m2-trading-calendar/spec.md) | 逐日分類、事件後序號、兩市場官方樣本及真實驗收 |
-| M2 | [P2-03](../../docs/DEVELOPMENT_BACKLOG.md#p2-03公司行為與價格基準) | 現有提醒揭露未還原價格，事件拒絕不同價格基準 | 核對兩市場公司行為來源與適用範圍，對可比與未知情形留下案例 |
-| M2 | [P2-04](../../docs/DEVELOPMENT_BACKLOG.md#p2-04修訂與撤回) | 歷史 ledger 保存快照及本地登錄時間，現行 replay 依 upsert | 明示更正／撤回證據、截止重建、舊版 migration 與 audit |
+| M2 | [P2-02](../../docs/DEVELOPMENT_BACKLOG.md#p2-02交易日完整性) | [逐日、序號及兩市場真實驗收完成](../../docs/VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) | [521 pytest／282 subtests／55 Node，修復後 16 次真實 CLI 重播](../../docs/VERIFICATION-2026-11-19-CALENDAR-REVIEW.md)。本輪完成，日曆期間外仍顯示未知 |
+| M2 | [P2-03](../../docs/DEVELOPMENT_BACKLOG.md#p2-03公司行為與價格基準) | [兩市場真實區間與六類來源](../../docs/PRICE_ACTION_REVIEW.md)已核對，個別除權息證據與未知期間可讀 | 較長歷史與其他公司行為的完整涵蓋仍未知 |
+| M2 | [P2-04](../../docs/DEVELOPMENT_BACKLOG.md#p2-04修訂與撤回) | 已驗舊庫重播與[兩份正式重大訊息更正](../m2-price-history/official-document-corrections-2026-11-19.md)，合成案例涵蓋撤回及重新發布 | 正式撤回、財務與籌碼的真實更正及行情庫適用性待驗 |
 | M3 | [P1-03](../../docs/DEVELOPMENT_BACKLOG.md#p1-03季度財報) | 現有官方適配及單位實測涵蓋月營收 | 季度三表、產業差異、時間與單位逐源抽檢 |
 | M3 | [P1-04](../../docs/DEVELOPMENT_BACKLOG.md#p1-04籌碼資料) | 有籌碼數值的保存與重播契約 | 核對官方法人／融資融券來源，驗證方向、尺度、修訂與冪等 |
 | M3 | [P1-05](../../docs/DEVELOPMENT_BACKLOG.md#p1-05重大訊息新聞與產業證據) | 已支援文件、股票對應與文字語意 | 每來源確認使用條件，驗證版本、重複、撤回與報表變更 |
 | M4 | [P3-01](../../docs/DEVELOPMENT_BACKLOG.md#p3-01提醒品質與可解釋性) | 六條提醒可算或顯示不足，已有合成驗證 | 按規則核對真實歷史分母及人工案例，揭露誤報或無法判讀的原因 |
-| M4 | [P4A-01](../../docs/DEVELOPMENT_BACKLOG.md#p4a-01事件後描述統計擴充) | 事件讀者保留首次基準與後續值。實測單日樣本未有 observed 後續結果 | 在可確認的資料範圍檢查右設限、分組、重疊及選樣偏誤 |
+| M4 | [P4A-01](../../docs/DEVELOPMENT_BACKLOG.md#p4a-01事件後描述統計擴充) | 已保存兩市場各一個事件的第 1 筆真實後續觀察，5／20 筆仍不足。[後續行情與原件](source-samples-2026-11-19.md) | 在可確認的資料範圍檢查右設限、分組、重疊及選樣偏誤 |
 | M5 | [P0-03](../../docs/DEVELOPMENT_BACKLOG.md#p0-03復原與備份) | 現有一致性備份工具涵蓋 SQLite | 連同原始證據、設定和 bundle 在新位置還原，另待有 Linux／NAS 及獨立儲存實測 |
 | M5 | [P2-05](../../docs/DEVELOPMENT_BACKLOG.md#p2-05容量量測與ann評估) | 有固定模型快取及精確 Top-K 工作預算 | 固定資料尺度，量測 CPU、記憶體、輸出與瀏覽器成本後決定索引需求 |
 | M5 | [P2-06](../../docs/DEVELOPMENT_BACKLOG.md#p2-06儲存預算與封存) | 已有部分讀取與工作量上限 | 盤點各類實際路徑、增長與超限，驗證封存 dry-run、還原及事件引用 |
