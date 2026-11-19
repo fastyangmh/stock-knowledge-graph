@@ -18,3 +18,20 @@
 2026-11-19 在乾淨開發候選 `ccb4a44` 先唯讀核對既有輸入。驗證前後各重算同一份清單的 924 個檔案，包含公開示範與私有原件，雜湊全部一致。兩市場的正式 `local.bundle_audit` 皆 exit 0，各三個版本與 latest 均 valid。另重讀 09 正式行情抽檢報告，兩市場仍為 `compared_fields=0`、`needs_review=true`。這次檢查保留了六個既有版本的基準；上方同候選完整重建與跨主機復原均待實測。
 
 在候選 checkout 使用鎖定 Python 執行既有私有證據目錄下的 `m6-preflight/check.py <新的私有輸出目錄>`。程式會重新驗證每個初始檔案、實際執行兩次 audit，並保存兩庫、事件檔與最新指標的雜湊。首次產物在 `local/private/m6-preflight/ccb4a44/`。
+
+### 兩市場原件重建與瀏覽器預演
+
+2026-11-19 在 `610e4b3` 使用已封存、當次重核雜湊的公司、月營收、11/17 與 11/18 行情原件。每個市場另核對一份月營收單位證據，共定位 10 個檔案。兩市場各兩檔股票。從空目錄實際執行 16 次 CLI，包含重新正規化、分日匯入行情、以固定模型及兩類提醒建立兩個研究版本、audit、歷史比較與事件報告，全部 exit 0。新行情庫使用本次本地重讀時間，原行情來源及當日首次留存的歷史另存。
+
+固定權重在 CPU 離線使用。第一次研究每市場編碼 2 篇、評估 1 對；第二次各為 0 篇與 0 對。另以 `local.model_check --offline` 通過固定合成語料的四個快取情境。Chromium 以原生 HTTP 讀取兩市場新生成的圖譜、歷史與事件六頁，桌面與手機寬度均通過。兩次 Cytoscape CDN 回應均為 HTTP 200，內容 SHA256 均為 `1bb5340e549511e111b31e5684872c949ad33d40ea5dba0ad8e7d90c62c7b3b9`。重驗後 924 份原始基準檔逐一相符。
+
+以下在產品候選目錄操作，`packet` 為主要工作區的 `local/private/m6-preflight`。使用新的私有目的目錄。
+
+```bash
+uv run --locked python "$packet/index-restore-inputs.py" "$packet/restore-inputs-verify.json"
+uv run --locked python "$packet/rebuild.py" "$packet/live-new"
+PLAYWRIGHT_BROWSERS_PATH=/private/tmp/skg-tools/playwright /private/tmp/skg-browser-venv/bin/python "$packet/browser.py" "$packet/live-new" "$packet/browser-new"
+uv run --locked python "$packet/check.py" "$packet/post-new"
+```
+
+私有重建摘要在 `live-610e4b3/summary.json`，瀏覽器證據在 `browser-610e4b3/browser.json`。這次預演涵蓋公司、月營收及兩日行情。季報、籌碼、其他文件、維運與還原仍須在最終整合候選一併驗收。09／10 仍為 `needs-info`。
