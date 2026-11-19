@@ -40,9 +40,11 @@ candidate=02a88928276cd7d0f953864cdbad7b58e4fbd517
 
 本次輸出為 `local/private/m6-acceptance-2026-11-19/02a8892-final01/`。各 `*-command.json` 記錄 argv、候選、cwd、exit 與執行時間。若 argv 直接指定存在的 `.py` 腳本，`file_sha256` 存該腳本的雜湊。透過 `-m` 執行的模組依候選提交與完整套件報告追溯。原件重建詳 `originals/summary.json` 及各子目錄，備份的 CLI、來源、還原再生依序見 `portable/commands.json`、`portable/selected-sources.json`、`regenerated/results.json`、`restored-source-check.json` 及 `backup-contracts.json`。原件、DB、模型與截圖均存本機私有目錄。本次備份與新還原目錄位於同一個 APFS 裝置。[Linux／NAS 恢復條件](../.scratch/m5-private-operations/issues/02-restore.md)
 
-額外的事件頁追溯核對使用已合入文件的 `13307c7`，與實測 `02a8892` 的差異僅有 Markdown。Chromium 在 1280／390 px 各選取兩個真實事件，共四次。頁面顯示的 `event_id`、`trigger`、`baseline`、`run`、`repeat_runs`、`report_sha256` 全數等於還原事件 JSON，每次亦從相應的 `runs/<run>/report.json` 重新計算 SHA256。私有程式為 `m6-preflight/browser-event-references.py`，四筆結果在 `m6-preflight/selected-evidence-02a8892/result.json`，檔案 SHA256 為 `b7dc2998eb019a8695aecc633152ed2b7ceae4a50a2dbebc831b426e32762b87`。
-
 早期候選 `d8d0e29` 觸發既有事件頁 smoke 的選擇器歧義，完整失敗報告保留於同層 `d8d0e29-run01/event_browser_smoke.json`。修復提交 `2f5c073` 後，在本文候選從兩個原入口重測，記憶體與真實 HTTP 均通過。
+
+### 還原事件的逐值核對
+
+獨立的事件頁追溯核對使用 `13307c7`，與實測 `02a8892` 的差異僅有 Markdown。Chromium 在 1280／390 px 各選取兩個真實月營收事件，共四次。每次從頁面詳情讀出 `event_id`、`trigger`、`baseline`、`run`、`repeat_runs`、`report_sha256`，六欄逐值符合還原事件 JSON。另從 `restored/runs/<run>/report.json` 重算 SHA256，四次均與頁面顯示值相符。私有程式為 `m6-preflight/browser-event-references.py`，四筆結果在 `m6-preflight/selected-evidence-02a8892/result.json`，結果檔 SHA256 為 `b7dc2998eb019a8695aecc633152ed2b7ceae4a50a2dbebc831b426e32762b87`。
 
 ## 原待辦逐項判定
 
@@ -71,3 +73,11 @@ candidate=02a88928276cd7d0f953864cdbad7b58e4fbd517
 | REL-02 | 按人工指令驗證操作入口 | 排程啟用及長期穩定性待決 |
 | HOLD-01 | 使用明確自選股票 | 原股票池名單確認暫緩 |
 | HOLD-02 | 研究範圍為事件後描述統計 | 策略 B、交易未選定 |
+
+## Standards
+
+一項文件問題，未發現 Fowler 程式異味。前端指南對 `2f5c073` 的敘述超出實際斷言。已對照該提交的 `scripts/history_event_live_smoke.py` 第 254～256 行，修正為核對所選事件的 ID 值，另檢查基準與報告雜湊的欄名。命令紀錄中 `file_sha256` 的適用範圍已於 `7c92a93` 更正。[事件頁單一事件選取與相容性重驗](FRONTEND_AND_PREVIEW.md#事件頁單一事件選取與相容性重驗2026-11-19)
+
+## Spec
+
+一項證據歸屬問題。規格要求按候選、輸入及實際使用者路徑記錄驗收。前端指南已將兩個真實事件的四次逐值比對連回獨立 DOM 核對所用的候選、還原檔與結果。此次修訂僅核對文件、程式斷言及既存結果檔，未重跑產品測試。M6 整體維持 `needs-info`。[還原事件的逐值核對](#還原事件的逐值核對)

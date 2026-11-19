@@ -104,7 +104,7 @@ M6 預演在 `d8d0e29` 發現事件頁 smoke 中止。在乾淨候選
 兩者皆 exit 1。月營收區首批 25 個分組選單與 1 個單一事件選單都符合舊定位，
 Playwright 在選取前回報 strict mode violation。修正後兩個入口皆以
 `combobox` 角色與完整名稱「月營收提醒事件單一事件」操作該選單。
-HTTP 路徑在桌面和手機寬度來回切換事件，並核對所選事件的 ID、凍結基準與來源報告雜湊。
+在 `2f5c073` 的合成 HTTP 測試中，桌機與手機寬度都來回切換事件，再檢查詳情文字含有所選事件的 `event_id` 值，以及 `baseline`、`report_sha256` 兩個欄名。
 
 以下均測於乾淨候選 `2f5c0733d9de935a4add592e87e32ef321cb8970`，環境為 macOS arm64、
 Python 3.11.11、uv 0.6.13、Node 22.16.0、Playwright 1.65.2、Chromium 159.0.8154.6。
@@ -115,6 +115,8 @@ Python 3.11.11、uv 0.6.13、Node 22.16.0、Playwright 1.65.2、Chromium 159.0.8
 | 合成歷史與圖譜、既有公開示範 | `history_browser_smoke.py --live-http`、`browser_smoke.py --live-cdn` | 兩者 exit 0，原 CDN 與唯讀 Pages 示範通過 |
 | 合成／離線套件 | `uv run --locked python -m local.check --frontend` | exit 0，654 個 pytest、402 個 subtests、56 個 Node 測試通過 |
 | M6 先前從真實來源重建後還原的私有研究庫 | 37 個版本；上市與上櫃各驗圖譜、歷史及事件，桌面與 390px 手機寬度 | 12 個頁面／寬度組合通過，兩市場原 CDN 皆 HTTP 200 且內容雜湊相符 |
+
+M6 另以 `13307c7` 在桌機與手機各選取兩個還原的真實事件。四次均逐值比對六個詳情欄位，並從對應的研究報告重算 SHA256。該提交與 M6 候選 `02a8892` 的產品程式相同。[還原事件的逐值核對](VERIFICATION-2026-11-19-M6.md#還原事件的逐值核對)
 
 要重現兩個直接受影響的入口，在相應 Commit 下，以已備妥 Playwright 的 Python、
 Chromium 路徑 `$BROWSER` 及新的私有報告目錄 `$OUT` 執行：
