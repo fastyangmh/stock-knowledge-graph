@@ -106,5 +106,37 @@
     "reviewed_at": "2026-11-19",
     "usage": "offline_saved_receipt_only",
     "attribution": "證券櫃檯買賣中心，上櫃股票融資融券餘額，政府資料開放授權條款第 1 版。"
+  },
+  {
+    "dataset_id": "twse-mops-18415",
+    "title": "上市公司每日重大訊息",
+    "kind": "announcement",
+    "enabled": false,
+    "format": "csv",
+    "provider": "TWSE / MOPS",
+    "dataset_url": "https://data.gov.tw/dataset/18415",
+    "resource_url": "https://mopsfin.twse.com.tw/opendata/t187ap04_L.csv",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": false,
+    "reviewed_at": "2026-11-19",
+    "usage": "offline_saved_receipt_only",
+    "attribution": "金融監督管理委員會證券期貨局，上市公司每日重大訊息，政府資料開放授權條款第 1 版。"
+  },
+  {
+    "dataset_id": "tpex-mops-18418",
+    "title": "上櫃公司每日重大訊息",
+    "kind": "announcement",
+    "enabled": false,
+    "format": "csv",
+    "provider": "TPEx / MOPS",
+    "dataset_url": "https://data.gov.tw/dataset/18418",
+    "resource_url": "https://mopsfin.twse.com.tw/opendata/t187ap04_O.csv",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": false,
+    "reviewed_at": "2026-11-19",
+    "usage": "offline_saved_receipt_only",
+    "attribution": "金融監督管理委員會證券期貨局，上櫃公司每日重大訊息，政府資料開放授權條款第 1 版。"
   }
 ]
