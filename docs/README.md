@@ -12,6 +12,7 @@
 | [最終審查與修復重驗](VERIFICATION-2026-11-17-REVIEW.md) | Standards／Spec、三項修復、490項Python及真實兩市場／三頁重驗；M1仍未全過 |
 | [M1本輪整合證據](VERIFICATION-2026-11-17-M1.md) | 當前macOS、真實模型／來源／瀏覽器；09／10未完成、M1未全過 |
 | [待開發與驗收清單](DEVELOPMENT_BACKLOG.md) | 優先級、相依項目、完成條件、外部依賴與必要決策 |
+| [真實私有研究逐項完成清單](../.scratch/private-research-ready/completion.md) | M1～M6 各原待辦的實測範圍、證據位置與恢復條件 |
 | [AI 開發技能](agents/README.md) | Matt Pocock skills、使用流程、本地工作追蹤與更新方式 |
 
 ## 使用者
@@ -37,6 +38,7 @@
 | [私有研究與觀察歷史](PRIVATE_RESEARCH.md) | 自選代碼、數值圖譜、版本、備份與還原 |
 | [Data Pipeline](DATA_PIPELINE.md) | 官方快照、正規化與圖譜 |
 | [官方盤後行情](MARKET_PRICES.md) | 不依賴指數名單的股價／成交量私有匯入、版本保存 |
+| [交易日曆](CALENDAR_COVERAGE.md) · [公司行為與價格](PRICE_ACTION_REVIEW.md) | 查明休市、應開市但缺行情、日曆未知及跨期價格可比性 |
 | [Operations](OPERATIONS.md) | 人工更新、驗證、發布與復原 |
 | [Security & Licensing](SECURITY_AND_LICENSING.md) | 資料權利與私密資訊界線 |
 | [研究歷史與整包稽核](RESEARCH_HISTORY.md) | 本機版本清單、價量／營收提醒差異與完整性檢查 |
@@ -48,6 +50,8 @@
 | 文件 | 內容 |
 | --- | --- |
 | [官方來源](DATA_SOURCES.md) | 逐資料集核對 |
+| [季報匯入](QUARTERLY_STATEMENTS.md) · [資產負債](QUARTERLY_BALANCE.md) · [現金流](QUARTERLY_CASHFLOW.md) | 按報表、產業、期間及欄位查看已核對尺度與原始定位 |
+| [法人](INSTITUTIONAL_TRADING.md) · [融資融券](MARGIN_TRADING.md) · [重大訊息](ANNOUNCEMENTS.md) | 來源條件、私有 CLI、實際市場與可查核的歷史版本 |
 | [官方新聞與產業分類](NEWS_AND_INDUSTRY.md) | 私有新聞索引、兩市公司產業依據與逐來源使用範圍 |
 | [候選來源評估](SOURCE_REVIEW_2026-11-16.md) | 009816／TW50、富邦、FinMind、Yahoo |
 | [台灣50權利詢問（暫緩）](TW50_LICENSE_INQUIRY.md) | 保留未確認的使用範圍，不要求現在寄信 |
@@ -72,4 +76,4 @@
 
 歷史驗證：[事件後描述統計（2026-11-16）](VERIFICATION-2026-11-16-EVENTS.md)。
 
-最新驗證：[審查修復與重驗（2026-11-17）](VERIFICATION-2026-11-17-REVIEW.md)，原[M1整合與各子票證據索引](VERIFICATION-2026-11-17-M1.md)保留。工程／真實來源串接已驗；行情範圍與獨立參考仍缺，M1未全過，M2～M6仍有待辦。
+2026-11-19 的開發分支已實測兩市場的[交易日曆](VERIFICATION-2026-11-19-CALENDAR-REVIEW.md)、[行情通知](VERIFICATION-2026-11-19-MARKET-NOTICE-REVIEW.md)、[季度三表](VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md)與[四個來源家族合併研究](VERIFICATION-2026-11-19-M3-SOURCE-REVIEW.md)。M1 行情逐欄定義與獨立參考仍缺，各里程碑的其餘驗收條件見[完成清單](../.scratch/private-research-ready/completion.md)。
