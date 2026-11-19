@@ -149,3 +149,20 @@ class EventCohortTests(unittest.TestCase):
             r.pop("group_id")
         groups = summarize([e])
         self.assertTrue(all(g["n_total"]==1 and "settings_id" not in g and "n_right_censored" not in g for g in groups))
+
+    def test_archive_replay_recreates_original_study_ids_for_both_fact_scopes(self):
+        from event_fixtures import bundle
+        from local.event_study import replay_report
+        # Computed by the unmodified pre-cohort analyzer at 21373fd.
+        cases = [(bundle, "event-study-1.0", "4dec8f0f6b46cb5f7e7de7011a12fef3afee51f152812838d17952a408178ffa"),
+                 (complete_bundle, "event-study-2.0", "54477344614e6c2fffaa9d303fe12edc277408901971f746d4540f5160c4034a")]
+        for factory, version, digest in cases:
+            inputs = [factory(alerts=True),factory(2,"2020-08-16",close="115.5")]
+            current = analyze(inputs, ASOF, CONFIG)
+            archived = {k:v for k,v in current.items() if k!="cohort_policy"}
+            rebuilt = replay_report(inputs, archived)
+            self.assertEqual((rebuilt["schema_version"], rebuilt["study_id"]), (version,digest))
+            self.assertEqual(replay_report(inputs,current),current)
+            current["cohort_policy"]={"version":"future"}
+            with self.assertRaisesRegex(ValueError, "unsupported"):
+                replay_report(inputs,current)

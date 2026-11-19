@@ -143,6 +143,22 @@ def summarize(events):
 
 def analyze(bundles, analysis_at, config=None, *, cohort=None):
     """Caller provides audited Bundle objects; no file access. Deterministic output."""
+    return _analyze(bundles, analysis_at, config, cohort, trace=True)
+
+
+def replay_report(bundles, saved):
+    """Recompute a saved report from audited inputs using its original cohort contract."""
+    if saved.get("schema_version") not in (VERSION, FACTS_VERSION):
+        raise ValueError("unsupported saved event study version")
+    trace = "cohort_policy" in saved
+    if trace and (not isinstance(saved["cohort_policy"], dict)
+                  or saved["cohort_policy"].get("version") != COHORT_VERSION):
+        raise ValueError("unsupported saved event cohort policy")
+    cohort = saved["fact_scope"] if saved.get("cohort_selection") == "explicit" else None
+    return _analyze(bundles, saved["analysis_at"], saved["configuration"], cohort, trace=trace)
+
+
+def _analyze(bundles, analysis_at, config, cohort, *, trace):
     settings = policy(config)
     cutoff = analysis_cutoff(analysis_at)
     analysis_at = cutoff.isoformat()
@@ -178,7 +194,7 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
             counters["saved_numeric_facts"] += len(facts) if bundle.facts is None else 0
             if counters["saved_numeric_facts"] > MAX_FACTS:
                 raise ValueError("saved-fact budget exceeded")
-        if selected:
+        if selected and trace:
             coverage_by_run[bundle.report["run"]] = input_coverage(bundle, stock_ids, facts_by_run)
         if bundle.alerts is None:
             counters["runs_without_alerts"] += int(selected)
@@ -225,7 +241,7 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
                             if a != b:
                                 raise ValueError("conflicting same-time event trigger")
                             baseline = baseline_facts(facts_by_run[bundle.report["run"],sid])
-                            if any(fact_content(baseline[k]) != fact_content(prior["baseline"][k])
+                            if trace and any(fact_content(baseline[k]) != fact_content(prior["baseline"][k])
                                    for k in baseline if k != "revenue_period"):
                                 raise ValueError("conflicting same-time event baseline")
                         prior["repeat_runs"].append(bundle.report["run"])
@@ -246,9 +262,22 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
         raise ValueError("event/fact work budget exceeded; narrow the saved catalog")
     for event in rows:
         event["outcomes"] = measure(event, timeline.get(event["stock_id"],[]), settings, analysis_at)
-        for row in event["outcomes"]:
-            row["group_id"] = _id(group_labels(event, row))
-    attach_windows(rows, analysis_at)
+        if trace:
+            for row in event["outcomes"]:
+                row["group_id"] = _id(group_labels(event, row))
+        else:
+            event.pop("settings_id")
+            event.pop("repeat_runs")
+            for row in event["outcomes"]:
+                for field in ("unknown_action_coverage", "sequence_known_at", "sequence_known_run"):
+                    row.pop(field, None)
+    if trace:
+        attach_windows(rows, analysis_at)
+    else:
+        for excluded in excluded_events.values():
+            for field in ("category", "first_report_sha256", "selected_runs"):
+                excluded.pop(field)
+
     result = {"schema_version":version,"fact_scope":fact_scope,"analysis_at":analysis_at,"configuration":settings,
         "cohort_policy":{"version":COHORT_VERSION,"settings_id":settings_id},
         "combined_score":False,"trade_assumptions":False,"warnings":CAVEATS,
@@ -261,7 +290,7 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
                     "triggered_checks_seen","duplicate_period_events_suppressed")}},
         "inputs":[{"run":b.report["run"],"report_sha256":b.report_sha256,
                    "known_at":b.report["known_at"],"completed_at":b.report["completed_at"],
-                   "fact_scope":scope_of(b), **coverage_by_run[b.report["run"]]} for b in included],
+                   "fact_scope":scope_of(b), **coverage_by_run.get(b.report["run"], {})} for b in included],
         "cohort_selection":"explicit" if cohort else "automatic_single_scope",
         "cohorts":{scope:{"total_runs":sum(scope_of(b)==scope for b in ordered),
                           "included_runs":sum(scope_of(b)==scope for b in included),
@@ -273,14 +302,17 @@ def analyze(bundles, analysis_at, config=None, *, cohort=None):
                                      else "different_fact_scope"}
                            for b in ordered if timestamp(b.report["completed_at"])>cutoff or scope_of(b)!=fact_scope],
         "excluded_events":list(excluded_events.values()),
-        "categories":{category:{"excluded_by_origin":[e["event_id"] for e in excluded_events.values()
-                                                      if e["category"] == category],
-                   "events":[e for e in rows if e["category"]==category],
+        "categories":{category:{"events":[e for e in rows if e["category"]==category],
                    "summaries":summarize([e for e in rows if e["category"]==category])}
                    for category in ("price_volume","monthly_revenue")},
         "scope":("saved_unpruned_numeric_facts_not_complete_market_history_or_total_returns"
                  if fact_scope == "unpruned_facts" else
                  "saved_display_numeric_facts_only_not_complete_market_history_or_total_returns")}
+    if trace:
+        for category, group in result["categories"].items():
+            group["excluded_by_origin"] = [e["event_id"] for e in excluded_events.values() if e["category"] == category]
+    else:
+        result.pop("cohort_policy")
     result["study_id"] = _id(result)
     if len(canonical(result)) > MAX_REPORT_BYTES:
         raise ValueError("event study exceeds 32 MiB report budget")
