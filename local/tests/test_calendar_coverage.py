@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from uuid import UUID
 
 from local.core import ROOT
 from local.market_prices import ingest
@@ -32,21 +33,22 @@ class CalendarCoverageFixture:
         self.data['stocks'].append(dict(self.data['stocks'][0], stock_id='TW:1001', ticker='1001'))
         self.bundle = self.save_run(self.end)
 
-    def save_run(self, day):
+    def save_run(self, day, *, close='100', prices=None, runs=None):
         known = day + 'T20:00:00+08:00'
         observed = day + 'T18:00:00+08:00'
-        csv = csv_data(day).decode()
+        csv = csv_data(day, close).decode()
         second = csv.splitlines()[-1].split(',')
         second[1], second[6] = '1001', '--'
         body = csv.encode() + (','.join(second) + '\r\n').encode()
-        ingest(body, 'twse', ['1000', '1001'], day, db=self.root/'prices.db',
+        prices = prices or self.root/'prices.db'
+        ingest(body, 'twse', ['1000', '1001'], day, db=prices,
                output=self.root/'raw', observed_at=observed, acquisition='local_file_unverified')
         self.data['metadata']['observed_at'] = known
         path = self.root/'normalized.json'
         path.write_bytes(canonical(self.data))
         with patch('local.research.utc_now', return_value=known), patch('local.research_history.utc_now', return_value=known):
             return run(path, ['1000', '1001'], history_db=self.root/'history.db',
-                       output_root=self.root/'runs', prices_db=self.root/'prices.db',
+                       output_root=runs or self.root/'runs', prices_db=prices,
                        price_snapshots=self.root/'raw', trade_date=day)
 
     def entry(self, name, **changes):
@@ -73,6 +75,42 @@ class CalendarCoverageFixture:
 
 
 class CalendarCoverageTests(CalendarCoverageFixture, unittest.TestCase):
+    def test_conflicting_first_captures_rejected_in_either_run_name_order(self):
+        self.entry('open', days={self.end: 'open'})
+        for order in [('100', '110'), ('110', '100')]:
+            with self.subTest(close_order=order):
+                runs = self.root / ('runs-' + order[0])
+                self.output = self.root / (order[0] + '.json')
+                def save(run_id, close):
+                    with patch('local.research.uuid.uuid4', return_value=UUID(int=run_id)):
+                        self.save_run(self.end, close=close, prices=self.root/(close + '.db'), runs=runs)
+
+                save(1, order[0])
+                save(2, order[0])
+                result = self.cli('--root', str(runs))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                previous = self.output.read_bytes()
+                saved = json.loads(previous)['days'][-1]['stocks']['TW:1000']['observation']
+                self.assertEqual(saved['close'], order[0])
+
+                save(3, order[1])
+                fresh = self.root / (order[0] + '-conflict.json')
+                result = self.cli('--root', str(runs), '--output', str(fresh))
+                self.assertEqual(result.returncode, 2)
+                self.assertIn('conflicting same-time', result.stderr)
+                self.assertFalse(fresh.exists())
+                self.assertEqual(self.cli('--root', str(runs)).returncode, 2)
+                self.assertEqual(self.output.read_bytes(), previous)
+
+    def test_future_cutoff_is_rejected_with_and_without_an_event(self):
+        for options in ([], ['--event-id', 'future-event']):
+            with self.subTest(options=options):
+                self.output = self.root / ('event.json' if options else 'range.json')
+                result = self.cli('--as-of', '9999-01-01T00:00:00Z', *options)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn('cutoff cannot be in the future', result.stderr)
+                self.assertFalse(self.output.exists())
+
     def test_explicit_calendar_separates_closed_missing_unknown_and_saved_prices(self):
         self.entry('daily', days={'2019-01-05':'closed', '2019-01-07':'open', '2019-01-08':'open'})
         report = self.report()

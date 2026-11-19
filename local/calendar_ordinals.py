@@ -1,4 +1,5 @@
 """Compare the event study's saved quote positions with a market calendar."""
+from dataclasses import dataclass
 from zoneinfo import ZoneInfo
 
 from .dates import iso_date, timestamp
@@ -33,6 +34,16 @@ def daily_continuity(market, status):
     return 'complete'
 
 
+@dataclass(frozen=True)
+class RangePosition:
+    day: dict
+    stock_id: str
+    session_ordinal: int | None
+    availability: str
+    observation_continuity: str
+    close_continuity: str
+
+
 def range_positions(days, stock_ids, as_of):
     """Independent cumulative market ordinals and per-stock coverage, inclusive of start."""
     cutoff_day = timestamp(as_of).astimezone(TAIPEI).date().isoformat()
@@ -54,14 +65,17 @@ def range_positions(days, stock_ids, as_of):
             close = 'incomplete' if market == 'open' and status == 'missing_close' else current
             continuity[sid] = max(continuity[sid], current, key=CONTINUITY_PRIORITY.__getitem__)
             closes[sid] = max(closes[sid], close, key=CONTINUITY_PRIORITY.__getitem__)
-            yield day, sid, ordinal, status, continuity[sid], closes[sid]
+            yield RangePosition(day=day, stock_id=sid, session_ordinal=ordinal, availability=status,
+                                observation_continuity=continuity[sid], close_continuity=closes[sid])
 
 
 def set_range_positions(report):
     positions = range_positions(report['days'], report['stock_ids'], report['as_of'])
-    for day, sid, ordinal, _, continuity, closes in positions:
-        day['session_ordinal'] = ordinal
-        day['stocks'][sid].update(observation_continuity=continuity, close_continuity=closes)
+    for position in positions:
+        day = position.day
+        day['session_ordinal'] = position.session_ordinal
+        day['stocks'][position.stock_id].update(observation_continuity=position.observation_continuity,
+                                               close_continuity=position.close_continuity)
 
 
 def event_sequence(report, bundles, event_id):
@@ -92,11 +106,12 @@ def event_sequence(report, bundles, event_id):
     anchor['taipei_date'] = anchor_day.isoformat()
     rows = []
     after = (day for day in report['days'] if day['date'] > anchor['taipei_date'])
-    for day, _, session, available, continuity, closes in range_positions(after, [sid], report['as_of']):
-        date = day['date']
+    for position in range_positions(after, [sid], report['as_of']):
+        date = position.day['date']
         ordinal, quote = quotes.get(date, (None, None))
-        rows.append({'date': date, 'session_ordinal': session,
-                     'quote_ordinal': ordinal, 'availability': available, 'continuity': continuity, 'close_continuity': closes,
+        rows.append({'date': date, 'session_ordinal': position.session_ordinal, 'quote_ordinal': ordinal,
+                     'availability': position.availability, 'continuity': position.observation_continuity,
+                     'close_continuity': position.close_continuity,
                      'quote': {k: quote[k] for k in ('run', 'captured_at', 'market', 'fact_id', 'close', 'volume_shares')}
                               if quote else None})
     horizons = []

@@ -9,7 +9,7 @@
 | M1 | [P1-01](../../docs/DEVELOPMENT_BACKLOG.md#p1-01正式來源全檔驗收最高資料優先) | [兩市場公司、月營收及行情全檔已取得](../../docs/VERIFICATION-2026-11-17-M1.md) | 核定範圍限於記錄的來源與交易日 |
 | M1 | [P1-02](../../docs/DEVELOPMENT_BACKLOG.md#p1-02單位公告與人工抽檢) | 月營收已驗，行情正式抽檢兩市場各比較 0 欄、exit 2。[後續官方來源研究](research-market-gaps-2026-11-18.md) | 取得符合原快照版本的逐欄定義與同範圍獨立參考，再重驗 09／10 |
 | M2 | [P2-01](../../docs/DEVELOPMENT_BACKLOG.md#p2-01研究事實與展示裁剪分離優先) | [已保存未裁剪事實並驗證新舊讀者與分母](../../docs/VERIFICATION-2026-11-17-REVIEW.md) | 持續用既有首次保存口徑做相容性回歸 |
-| M2 | [P2-02](../../docs/DEVELOPMENT_BACKLOG.md#p2-02交易日完整性) | [六票已核准並開始執行](../m2-trading-calendar/spec.md) | 逐日分類、事件後序號、兩市場官方樣本及真實驗收 |
+| M2 | [P2-02](../../docs/DEVELOPMENT_BACKLOG.md#p2-02交易日完整性) | [逐日、序號及兩市場真實驗收完成](../../docs/VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) | [521 pytest／282 subtests／55 Node，修復後 16 次真實 CLI 重播](../../docs/VERIFICATION-2026-11-19-CALENDAR-REVIEW.md)。本輪完成，日曆期間外仍顯示未知 |
 | M2 | [P2-03](../../docs/DEVELOPMENT_BACKLOG.md#p2-03公司行為與價格基準) | [兩市場真實區間與六類來源](../../docs/PRICE_ACTION_REVIEW.md)已核對，個別除權息證據與未知期間可讀 | 較長歷史與其他公司行為的完整涵蓋仍未知 |
 | M2 | [P2-04](../../docs/DEVELOPMENT_BACKLOG.md#p2-04修訂與撤回) | 歷史 ledger 保存快照及本地登錄時間，現行 replay 依 upsert | 明示更正／撤回證據、截止重建、舊版 migration 與 audit |
 | M3 | [P1-03](../../docs/DEVELOPMENT_BACKLOG.md#p1-03季度財報) | 現有官方適配及單位實測涵蓋月營收 | 季度三表、產業差異、時間與單位逐源抽檢 |

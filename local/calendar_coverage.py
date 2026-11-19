@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 
 from .bundle_audit import catalog
 from .calendar_ordinals import event_sequence, set_range_positions
-from .dates import iso_date, timestamp
+from .dates import analysis_cutoff, iso_date, timestamp
 from .event_study import save_report
 from .research_history import validate_symbols
 from .calendar_archive import MIB, load_evidence
@@ -100,11 +100,20 @@ def audited_bundles(root, max_runs, byte_budget):
     return list(bundles.values())
 
 
+def saved_observation(fact, report):
+    observation = {key: fact[key] for key in ('id', 'source_id', 'observed_at', 'recorded_at',
+                                              'recorded_at_status', 'raw_sha256', 'close', 'volume_shares',
+                                              'turnover_raw', 'turnover_unit', 'price_unit', 'trades')}
+    observation.update(run=report['run'], captured_at=report['completed_at'])
+    return observation
+
+
 def research_inputs(bundles, market, stock_ids, start, end, cutoff):
-    inputs, observations, covered_until, market_witnesses = [], {}, {}, {}
+    inputs, first_captures, covered_until, market_witnesses = [], {}, {}, {}
     for bundle in sorted(bundles, key=lambda b: (timestamp(b.report['completed_at']), b.report['run'])):
         report = bundle.report
-        if timestamp(report['completed_at']) > cutoff:
+        captured = timestamp(report['completed_at'])
+        if captured > cutoff:
             continue
         summary = bundle.summary()
         item = {key: summary[key] for key in ('run', 'known_at', 'completed_at', 'report_sha256', 'stock_ids', 'fact_scope')}
@@ -125,11 +134,14 @@ def research_inputs(bundles, market, stock_ids, start, end, cutoff):
                 market_witnesses.setdefault(day, {'id': fact['id'], 'stock_id': fact['stock_id'], 'run': report['run']})
                 if fact['stock_id'] not in stock_ids:
                     continue
-                observation = {key: fact[key] for key in ('id', 'source_id', 'observed_at', 'recorded_at',
-                                                          'recorded_at_status', 'raw_sha256', 'close', 'volume_shares',
-                                                          'turnover_raw', 'turnover_unit', 'price_unit', 'trades')}
-                observation.update(run=report['run'], captured_at=report['completed_at'])
-                observations.setdefault((fact['stock_id'], day), observation)
+                key = (fact['stock_id'], day)
+                if key not in first_captures:
+                    first_captures[key] = (fact, report)
+                    continue
+                first_fact, first_report = first_captures[key]
+                if timestamp(first_report['completed_at']) == captured and first_fact != fact:
+                    raise ValueError(f"conflicting same-time quote capture for {market} {day} {fact['stock_id']}")
+    observations = {key: saved_observation(fact, report) for key, (fact, report) in first_captures.items()}
     return inputs, observations, covered_until, market_witnesses
 
 
@@ -164,7 +176,7 @@ def stock_day(status, observation, insufficient_scope):
 def build(root, calendar, market, symbols, start, end, as_of, *,
           event_id=None, gap_evidence=None, max_runs=50, max_mib=256, max_rows=MAX_ROWS):
     stock_ids = validate_symbols(symbols)
-    first, last, cutoff = iso_date(start), iso_date(end), timestamp(as_of)
+    first, last, cutoff = iso_date(start), iso_date(end), analysis_cutoff(as_of)
     day_count = (last - first).days + 1
     if not 1 <= max_mib <= 4096 or not 1 <= max_rows <= MAX_ROWS:
         raise ValueError('invalid coverage budget')
@@ -194,7 +206,7 @@ def build(root, calendar, market, symbols, start, end, as_of, *,
             result['diagnosis'] = diagnose(row['market_status'], result, gap_index, key, sid, cutoff)
             if result['diagnosis']['gap'] == 'explained':
                 result['reason'] = 'documented_gap'
-            elif result['diagnosis']['gap'] == 'pending':
+            elif result['diagnosis']['gap'] == 'pending' and result['status'] == 'missing_observation':
                 result['reason'] = 'awaiting_due_time'
             row['stocks'][sid] = result
             stock_counts[sid][result['status']] += 1

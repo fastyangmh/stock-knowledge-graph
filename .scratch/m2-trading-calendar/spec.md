@@ -2,9 +2,9 @@
 
 **Parent:** [P2-02｜交易日完整性](../../docs/DEVELOPMENT_BACKLOG.md#p2-02交易日完整性)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-**Review:** 2026-11-19 使用者已核准測試介面、交付邊界與六票相依關係。票內方框均為未執行的驗收。
+**Review:** 2026-11-19 使用者已核准測試介面、交付邊界與六票相依關係。六票的結果已記在各票。兩軸審查及修復後重驗見[最終驗證](../../docs/VERIFICATION-2026-11-19-CALENDAR-REVIEW.md)。
 
 ## Problem Statement
 

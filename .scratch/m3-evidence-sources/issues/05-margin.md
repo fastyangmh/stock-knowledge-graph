@@ -14,3 +14,9 @@
 - [ ] 儲存可重跑程序及去敏摘要，以原 backlog 條件評定整體狀態。只有工程通過時將真實證據另列待驗。
 
 查證起點：[上市](https://data.gov.tw/dataset/11680) · [上櫃](https://data.gov.tw/dataset/11387)
+
+## TWSE 交易日與來源表示的核對
+
+政府目錄的 CSV 無日期欄。2026-11-19 另對同一 MI_MARGN 報表的官方日期查詢送出一次 `date=20261118`，回應根日期 20261118、資料表標題亦為 115 年 11 月 18 日。CSV 與日期查詢各有 1,311 檔、16 欄，按代號、欄組及數字千分位全列對照。17 檔在保留空值語意時完全相同。其餘差異共 6,725 格，皆為 CSV 空白、JSON 數字零；此結果提供日期與格式的查核線索。兩者同源，不納入獨立抽檢，不將所有空白擅自轉零。另核對金融商品單位、欄組與例外，並用獨立或來源明示的日期及尺度驗收。[政府資料集](https://data.gov.tw/dataset/11680) · [官方同日日期表示](https://www.twse.com.tw/exchangeReport/MI_MARGN?response=json&date=20261118&selectType=ALL)
+
+私有根目錄 `local/private/source-review-2026-11-19/`，原 CSV 在 `official-resources/11680.response`，同範圍日期查詢在 `margin-date-representation/11680.response`，兩份 manifest 含 HTTP 狀態與 hash，核對計數見 `margin-date-match.json`。
