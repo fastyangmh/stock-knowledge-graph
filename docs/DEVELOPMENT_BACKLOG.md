@@ -2,7 +2,7 @@
 
 [文件中心](README.md) · [交接文件](HANDOFF.md) · [Roadmap](ROADMAP.md)
 
-整理日期：**2026-11-17**；最新審查修復實測候選：`ecd176b3069a62aaa98c7a641496af45b8c415f2`。結果見[審查與重驗](VERIFICATION-2026-11-17-REVIEW.md)，原 `3834c19` [整合證據](VERIFICATION-2026-11-17-M1.md)保留。使用者已指定本輪在當前 macOS arm64／Python 3.11 測試；Linux／NAS 留待移轉重驗，不是本輪環境 blocker。M1 仍因行情單位／範圍證據不足而未完成；完整 repo 與 M2～M6 亦未完成。
+整理日期：**2026-11-19**；M1 審查修復實測候選：`ecd176b3069a62aaa98c7a641496af45b8c415f2`。結果見[審查與重驗](VERIFICATION-2026-11-17-REVIEW.md)，原 `3834c19` [整合證據](VERIFICATION-2026-11-17-M1.md)保留。使用者已指定本輪在當前 macOS arm64／Python 3.11 測試；Linux／NAS 留待移轉重驗，不是本輪環境 blocker。M1 仍因行情單位／範圍證據不足而未完成；完整 repo 與 M2～M6 亦未完成。
 
 狀態：**待驗收**＝已有實作但缺指定證據；**待開發**＝新功能／契約；**暫緩**＝使用者已允許稍後處理；**待核准**＝只有執行有影響的動作前才需確認。下列責任角色是建議分工，不表示已指定合作人或排程。
 
@@ -24,7 +24,7 @@
 | P1-04 | 法人／融資融券等籌碼適配 | 待開發 | 逐資料集來源審核；資料工程 |
 | P1-05 | 重大訊息／新聞／產業證據 | 待開發 | 逐來源使用範圍；資料工程 |
 | P2-01 | 未裁剪、版本化的研究數值契約 | 工程完成；真實來源串接已驗 | research／bundle／event介面；研究工程 |
-| P2-02 | 官方交易日曆與缺交易日辨識 | 待開發 | 權威日曆與P1-01；資料工程 |
+| P2-02 | 官方交易日曆與缺交易日辨識 | 六票已驗，整批審查修復中 | 權威日曆與P1-01；資料工程 |
 | P2-03 | 公司行為與明確價格基準 | 待開發 | 公司行為資料；研究工程 |
 | P2-04 | 修訂、撤回與完整時間語意 | 待開發 | 來源修訂規則；資料工程 |
 | P2-05 | 大規模量測與候選索引／ANN | 待開發 | 可重現負載與精確基準；開發者 |
@@ -114,6 +114,8 @@
 **2026-11-19 進度：** 已核准[私有完整性報告規格與六票](../.scratch/m2-trading-calendar/spec.md)。起始候選 `798ae6d` 在 macOS 通過完整 `local.check --frontend`（490 pytest、246 subtests、55 Node）。新增功能與正式日曆驗收按票記錄。跨里程碑進度見[私有研究交付清單](../.scratch/private-research-ready/completion.md)。
 
 [01 逐日覆蓋](../.scratch/m2-trading-calendar/issues/01-daily-coverage.md) 與 [03 事件後序號](../.scratch/m2-trading-calendar/issues/03-session-ordinal.md) 已完成合成 CLI 驗收。[02 個股與擷取證據](../.scratch/m2-trading-calendar/issues/02-gap-evidence.md) 已用同一 CLI 驗證缺口原因及晚到回播。讀取方法見[私有日曆報告](CALENDAR_COVERAGE.md)。
+
+[04 上市日曆](VERIFICATION-2026-11-19-TWSE-CALENDAR.md)、[05 上櫃日曆](VERIFICATION-2026-11-19-TPEX-CALENDAR.md) 與 [06 真實驗收](VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) 已在指定 macOS 完成。兩市場的正式樣本限於 2026-11-14～17，另驗 11-18 有保存行情且日曆未涵蓋的情境。候選 `832d1e8` 完整檢查通過 518 pytest、275 subtests、55 Node。對 `49fee88` 的雙軸審查另發現未來截止、當日尚未到應到時間與同時首存相異行情三項行為，整批結案待修復重驗。
 
 **工作：** 串接權威日曆與例外休市資料，區分休市、停牌、無成交、抓取失敗及缺檔；用完整性報告決定能否稱為交易日序列。
 

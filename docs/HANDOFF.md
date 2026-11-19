@@ -2,17 +2,19 @@
 
 [文件中心](README.md) · [待開發與驗收清單](DEVELOPMENT_BACKLOG.md) · [路線圖](ROADMAP.md)
 
-整理日期：**2026-11-17（Asia/Taipei）**。最新審查修復實測候選：`ecd176b3069a62aaa98c7a641496af45b8c415f2`；證據見[審查與重驗](VERIFICATION-2026-11-17-REVIEW.md)。原 `3834c19` 的[整合驗證](VERIFICATION-2026-11-17-M1.md)保留為歷史；其後文件提交不代表重新執行產品測試，推送由整合流程處理。
+整理日期：**2026-11-19（Asia/Taipei）**。M1 審查修復實測候選：`ecd176b3069a62aaa98c7a641496af45b8c415f2`；證據見[審查與重驗](VERIFICATION-2026-11-17-REVIEW.md)。原 `3834c19` 的[整合驗證](VERIFICATION-2026-11-17-M1.md)保留為歷史；其後文件提交不代表重新執行產品測試，推送由整合流程處理。
 
 ## 1. 接手時先知道的事
 
-2026-11-19 已提交[行情缺口研究](../.scratch/private-research-ready/research-market-gaps-2026-11-18.md)並開始 [P2-02 六票](../.scratch/m2-trading-calendar/spec.md)。TPEx 個股查詢已出現原交易日資料，同範圍與獨立性仍待證實。逐項驗收與相依見[私有研究交付清單](../.scratch/private-research-ready/completion.md)。
+P2-02 六票已交付合成 CLI 與兩市場 11/14～17 的官方日曆驗收。11/18 的實際報價超出已核對日曆，事件報告能顯示第 1 筆已保存觀察，交易日序號維持未知。雙軸審查發現的截止及首存衝突正在修復。[真實日曆驗收](VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) · [逐項清單與後續規格](../.scratch/private-research-ready/completion.md)
+
+最新一期季報、籌碼與重大訊息已開始分來源核對。11/17 與 11/18 的兩市場真實研究版本可供後續品質驗證。[真實後續行情及官方原件索引](../.scratch/private-research-ready/source-samples-2026-11-19.md) · [兩家發行人季報核對](../.scratch/m3-evidence-sources/issuer-reference-2026-11-19.md)
 
 專案已以真實官方快照、固定真實模型，在使用者指定的當前 macOS arm64／Python 3.11 環境完成兩市場各兩版私有研究、提醒、audit、歷史比較、事件報告及三頁真實 HTTP 驗收。公開 `data/` 仍為示範；沒有啟用發布、排程或交易。
 
 **M1 尚未全過。** 01～08、11／12 已完成各票範圍；09 的行情交易範圍／獨立同日參考仍不足，正式兩市場抽檢皆 exit 2、`compared_fields=0`，10 依賴 gate 保持 `needs-info`。財務月營收已核對的新版單位不代表行情尺度已確認。Linux／NAS 未驗證，但使用者已要求本輪在當前環境測試，因此不是本輪 blocker；將來移轉需重驗。
 
-下一步補 09 的來源定義證據；不需等待外部即可推進 M2～M5 中獨立工程工作。P2-01 未裁剪事實與新版事件讀者已完成工程交付及本輪真實來源串接；權威日曆、公司行為、完整撤回／修訂歷史、其他資料適配、研究品質、容量與 NAS 復原仍在 backlog。
+下一步補 09 的來源定義證據；不需等待外部即可推進 M2～M5 中獨立工程工作。P2-01 未裁剪事實與新版事件讀者已完成工程交付及本輪真實來源串接；日曆審查結案、公司行為、完整撤回／修訂歷史、其他資料適配、研究品質、容量與 NAS 復原仍在 backlog。
 
 Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/private-research-ready`，尚不能把開發分支驗收視為 `main` 已更新。
 

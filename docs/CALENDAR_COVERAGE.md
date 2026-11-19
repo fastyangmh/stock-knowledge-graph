@@ -4,7 +4,7 @@
 
 ## 產生報告
 
-先準備研究版本目錄及已人工核對的日曆索引，將原始檔放在索引所在的私有目錄或其子目錄。日期區間含首尾，`--as-of` 必須帶時區。以下日期與代碼是命令格式的示例。
+先準備研究版本目錄及已人工核對的日曆索引，將原始檔放在索引所在的私有目錄或其子目錄。日期區間含首尾，`--as-of` 必須帶時區，且最晚為執行當下。以下日期與代碼是命令格式的示例。
 
 ```bash
 uv run --locked python -m local.calendar_coverage \
@@ -78,7 +78,7 @@ uv run --locked python -m local.calendar_coverage \
 | 個股 `insufficient_scope` | 看 `reason` 區分截止前沒有版本、未選該股、僅展示圖、市場不符、超過行情截止 |
 | 個股 `closed`、`unknown_calendar` 或 `calendar_conflict` | 休市無行情、無行情且日曆未決、或存在日曆證據衝突；已保存列仍可由 `observation` 查回 |
 
-行情 `observed_at` 記錄來源觀察時間。`captured_at` 是供應版本中首份包含該日該股事實的 bundle 完成時間；原行情的本地登錄時間未知時保留 `recorded_at_status=unknown`。讀者應一起檢查市場與個股欄位，即使日曆未知也可能有已保存行情。
+行情 `observed_at` 記錄來源觀察時間。`captured_at` 是供應版本中首份包含該日該股事實的 bundle 完成時間。同市場、同日、同股的最早版本若同時完成且事實矛盾，CLI 會列出市場、日期與股票並以 exit 2 結束。原行情的本地登錄時間未知時保留 `recorded_at_status=unknown`。讀者應一起檢查市場與個股欄位，即使日曆未知也可能有已保存行情。
 
 預設整個研究目錄、索引與適用原檔合計預算 256 MiB、50 個版本及 50,000 個「股票 × 曆日」列，可用 `--max-mib`、`--max-runs`、`--max-rows` 調整。日曆索引上限 4 MiB、512 個條目，單份封存證據 32 MiB；另設日曆判讀工作量與報告大小上限。既有 `local.trading_calendar` 的 CSV 判讀入口仍用於原盤後流程。
 
@@ -121,5 +121,7 @@ uv run --locked python -m local.calendar_coverage \
 逐股逐日的 `status` 與 `stock_counts` 仍回答有無保存行情。另讀 `diagnosis` 的 `stock_state`、`acquisition`、`timing` 與 `gap`；證據 ID 可對回 `gap_evidence.versions`。停牌、抓取失敗及缺檔可以同時存在。即使證據解釋缺列，該日仍計入 `missing_observation`。已存列會顯示原 `close`、`volume_shares`、`turnover_raw`、`turnover_unit`、`price_unit` 及 `trades`。完全無行情列時 `observation` 保持 null。
 
 `diagnosis_counts` 按股分別統計各狀態。`gap.unresolved` 是範圍內已開市、缺觀察且原因待查的日數。`pending` 是已知應到時點尚未到；應到時間不明時 `timing=due_unknown`。取得狀態按每一種成立原因各計一天，同日有兩種原因會計入兩類。
+
+若已選股票的行情只保存到前一日，當天已確認開市，逐日列會保留 `insufficient_scope` 與原因 `after_market_trade_date`。有適用的應到時點時，期限前的 `timing`、`gap` 與該日連續性為 `pending`，即使期限跨至次日也同樣處理。期限已到時 `timing=due_passed_outside_scope`，稽核範圍仍不足，該日連續性為 `unknown`。區間連續性另計先前累積的缺口與未知日期。
 
 `late_first_bundle` 表示該日行情首次出現在所提供且已稽核的研究版本時已過應到時點；依據是 `observation.captured_at` 與 `timing_evidence_ids`。行情來源的 `observed_at` 與供應端實際晚發是不同判斷。原始本地登錄時間未知時，`recorded_at` 保持 null。
