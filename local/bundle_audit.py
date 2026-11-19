@@ -192,10 +192,10 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
                          and digests[path] == sha, 'revision_file_mismatch')
                 snapshot = {**snapshot, 'revision_payload': strict_json(captured[path])}
             archived.append(snapshot)
-        validate_facts(facts, report, archived_snapshots=archived, graphs=graphs)
+        market_items = validate_facts(facts, report, archived_snapshots=archived, graphs=graphs)
         if facts.get("market_notices"):
             from .market_notices import audit_bundle_prices
-            audit_bundle_prices(facts, report, graphs, alerts)
+            audit_bundle_prices(market_items, facts['scope']['market']['trade_date'], report, graphs, alerts)
     else:
         _require("research-facts.json" not in captured, "unlisted_facts")
         _require(not any(p.startswith('revisions/') for p in captured) and

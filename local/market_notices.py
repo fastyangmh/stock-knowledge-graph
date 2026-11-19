@@ -142,7 +142,7 @@ def replacement_record(body, notice, definition):
 
 
 def register(args):
-    from .market_graph import HistoryBudget, read_prices
+    from .market_graph import HistoryBudget, observation_version, read_prices
     if len(args.symbols) != 1 or not args.notice_evidence or args.unit_review:
         raise ValueError('a notice needs one symbol, an evidence file and any unit review in its manifest')
     symbol, day = args.symbols[0], args.expected_date
@@ -162,7 +162,13 @@ def register(args):
         conn.execute(TABLE)
         entries = entries_for(conn, notice['source_id'], symbol, day)
         recorded_at = utc_now()
-        current = read_prices(db, args.market, [symbol], day, recorded_at, root, budget=HistoryBudget())
+        replay_budget = HistoryBudget()
+        current = read_prices(db, args.market, [symbol], day, recorded_at, root, budget=replay_budget)
+        # Research also scans the ordinary observation rows to discover eligible dates.
+        ordinary_rows, = conn.execute(
+            'SELECT count(*) FROM market_price_observations WHERE source_id=? AND symbol=? AND trade_date=?',
+            (notice['source_id'], symbol, day)).fetchone()
+        replay_budget.consume('rows', ordinary_rows)
         existing = next((e for e in entries if e['notice_sha256'] == checksum), None)
         if existing:
             if replacement is not None:
@@ -176,11 +182,17 @@ def register(args):
             base_sha = prior['base_record_sha256']
         else:
             base = current[0]
-            if base['raw_sha256'] != notice['target_raw_sha256']:
+            target = (notice['target_raw_sha256'], notice['target_record_sha256'])
+            if observation_version(base) != target:
                 raise ValueError('market notice target is stale or unknown')
+            if timestamp(base['observed_at']) > timestamp(notice['observed_at']):
+                base, = read_prices(db, args.market, [symbol], day, notice['observed_at'], root,
+                                    budget=HistoryBudget())
+                if observation_version(base) != target:
+                    raise ValueError('market notice target is stale or unknown at observation')
             definition = {k: base['record'].get(k) for k in DEFINITION_KEYS}
             base_observed = base['observed_at']
-            base_sha = digest(canonical(base['record']))
+            base_sha = notice['target_record_sha256']
         new_record = replacement_record(replacement, notice, definition) if replacement is not None else None
         entry = dict(notice=notice, notice_sha256=checksum, recorded_at=recorded_at,
                      definition=definition, base_observed_at=base_observed, base_record_sha256=base_sha,
@@ -189,6 +201,9 @@ def register(args):
         encoded = canonical(entry)
         if len(encoded) > MAX_NOTICE_BYTES:
             raise ValueError('market notice exceeds byte budget')
+        replay_budget.consume('rows', 1)
+        replay_budget.consume('record_bytes', len(encoded))
+        replay_budget.consume('raw_bytes', len(evidence) + (len(replacement) if replacement is not None else 0))
         files = [(origin/'notices'/(notice['evidence_sha256']+'.bin'), evidence)]
         if replacement is not None:
             files.append((origin/(notice['replacement_raw_sha256']+'.csv'), replacement))
@@ -219,10 +234,15 @@ def resolve(entries, bases, latest, feed, symbol, day, cutoff, snapshot_dir, bud
         if digest(evidence) != notice['evidence_sha256']:
             raise ValueError('market notice evidence checksum mismatch')
         if prior is None:
-            latest = bases.get((notice['target_raw_sha256'], entry['base_observed_at']))
-            if (not latest or {k: latest['record'].get(k) for k in DEFINITION_KEYS} != entry['definition']
-                    or digest(canonical(latest['record'])) != entry['base_record_sha256']):
+            base = bases.get((notice['target_raw_sha256'], entry['base_observed_at']))
+            if (not base or {k: base['record'].get(k) for k in DEFINITION_KEYS} != entry['definition']
+                    or digest(canonical(base['record'])) != entry['base_record_sha256']):
                 raise ValueError('market notice original observation or definition missing')
+            if history is not None and activation(entry) > cutoff and latest != base:
+                entry = {**entry, 'pending_observation': {
+                    'observed_at': latest['observed_at'], 'raw_sha256': latest['raw_sha256'],
+                    'record_sha256': digest(canonical(latest['record'])),
+                    'acquisition': latest['acquisition']}}
         record = None
         if notice['replacement_raw_sha256']:
             raw = read_bytes(origin/(notice['replacement_raw_sha256']+'.csv'), MAX_BYTES, budget)
@@ -251,6 +271,11 @@ def active_heads(entries, cutoff):
     return heads
 
 
+def withdrawn_stocks(entries, day, cutoff):
+    return {'TW:' + symbol for (symbol, trade_date), entry in active_heads(entries, cutoff).items()
+            if trade_date == day and entry['notice']['action'] == 'withdraw'}
+
+
 def audit_entries(entries, facts, scope, cutoff, record_digests):
     feed = scope['market']['market']
     market_facts = {(f['symbol'], f['trade_date']): f for f in facts if f['kind'] == 'market_price'}
@@ -270,7 +295,16 @@ def audit_entries(entries, facts, scope, cutoff, record_digests):
         head = active.get(key)
         fact = market_facts.get(key)
         if head is None:
-            if (not fact or fact['raw_sha256'] != first['notice']['target_raw_sha256']
+            if not fact or 'notice_sha256' in fact:
+                raise ValueError('pending market notice lacks ordinary fact')
+            if 'pending_observation' in first:
+                expected = {'observed_at': fact['observed_at'], 'raw_sha256': fact['raw_sha256'],
+                            'record_sha256': record_digests[key], 'acquisition': fact['acquisition']}
+                if (expected != first['pending_observation']
+                        or timestamp(fact['observed_at']) <= timestamp(first['base_observed_at'])):
+                    raise ValueError('pending market notice ordinary observation differs from fact')
+                continue
+            if (fact['raw_sha256'] != first['notice']['target_raw_sha256']
                     or fact['observed_at'] != first['base_observed_at']
                     or record_digests[key] != first['base_record_sha256']):
                 raise ValueError('pending market notice target differs from fact')
@@ -280,7 +314,8 @@ def audit_entries(entries, facts, scope, cutoff, record_digests):
             continue
         else:
             notice = head['notice']
-            if (not fact or fact.get('notice_sha256') != head['notice_sha256']
+            if (not fact or fact['acquisition'] != 'local_file_unverified'
+                    or fact.get('notice_sha256') != head['notice_sha256']
                     or record_digests[key] != head['replacement_record_sha256']
                     or fact['raw_sha256'] != notice['replacement_raw_sha256']
                     or fact['observed_at'] != notice['observed_at'] or fact['recorded_at'] != head['recorded_at']
@@ -315,31 +350,28 @@ def inspect_prices(args):
     return {'known_at': args.known_at, 'notices': history, 'observations': observations}
 
 
-def audit_bundle_prices(document, report, graphs, alerts):
-    """Match the report, displayed quote and reminder evidence to audited daily facts."""
-    trade_date = document['scope']['market']['trade_date']
-    facts = {(f['symbol'], f['trade_date']): f for f in document['facts'] if f['kind'] == 'market_price'}
-    selected = {key: f for key, f in facts.items() if key[1] == trade_date}
-    report_fields = ('source_id', 'symbol', 'trade_date', 'observed_at', 'raw_sha256', 'acquisition', 'raw_snapshot_verified')
-    optional = ('notice_sha256', 'recorded_at', 'available_at', 'source_available_at')
-    expected = [{**{k: f[k] for k in report_fields}, **({k: f[k] for k in optional} if 'notice_sha256' in f else {})}
-                for _, f in sorted(selected.items())]
-    if report.get('market_observations') != expected or report['counts']['market_nodes'] != len(expected):
+def audit_bundle_prices(items, trade_date, report, graphs, alerts):
+    """Rebuild exported price evidence from the audited, unpruned market records."""
+    from .alerts import market_ref
+    from .market_graph import observation_report, price_node
+    selected = {symbol: item for (symbol, day), item in items.items() if day == trade_date}
+    expected = [observation_report(item) for _, item in sorted(selected.items())]
+    if (canonical(report.get('market_observations')) != canonical(expected)
+            or type(report['counts']['market_nodes']) is not int or report['counts']['market_nodes'] != len(expected)):
         raise ValueError('market notice selected observation report mismatch')
     for sid, graph in graphs.items():
+        symbol = sid[3:]
         for node in graph['nodes']:
-            if node['type'] == 'market_price':
-                fact = selected.get((node['symbol'], node['trade_date']))
-                if not fact or any(node.get(k) != fact.get(k) for k in (*report_fields, 'close', 'volume_shares', 'notice_sha256')):
+            if node['type'] == 'market_price' or node['id'].startswith('market:'):
+                if symbol not in selected or canonical(node) != canonical(price_node(selected[symbol])):
                     raise ValueError('market notice graph observation mismatch')
         if not alerts:
             continue
         for check in alerts['stocks'][sid]['categories']['price_volume']:
-            if ((sid[3:], trade_date) not in selected
+            if (symbol not in selected
                     and (check['reason'] != 'target_price_missing_at_cutoff' or check['evidence'])):
                 raise ValueError('market notice withdrawal differs from reminder')
             for ref in check['evidence']:
-                fact = facts.get((sid[3:], ref['period']))
-                if not fact or any(ref.get(k) != fact.get(k) for k in (
-                        'source_id', 'observed_at', 'raw_sha256', 'close', 'volume_shares', 'notice_sha256')):
+                item = items.get((symbol, ref['period']))
+                if not item or canonical(ref) != canonical(market_ref(item)):
                     raise ValueError('market notice reminder evidence mismatch')
