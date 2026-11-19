@@ -12,10 +12,10 @@ FINANCIAL = {**TOTALS, '貼現及放款－淨額': ('net_loans_and_discounts', '
 INSURANCE = {**TOTALS, '保險合約資產': ('insurance_contract_assets', 'amount')}
 
 SOURCES = {
-    91967: ('t187ap07_O_ci.csv', 'TPEx', 'general', 'balance', GENERAL),
-    94829: ('t187ap07_L_basi.csv', 'TWSE', 'financial', 'balance', FINANCIAL),
-    94833: ('t187ap07_L_ins.csv', 'TWSE', 'insurance', 'balance', INSURANCE),
-    94831: ('t187ap07_L_ci.csv', 'TWSE', 'general', 'balance', GENERAL),
+    91967: ('TPEx', 'general', 'balance', GENERAL),
+    94829: ('TWSE', 'financial', 'balance', FINANCIAL),
+    94833: ('TWSE', 'insurance', 'balance', INSURANCE),
+    94831: ('TWSE', 'general', 'balance', GENERAL),
 }
 
 EQUITY_COLUMNS = (

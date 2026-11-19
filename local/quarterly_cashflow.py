@@ -103,8 +103,6 @@ def normalize(body, checksum):
                          period_type='quarter', report_basis='point_in_time' if instant else 'cumulative',
                          instant_date=instant, available_at=time))
 
-    if not rows:
-        raise ValueError('no numeric cash-flow observation')
     doc_id = f'{sid}:{end}'
     title = f'{issuer} {end} 合併現金流量表核對筆記'
     document = dict(document_id=doc_id, external_id=doc_id, source_id=sid, source_url=primary_url,

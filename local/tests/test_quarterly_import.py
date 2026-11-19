@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from local.bundle_audit import audit_bundle
-from local.research import run
+from local.tests.quarterly_fixtures import HEADERS, normalize_csv, research, save_csv
 
 
 class QuarterlyImportTests(unittest.TestCase):
@@ -22,9 +22,11 @@ class QuarterlyImportTests(unittest.TestCase):
         self.save(self.columns, self.row)
 
     def save(self, columns, row):
-        from local.quarterly_income import ADDITIONAL_FIELDS
-        sector = {'91995': 'financial', '92000': 'insurance'}.get(self.raw.stem, 'general')
-        unused = ADDITIONAL_FIELDS[sector]
+        selected = {
+            '91995': ('利息淨收益', '本期稅後淨利（淨損）', '基本每股盈餘（元）'),
+            '92000': ('保險服務結果', '本期淨利（淨損）', '基本每股盈餘'),
+        }.get(self.raw.stem, self.columns.split(',')[5:])
+        unused = [h for h in HEADERS[self.raw.stem] if h not in (*self.columns.split(',')[:5], *selected)]
         columns = columns + ',' + ','.join(unused)
         row = '\n'.join(line + ',' * len(unused) for line in row.splitlines())
         raw = (columns + '\n' + row + '\n').encode('utf-8-sig')
@@ -36,15 +38,10 @@ class QuarterlyImportTests(unittest.TestCase):
         self.manifest.write_text(json.dumps([self.entry]))
 
     def normalize(self, *options):
-        from local.quarterly_import import main
-        main(['--manifest', str(self.manifest), '--dataset', '91998', '--symbols', '1234',
-              '--output', str(self.output), *options])
+        return normalize_csv(self.manifest, 91998, '1234', self.output, *options)
 
-    def research(self):
-        runs = self.root / 'runs'
-        report = run(self.output, ['1234'], history_db=self.root/'ledger.db',
-                     output_root=runs, max_information_nodes=0)
-        return audit_bundle(runs, report['run'])
+    def research(self, **options):
+        return research(self.root, self.output, '1234', **options)
 
     def test_raw_amounts_per_share_and_missing_survive_display_clipping(self):
         self.normalize()
@@ -94,6 +91,76 @@ class QuarterlyImportTests(unittest.TestCase):
         self.normalize('--review', str(path))
         eps = json.loads(self.output.read_text())['financial_metrics'][-1]
         self.assertEqual((eps['unit'], eps['report_basis']), ('TWD_per_share', 'single_period'))
+
+    def reviewed_income(self, value, reviewed_at):
+        path = self.root/'review.json'
+        review = dict(schema_version='quarterly-review-v1', dataset=91998,
+                      raw_sha256=self.entry['sha256'], reviewed_at=reviewed_at, rows=[
+                          dict(stock_id='TW:1234', period_end='2020-09-30', statement_scope='consolidated',
+                               reference_url='https://issuer.example/q3.pdf', source_field='營業利益（損失）',
+                               raw_unit='TWD_thousands', reference_unit='TWD_thousands', reference_value=value,
+                               report_basis='cumulative', locator='p.3 operating income')])
+        path.write_text(json.dumps(review))
+        self.normalize('--review', str(path))
+
+    def test_review_of_same_raw_enriches_only_after_its_registration(self):
+        self.save(self.columns, '1091110,109,3,1234,測試企業,--,-123,--,--')
+        self.normalize()
+        first = self.research()
+        cutoff = first.facts['scope']['known_at']
+        self.output = self.root/'reviewed.json'
+        self.reviewed_income('-123', self.entry['received_at'])
+        reviewed = self.research().facts['facts'][0]
+        self.assertEqual(reviewed['unit'], 'TWD_thousands')
+        earlier = self.research(known_at=cutoff)
+        self.assertEqual(earlier.facts, first.facts)
+        self.assertNotIn('issuer_review', earlier.facts['facts'][0])
+
+    def test_independent_sheets_at_same_time_keep_their_sources_and_detect_name_conflicts(self):
+        self.normalize()
+        self.research()
+        row = dict(zip(self.columns.split(',')[:5], self.row.split(',')[:5]))
+        row['資產總計'] = '40'
+        observed = self.entry['received_at']
+        self.output = self.root/'balance.json'
+        save_csv(self.root, 94831, 't187ap07_L_ci.csv', row, observed=observed)
+        normalize_csv(self.manifest, 94831, '1234', self.output)
+        combined = self.research()
+        self.assertEqual({f['source_id'] for f in combined.facts['facts']}, {'mops_91998', 'mops_94831'})
+        self.assertEqual(len(combined.facts['facts']), 4)
+        row['公司名稱'] = '另一家公司'
+        save_csv(self.root, 91967, 't187ap07_O_ci.csv', row, observed=observed)
+        self.output = self.root/'inconsistent.json'
+        normalize_csv(self.manifest, 91967, '1234', self.output)
+        with self.assertRaisesRegex(ValueError, 'conflicting same-time revision'):
+            self.research()
+
+    def test_future_review_preserves_raw_fact_and_latest(self):
+        self.normalize()
+        self.research()
+        self.output = self.root/'future.json'
+        self.reviewed_income('-123', '2099-11-12T12:00:00Z')
+        pointer = self.root/'runs/latest.json'
+        before = pointer.read_bytes()
+        with self.assertRaisesRegex(ValueError, 'review.*future'):
+            self.research()
+        self.assertEqual(before, pointer.read_bytes())
+
+    def test_later_review_cannot_resolve_conflicting_raw_filings_at_same_observation(self):
+        self.save(self.columns, '1091110,109,3,1234,測試企業,--,-123,--,--')
+        self.reviewed_income('-123', '2020-11-12T12:00:00Z')
+        good = self.output
+        self.research()
+        pointer = self.root/'runs/latest.json'
+        before = pointer.read_bytes()
+        self.output = self.root/'second.json'
+        self.save(self.columns, '1091110,109,3,1234,測試企業,--,-124,--,--')
+        self.reviewed_income('-124', '2020-11-13T12:00:00Z')
+        with self.assertRaisesRegex(ValueError, 'conflicting same-time revision'):
+            self.research()
+        self.assertEqual(before, pointer.read_bytes())
+        self.output = good
+        self.assertEqual(self.research().facts['facts'][0]['value'], -123)
 
     def test_later_review_of_older_source_does_not_replace_a_newer_filing(self):
         path = self.root/'review.json'
@@ -184,6 +251,25 @@ class QuarterlyImportTests(unittest.TestCase):
         self.assertEqual(pointer.read_bytes(), original)
         self.assertEqual(audit_bundle(self.root/'runs', bundle.report['run']).facts, bundle.facts)
 
+    def test_version_targeted_notice_accepts_legacy_quarterly_metadata(self):
+        self.normalize()
+        self.research()
+        self.output = self.root/'reviewed.json'
+        self.reviewed_income('-123', self.entry['received_at'])
+        data = json.loads(self.output.read_bytes())
+        fact = next(f for f in self.research().facts['facts'] if f['metric'] == 'operating_income')
+        notice_time = '2020-11-15T08:00:00Z'
+        notice = dict(schema_version='source-revision-1', action='withdraw', group='financial_metrics',
+                      key={k: fact[k] for k in ('stock_id', 'metric', 'period_end', 'period_type')},
+                      source_id=fact['source_id'], target_snapshot_sha256=fact['input_snapshot_sha256'],
+                      effective_at=notice_time, published_at=notice_time, source_reference='fixture:notice',
+                      evidence='Synthetic explicit withdrawal of one quarterly metric')
+        self.output = self.root/'notice.json'
+        self.output.write_text(json.dumps(dict(stocks=data['stocks'], sources=data['sources'],
+            metadata=dict(observed_at=notice_time), source_revision=notice)))
+        result = self.research(enable_source_revisions=True)
+        self.assertNotIn('operating_income', {f['metric'] for f in result.facts['facts']})
+
     def test_changed_review_cannot_attach_to_new_raw_bytes_or_unknown_stock(self):
         review = dict(schema_version='quarterly-review-v1', dataset=91998, raw_sha256=self.entry['sha256'],
                       reviewed_at='2020-11-11T02:00:00Z', rows=[
@@ -204,8 +290,21 @@ class QuarterlyImportTests(unittest.TestCase):
             self.normalize()
         self.assertFalse(self.output.exists())
 
+    def test_explicit_missing_replaces_only_named_cells_and_replays_earlier_values(self):
+        self.normalize()
+        earlier = self.research()
+        self.output = self.root/'missing.json'
+        self.save(self.columns, '1091110,109,3,1234,測試企業,--,,N/A,-')
+        self.entry['received_at'] = '2020-11-14T02:00:00+00:00'
+        self.manifest.write_text(json.dumps([self.entry]))
+        self.normalize()
+        latest = self.research()
+        self.assertEqual(latest.facts['facts'], [])
+        self.assertEqual(len(latest.facts['normalized_snapshots'][-1]['metadata']['missing_values']), 4)
+        self.assertEqual(self.research(known_at=earlier.facts['scope']['known_at']).facts, earlier.facts)
+
     def test_company_with_only_missing_values_cannot_count_as_a_financial_sample(self):
         self.save(self.columns, '1091110,109,3,1234,測試企業,--,,N/A,-')
+        self.normalize()
         with self.assertRaisesRegex(ValueError, 'no numeric observation.*1234'):
-            self.normalize()
-        self.assertFalse(self.output.exists())
+            self.research()

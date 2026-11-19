@@ -61,3 +61,12 @@ uv run --locked python -m local.bundle_audit --root "$run_dir/runs"
 `reference_value` 用十進位字串。核對支援新台幣元、仟元、百萬元及元／股，用精確有理數按尺度比較；相符後仍保存 CSV 原始數值及尺度。綜合損益表接受 `cumulative` 或 `single_period`，使用者輸入應依同股票同期間的原始報表確認。比較不會將累計盈餘換算為單季值。核對時間進入該欄的可得時間，原始取得時間仍用於來源修訂排序；ledger 另存本地首次登錄時間。僅來源檔少一列不會撤回舊資料。抽檢檔是審閱紀錄，需與對應原件和私有稽核結果一起保存。
 
 本輪四份 `normalized.json`、SQLite、研究版本與報告在 `local/private/m3-income-2026-11-19/`。完整重跑可從 repo 根目錄執行 `uv run --locked python local/private/m3-income-2026-11-19/replay.py local/private/m3-income-fresh`，目的地須為新目錄。四份原件各自重算 SHA256，展示節點上限為零時仍共保存 18 筆事實，四份 audit 均通過。獨立核對 12 欄中 11 欄精確相符、1 欄失配，另 6 欄保留原值待核。Linux／NAS 與其他期間留待重驗。
+
+
+## 月營收與季報共用研究版本
+
+以同一組 `--history-db`、`--output-root` 依序執行 `local.research`，每次的 `--input` 使用一份完整正規化檔，各自保留來源、觀察及本地首次登錄時間。先登錄兩市場自選股票的月營收，再依需要加入損益、資產負債、現金流。每次 `--symbols` 可選截至當時已有資料的股票。最後用已登錄的任一檔和 `--known-at` 可重播相同股票的較早截止。月營收 `official-monthly-twd-v1` 與舊原值版需分庫，兩市場同用這條尺度規則。季度來源逐資料集核對 adapter 與正規化版本。
+
+同一份 CSV 可先不帶 `--review` 匯入，待完成核對，再將附覆核的檔案寫到新路徑並登錄。同來源、同取得時間的不同原件雜湊會拒收；覆核時間不能代為決定採用哪一份原件。較早截止仍可看到當時的未核對定義。沒有 `issuer_review` 的格子保留 `source_reported` 與已知的報表屬性，失配欄另保存 `value_mismatch`。尚在未來的覆核時間會拒絕登錄。
+
+同一股票、期別、來源欄由數值改成明示缺值，較新截止會列入 `metadata.missing_values` 並移除該數值。較早截止仍有原值。新快照少一家公司或沒有該期資料時，先前觀察持續有效。來源明示整列缺值時可產生零值筆數的正規化檔；登錄這種修訂須有相同公司、期別、來源的先前數值。來源正式宣告撤回另存 `source_revision`。

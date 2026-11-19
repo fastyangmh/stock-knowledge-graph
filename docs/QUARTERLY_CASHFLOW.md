@@ -24,7 +24,7 @@
 | `opening_cash_equivalents`、`closing_cash_equivalents` | 期初、期末現金及約當現金餘額 |
 | `net_change_cash_equivalents` | 本期現金及約當現金淨增減 |
 
-`-`、`--`、`N/A` 代表筆記中的缺值，兩次核對都缺時記入 `metadata.missing_values`，零會生成數值事實。遇到不同報表、不同數值、缺少定位、全欄無數或結構改變，匯入會中止。私有原始筆記應連同單獨保存的 SHA256 一起留存，重播時逐次驗證。數字的證據標記為 `manual_transcription`，`note_sha256` 指向筆記。發行人原表只正常閱覽；原表 bytes、全文或影像皆未保存。文件節點只含自行撰寫的筆記標題、來源及股票對應。
+`-`、`--`、`N/A` 代表筆記中的缺值，兩次核對都缺時記入 `metadata.missing_values`，零會生成數值事實。遇到不同報表、不同數值、缺少定位或結構改變，匯入會中止。私有原始筆記應連同單獨保存的 SHA256 一起留存，重播時逐次驗證。數字的證據標記為 `manual_transcription`，`note_sha256` 指向筆記。發行人原表只正常閱覽；原表 bytes、全文或影像皆未保存。文件節點只含自行撰寫的筆記標題、來源及股票對應。
 
 從專案根目錄重跑本輪兩家公司，目的地使用新目錄。
 
@@ -33,7 +33,7 @@ evidence=local/private/m3-cashflow-2026-11-19/reviewed
 uv run --locked python "$evidence/replay.py" local/private/cashflow-recheck
 ```
 
-個別重建一家公司時，使用筆記完成當時留存的 checksum。日期採筆記實際核對時間，研究 ledger 自行記錄首次登錄時間。CLI 會保全既有不同內容的輸出；兩份同時觀察衝突時，研究拒建新版本並保留上一份可稽核的 bundle。衝突觀察仍留在 ledger，需核對矛盾後以獨立 ledger 重建。本次未取得聲明更正或撤回的真實現金流報表。
+個別重建一家公司時，使用筆記完成當時留存的 checksum。日期採筆記實際核對時間，研究 ledger 自行記錄首次登錄時間。CLI 會保全既有不同內容的輸出；兩份同時觀察衝突時，研究拒建新版本並保留上一份可稽核的 bundle。新候選與版本稽核使用同一 SQLite 交易；同時衝突時回滾，可在原 ledger 重送上一份成功輸入。較晚的明示缺值可取代同公司、同一期別的對應舊數值；全欄缺值只可登錄為已有數值的修訂。本次未取得聲明更正或撤回的真實現金流報表。
 
 ```bash
 evidence=local/private/m3-cashflow-2026-11-19/reviewed

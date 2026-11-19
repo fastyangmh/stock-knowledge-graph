@@ -19,12 +19,12 @@ INSURANCE = {
     '基本每股盈餘': ('basic_eps', 'per_share'),
 }
 
-# Official catalog ID -> (resource filename, market, industry, statement, selected fields)
+# Official catalog ID -> (market, industry, statement, selected fields)
 SOURCES = {
-    94853: ('t187ap06_O_ci.csv', 'TPEx', 'general', 'income', GENERAL),
-    91995: ('t187ap06_L_basi.csv', 'TWSE', 'financial', 'income', FINANCIAL),
-    92000: ('t187ap06_L_ins.csv', 'TWSE', 'insurance', 'income', INSURANCE),
-    91998: ('t187ap06_L_ci.csv', 'TWSE', 'general', 'income', GENERAL),
+    94853: ('TPEx', 'general', 'income', GENERAL),
+    91995: ('TWSE', 'financial', 'income', FINANCIAL),
+    92000: ('TWSE', 'insurance', 'income', INSURANCE),
+    91998: ('TWSE', 'general', 'income', GENERAL),
 }
 
 # Additional published columns are retained in the archived CSV.

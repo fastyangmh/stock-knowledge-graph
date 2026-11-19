@@ -38,9 +38,16 @@ def load_source(manifest, dataset):
     if len(entries) != 1:
         raise ValueError(f'{dataset}: expected one acquisition entry')
     entry = entries[0]
-    filename, market, sector, statement, fields = SOURCES[dataset]
-    catalog = f'https://data.gov.tw/dataset/{dataset}'
-    resource = 'https://mopsfin.twse.com.tw/opendata/' + filename
+    market, sector, statement, fields = SOURCES[dataset]
+    sid = f'mops_{dataset}'
+    registry = strict_json_value(Path(__file__).with_name('official_datasets.json').read_bytes())
+    reviews = [r for r in registry if r['dataset_id'] == sid and r.get('license_reviewed') is True
+               and r.get('usage') == 'offline_saved_receipt_only']
+    if len(reviews) != 1:
+        raise ValueError(f'{dataset}: expected one approved offline registry entry')
+    registered = reviews[0]
+    catalog = registered['dataset_url']
+    resource = registered['resource_url']
     if (entry.get('catalog') != catalog or entry.get('url') != resource or
             entry.get('status') != '200' or type(entry.get('exit')) is not int or entry['exit'] != 0):
         raise ValueError(f'{dataset}: unapproved resource or unsuccessful acquisition')
@@ -48,10 +55,9 @@ def load_source(manifest, dataset):
     checksum = hashlib.sha256(raw).hexdigest()
     if checksum != entry.get('sha256') or len(raw) != entry.get('bytes'):
         raise ValueError(f'{dataset}: raw checksum/size mismatch')
-    provider = '金融監督管理委員會證券期貨局'
-    source = dict(source_id=f'mops_{dataset}', provider=provider, url=catalog, resource_url=resource,
-                  license_type='OGDL-1.0', license_url='https://data.gov.tw/license',
-                  attribution=f'{provider}，政府資料開放平臺資料集 {dataset}', market=market,
+    source = dict(source_id=sid, provider=registered['provider'], url=catalog, resource_url=resource,
+                  license_type='OGDL-1.0', license_url=registered['license_url'],
+                  attribution=registered['attribution'], market=market,
                   sector=sector, statement=statement)
     try:
         records = csv_rows(raw, strict=True)
@@ -102,7 +108,7 @@ def normalize(manifest, dataset, symbols):
             raise ValueError(f'{dataset}: duplicate or unnamed company at record {index}')
         provenance = dict(source_id=sid, source_url=source['url'], attribution=source['attribution'],
                           license_url=source['license_url'])
-        stocks[stock_id] = dict(stock_id=stock_id, ticker=code, market='TW', name=row['公司名稱'], **provenance)
+        stocks[stock_id] = dict(stock_id=stock_id, ticker=code, market='TW', name=row['公司名稱'])
         doc_id = f'{sid}:{code}:{period.isoformat()}'
         title = f'{row["公司名稱"]} {period.year} Q{row["季別"]} {source["statement"]}'
         documents.append(dict(document_id=doc_id, external_id=doc_id, title=title, content=title,
@@ -131,9 +137,6 @@ def normalize(manifest, dataset, symbols):
         raise ValueError(f'{dataset}: mixed quarterly periods or report dates')
     if stocks.keys() != selected:
         raise ValueError(f'{dataset}: no observation for ' + ', '.join(sorted(selected - stocks.keys())))
-    empty = selected - {row['stock_id'] for row in metrics}
-    if empty:
-        raise ValueError(f'{dataset}: no numeric observation for ' + ', '.join(sorted(empty)))
     return dict(stocks=list(stocks.values()), sources=[source], documents=documents,
                 financial_metrics=metrics, chip_metrics=[],
                 metadata=dict(adapter_version='mops-quarterly-v1', observed_at=received.isoformat(),

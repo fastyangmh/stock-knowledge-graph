@@ -43,14 +43,14 @@ Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/pri
 
 | 能力 | 程式／文件 | 已完成與剩餘界線 |
 | --- | --- | --- |
-| 公司／月營收快照與正規化 | `local.collect_official`、`local.official_import`；[資料管線](DATA_PIPELINE.md) | 兩市場公司／月營收真實全檔與月營收單位抽檢完成；季度尚未適配 |
+| 公司／月營收快照與正規化 | `local.collect_official`、`local.official_import`；[資料管線](DATA_PIPELINE.md) | 兩市場公司／月營收真實全檔與月營收單位抽檢完成；[季度三表](QUARTERLY_STATEMENTS.md)有逐來源私有適配及抽檢 |
 | 盤後行情 | `local.market_prices`、`local.market_graph`；[行情](MARKET_PRICES.md) | 兩市場真實全檔及私有串接完成；單位／交易範圍抽檢未過，保留 source_reported |
 | 行情交易日完整性 | `local.calendar_coverage`；[私有日曆 CLI](CALENDAR_COVERAGE.md) | 逐日查開休市與缺觀察、獨立序號、證據截止與時序衝突；官方日曆目前核至 11/14～17 |
 | SQLite／語意／展示子圖 | `core.py`、`semantic.py`、`neighbors.py`、`lifecycle.py`、`export_json.py` | 向量與關聯快取、精確Top-K、裁剪、JSON校驗；不是ANN |
 | 私有研究版本 | `local.research`、`research_history.py`；[私有研究](PRIVATE_RESEARCH.md) | 觀察ledger、獨立bundle、latest指標與跨版本快取；不是完整市場雙時間資料庫 |
 | 獨立研究提醒 | `alerts.py`、`alert_inputs.py`；[提醒規則](RESEARCH_ALERTS.md) | 2條價量、4條營收規則；未經真實績效校準 |
 | 歷史稽核與比較 | `local.bundle_audit`、`local.research_compare`、`local.research_archive`；[研究歷史](RESEARCH_HISTORY.md) | 比較已保存版本，明確區分缺漏／定義改變；非策略回測 |
-| 財務抽檢與備份 | `local.financial_review`、`local.backup`；[抽檢](FINANCIAL_REVIEW.md) | 真實月營收獨立抽檢完成；季度抽檢及 NAS 復原演練未完成 |
+| 財務抽檢與備份 | `local.financial_review`、`local.backup`；[抽檢](FINANCIAL_REVIEW.md) | 真實月營收獨立抽檢完成；季度抽檢限已記錄來源與欄位，NAS 復原演練待驗 |
 | 事件後描述統計 | `local.event_study`、`event_outcomes.py`；[事件統計](EVENT_STUDY.md) | 新版讀未裁剪研究事實，舊版標 display_graph_only；凍結首次保存基準與後續值 |
 | 網頁／私有預覽 | `index.html`、`history.html`、`event-study.html`、`js/`；[使用手冊](USER_MANUAL.md) | 股票池／搜尋／來源、兩類提醒、歷史及事件頁；私有頁由本機工具供應，不是公開後端 |
 
@@ -62,7 +62,7 @@ Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/pri
 
 05／06／07 的原始官方擷取證據仍保留。本輪重讀其 bytes、重新正規化財務且與08已核對輸入相同，在全新 ledger／runs 合併財務新版與未確認行情原值。每市場兩版、每版8筆完整 facts；首次編碼2文件／1配對，重跑 encoded=0、pairs=0、loader=0。各市場一個營收事件，後續數值均為 insufficient_data 或 pending，沒有真實 observed 結果。完整金融／模型 bytes、報告與截圖只留私有。
 
-Linux／NAS、完整歷史、每日穩定性、季度／籌碼／公告適配與真實投資品質未驗證。單次下載、hash、模型執行或工程綠燈都不能替代來源尺度、授權或金融有效性。較早[事件驗證](VERIFICATION-2026-11-16-EVENTS.md)保留為歷史，不冒稱本輪執行。
+Linux／NAS、完整歷史、每日穩定性、其餘季度產業與期別、籌碼／公告適配及真實投資品質待驗。單次下載、hash、模型執行或工程綠燈都不能替代來源尺度、授權或金融有效性。較早[事件驗證](VERIFICATION-2026-11-16-EVENTS.md)保留為歷史，不冒稱本輪執行。
 
 ## 5. 接手操作
 

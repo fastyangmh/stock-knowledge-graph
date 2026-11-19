@@ -81,7 +81,7 @@
 
 ### P1-03｜季度財報
 
-三表整合候選已重播十個私有研究版本。損益 22 筆均與發行人財報等值，資產負債 34 筆中有 22 筆等值。現金流的兩份發行人核對筆記共 12 筆，其原件封存與獨立文件差異仍待核。[三表整合驗收與適用範圍](VERIFICATION-2026-11-19-M3-FINANCIALS.md)
+[損益票](../.scratch/m3-evidence-sources/issues/01-income.md)與[資產負債票](../.scratch/m3-evidence-sources/issues/02-balance.md)已在記錄樣本範圍完成；[現金流票](../.scratch/m3-evidence-sources/issues/03-cashflow.md)維持 `needs-info`。三表整合候選已重播十個私有研究版本。損益 22 筆均與發行人財報等值，資產負債 34 筆中有 22 筆等值。現金流的兩份發行人核對筆記共 12 筆，其原件封存與獨立文件差異仍待核。[三表整合驗收與適用範圍](VERIFICATION-2026-11-19-M3-FINANCIALS.md)
 
 **工作：** 按市場×一般業／金融／保險等產業×資產負債／損益／現金流量表建立mapping；不可把保險業API當成全市場通用格式。每一實際採用資料集獨立核對使用條件。
 

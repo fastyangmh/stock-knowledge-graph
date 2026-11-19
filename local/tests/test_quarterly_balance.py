@@ -1,22 +1,14 @@
 """Balance-sheet cells through normalization, the private ledger and bundle audit."""
-import csv
-import hashlib
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from local.bundle_audit import audit_bundle
-from local.quarterly_import import main
-from local.research import run
+from local.tests.quarterly_fixtures import HEADERS, normalize_csv, research, save_csv
 
 
-GENERAL_HEADER = (
-    '出表日期,年度,季別,公司代號,公司名稱,流動資產,非流動資產,資產總計,流動負債,非流動負債,負債總計,'
-    '股本,權益─具證券性質之虛擬通貨,資本公積,保留盈餘,其他權益,庫藏股票,歸屬於母公司業主之權益合計,'
-    '共同控制下前手權益,合併前非屬共同控制股權,非控制權益,權益總計,待註銷股本股數（單位：股）,'
-    '預收股款（權益項下）之約當發行股數（單位：股）,母公司暨子公司所持有之母公司庫藏股股數（單位：股）,每股參考淨值'
-).split(',')
+GENERAL_HEADER = HEADERS['94831']
 
 
 class BalanceImportTests(unittest.TestCase):
@@ -33,28 +25,14 @@ class BalanceImportTests(unittest.TestCase):
                     '權益總計': '40', '歸屬於母公司業主之權益合計': '-6', '每股參考淨值': '-0.35'}
 
     def save(self, columns=GENERAL_HEADER, observed='2020-11-10T06:00:00Z'):
-        raw = self.root / f'{self.dataset}.response'
-        with raw.open('w', encoding='utf-8-sig', newline='') as handle:
-            writer = csv.DictWriter(handle, fieldnames=columns, extrasaction='ignore')
-            writer.writeheader()
-            writer.writerow(self.row)
-        body = raw.read_bytes()
-        self.entry = dict(id=self.dataset, catalog=f'https://data.gov.tw/dataset/{self.dataset}',
-                          url='https://mopsfin.twse.com.tw/opendata/' + self.resource,
-                          received_at=observed, sha256=hashlib.sha256(body).hexdigest(),
-                          bytes=len(body), exit=0, status='200')
-        self.manifest.write_text(json.dumps([self.entry]))
+        self.entry = save_csv(self.root, self.dataset, self.resource, self.row,
+                              columns=columns, observed=observed)
 
     def normalize(self, *args):
-        main(['--dataset', str(self.dataset), '--manifest', str(self.manifest),
-              '--symbols', '1234', '--output', str(self.output), *args])
-        return json.loads(self.output.read_bytes())
+        return normalize_csv(self.manifest, self.dataset, '1234', self.output, *args)
 
     def research(self):
-        runs = self.root / 'runs'
-        report = run(self.output, ['1234'], history_db=self.root / 'ledger.db',
-                     output_root=runs, max_information_nodes=0)
-        return audit_bundle(runs, report['run'])
+        return research(self.root, self.output, '1234')
 
     def test_equity_parent_equity_and_book_value_are_separate_period_end_observations(self):
         self.save()
@@ -74,9 +52,6 @@ class BalanceImportTests(unittest.TestCase):
         self.assertEqual(payload['metadata']['missing_values'][0]['source_field'], '流動資產')
 
     def test_other_reviewed_resources_use_their_own_market_and_sector_headers(self):
-        from local.quarterly_balance import ADDITIONAL_FIELDS
-        identities = GENERAL_HEADER[:5]
-        totals = ['資產總計', '負債總計', '權益總計', '歸屬於母公司業主之權益合計', '每股參考淨值']
         for dataset, filename, market, sector, column, metric in (
             (91967, 't187ap07_O_ci.csv', 'TPEx', 'general', '流動資產', 'current_assets'),
             (94829, 't187ap07_L_basi.csv', 'TWSE', 'financial', '貼現及放款－淨額', 'net_loans_and_discounts'),
@@ -86,7 +61,7 @@ class BalanceImportTests(unittest.TestCase):
                 self.dataset, self.resource = dataset, filename
                 self.output = self.root / f'normalized-{dataset}.json'
                 self.row[column] = '1.5'
-                self.save([*identities, *totals, column, *ADDITIONAL_FIELDS.get(sector, ())])
+                self.save(HEADERS[str(dataset)])
                 payload = self.normalize()
                 source, = payload['sources']
                 self.assertEqual((source['market'], source['sector'], source['statement']),

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 from local.bundle_audit import audit_bundle
-from local.research import run
+from local.tests.quarterly_fixtures import research
 
 
 class CashflowTests(unittest.TestCase):
@@ -38,11 +38,8 @@ class CashflowTests(unittest.TestCase):
         main(['--notes', str(self.notes), '--sha256', hashlib.sha256(body).hexdigest(),
               '--output', str(self.output)])
 
-    def research(self):
-        runs = self.root / 'runs'
-        report = run(self.output, ['6488'], history_db=self.root/'ledger.db', output_root=runs,
-                     max_information_nodes=0)
-        return audit_bundle(runs, report['run'])
+    def research(self, **options):
+        return research(self.root, self.output, '6488', **options)
 
     def test_signed_flows_and_balance_boundaries_survive_research_and_audit(self):
         self.normalize()
@@ -74,7 +71,7 @@ class CashflowTests(unittest.TestCase):
         self.output = self.root / 'rejected.json'
         latest = (self.root/'runs/latest.json').read_bytes()
         for problem in ('empty locator', 'changed field', 'unsupported issuer', 'unexpected unit',
-                        'same document', 'different values', 'too early', 'no amounts', 'empty parentheses'):
+                        'same document', 'different values', 'too early', 'empty parentheses'):
             with self.subTest(problem=problem):
                 self.data = copy.deepcopy(valid)
                 primary, reference = self.data['editions']
@@ -93,10 +90,6 @@ class CashflowTests(unittest.TestCase):
                     cell['raw_value'] = '999'
                 elif problem == 'too early':
                     self.data['observed_at'] = '2025-10-01T00:00:00Z'
-                elif problem == 'no amounts':
-                    for edition in self.data['editions']:
-                        for item in edition['cells'].values():
-                            item['raw_value'] = '--'
                 else:
                     for edition in self.data['editions']:
                         edition['cells']['operating_cash_flow']['raw_value'] = '()'
@@ -123,6 +116,31 @@ class CashflowTests(unittest.TestCase):
             self.research()
         self.assertEqual(before, (self.root/'runs/latest.json').read_bytes())
         self.assertEqual(first.facts, audit_bundle(self.root/'runs', first.report['run']).facts)
+
+    def test_source_marked_missing_can_replace_prior_cashflow_cells(self):
+        self.normalize()
+        previous = self.research()
+        self.data['observed_at'] = '2025-11-21T08:00:00Z'
+        for edition in self.data['editions']:
+            for cell in edition['cells'].values():
+                cell['raw_value'] = '--'
+        self.output = self.root/'missing.json'
+        self.normalize()
+        self.assertEqual(self.research().facts['facts'], [])
+        self.assertEqual(self.research(known_at=previous.facts['scope']['known_at']).facts, previous.facts)
+
+    def test_conflicting_note_cannot_enter_ledger_through_an_earlier_cutoff(self):
+        self.normalize()
+        original = self.research()
+        cutoff = original.facts['scope']['known_at']
+        before = (self.root/'runs/latest.json').read_bytes()
+        for edition in self.data['editions']:
+            edition['cells']['investing_cash_flow']['raw_value'] = '2'
+        self.output = self.root/'conflict.json'
+        self.normalize()
+        with self.assertRaisesRegex(ValueError, 'conflicting same-time revision'):
+            self.research(known_at=cutoff)
+        self.assertEqual(before, (self.root/'runs/latest.json').read_bytes())
 
     def test_later_recheck_supersedes_earlier_observation(self):
         self.normalize()
