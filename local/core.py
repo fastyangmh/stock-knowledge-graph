@@ -65,7 +65,7 @@ def import_payload(conn, payload):
         conn.execute("""INSERT INTO stocks(stock_id,ticker,market,name,industry,updated_at) VALUES(?,?,?,?,?,?)
         ON CONFLICT(stock_id) DO UPDATE SET name=excluded.name,industry=excluded.industry,updated_at=excluded.updated_at""",
         (sid,s["ticker"],s["market"],s["name"],s.get("industry"),now()))
-        upsert_node(conn,"stock:"+sid,"stock",s["name"],sid,props={"ticker":s["ticker"],"industry":s.get("industry"),**{k:s[k] for k in ("source_id","source_url","license_url","attribution","universe_ids","universe_memberships","universe_group","universe_as_of") if k in s}})
+        upsert_node(conn,"stock:"+sid,"stock",s["name"],sid,props={"ticker":s["ticker"],"industry":s.get("industry"),**{k:s[k] for k in ("source_id","source_url","license_url","attribution","provider","raw_sha256","row_number","source_column","universe_ids","universe_memberships","universe_group","universe_as_of") if k in s}})
     for s in payload.get("sources",[]):
         conn.execute("""INSERT INTO sources(source_id,provider,url,license_type) VALUES(?,?,?,?)
         ON CONFLICT(source_id) DO UPDATE SET provider=excluded.provider,url=excluded.url,license_type=excluded.license_type""",
@@ -86,6 +86,10 @@ def import_payload(conn, payload):
         for key in ("source_url","license_url","attribution","period_end","unit","availability_basis","source_report_date","registered_at","input_snapshot_sha256"):
             if key in d:
                 props[key]=d[key]
+        if d["doc_type"] == "industry_report":
+            for key in ("industry", "relation_basis", "raw_sha256", "source_column", "row_number"):
+                if key in d:
+                    props[key] = d[key]
         upsert_node(conn,"doc:"+did,d["doc_type"],d["title"],document_id=did,props=props)
         # A provided stock_ids list replaces that document's links; an absent field preserves them.
         if "stock_ids" in d:
