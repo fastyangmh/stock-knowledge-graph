@@ -1,6 +1,8 @@
 # M6 真實私有研究總驗收
 
-**Status:** ready-for-agent
+**Status:** needs-info
+
+同候選 `02a8892` 已完成當前 macOS 的真實重建、兩市場更新與整組還原。行情獨立抽檢、目標主機復原及各原待辦的必要證據繼續追蹤。[同候選逐項驗收](../../docs/VERIFICATION-2026-11-19-M6.md)
 
 ## Problem Statement
 

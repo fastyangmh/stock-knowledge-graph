@@ -49,6 +49,7 @@
 
 | 文件 | 內容 |
 | --- | --- |
+| [M6 同候選私有驗收](VERIFICATION-2026-11-19-M6.md) | 原始收據與 37 版重建、兩種備份契約、從還原檔再次研究及原 21 項完成條件 |
 | [官方來源](DATA_SOURCES.md) | 逐資料集核對 |
 | [季報匯入](QUARTERLY_STATEMENTS.md) · [資產負債](QUARTERLY_BALANCE.md) · [現金流](QUARTERLY_CASHFLOW.md) | 按報表、產業、期間及欄位查看已核對尺度與原始定位 |
 | [法人](INSTITUTIONAL_TRADING.md) · [融資融券](MARGIN_TRADING.md) · [重大訊息](ANNOUNCEMENTS.md) | 來源條件、私有 CLI、實際市場與可查核的歷史版本 |
