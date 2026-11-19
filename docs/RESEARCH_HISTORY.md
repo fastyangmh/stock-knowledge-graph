@@ -71,6 +71,8 @@ uv run --locked python -m local.research_compare \
 
 只讀取已驗證版本，輸出JSON到stdout；不覆寫來源。較早版本的known_at晚於較後版本時拒絕；同一截止時間可比較不同版本設定。同版自比不會捏造新事件。若需要保存輸出，請自行導向 `local/private/`，勿提交私有資料到公開Issue。
 
+在上述命令加入 `--price-review` 可核對兩版當日的原始收盤價、來源與公司行為。可另指定已保存的上櫃除權息證據。詳見[價格區間核對](PRICE_ACTION_REVIEW.md)。
+
 ## 真實 HTTP 瀏覽器驗收
 
 另備 Playwright／Chromium 後，可執行兩個 opt-in 模式（不改 `uv.lock`）：
