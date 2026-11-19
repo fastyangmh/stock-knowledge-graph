@@ -88,3 +88,31 @@ uv run --locked python -m local.preview \
 ## 跨版本提醒比較
 
 現在可透過[研究歷史](RESEARCH_HISTORY.md)比較兩個已儲存版本。只有同規則與相關設定、同來源定義、前後皆可評估的結果，才會標示新達或未再達門檻；資料缺漏、首次可評估及股票範圍變更另外標記。新版價量證據增加market／price_unit／price_basis，舊報告未保存時不猜測比較基準。仍不計算報酬或合併評分。
+
+## 私有品質報告與逐規則分母
+
+每個研究版本庫可重播一份 `alert-quality-1` 報告。以下範例讀取截至指定時間已保存的版本。請以實際目錄與截止時間執行。
+
+```bash
+uv run --locked python -m local.alert_quality \
+  --root local/private/research-runs \
+  --as-of 2026-11-19T03:00:00Z \
+  --output local/private/alert-quality/report-001.json
+```
+
+CLI 先稽核整個版本庫與最新版本指標，最多讀 50 個版本及 256 MiB。有壞檔時會報錯。JSON 寫在研究庫以外的私有位置，上限 32 MiB。同內容可重跑，不同內容須使用新檔名。
+
+| 報告欄位 | 核對方式 |
+| --- | --- |
+| `inputs` | 以 run ID 查 `known_at`、`completed_at`、選取範圍、封存報告 SHA256 與事實範圍。超過報告截止、或當時未開啟提醒的 run 各自有原因。 |
+| `rules` | 六條規則各有 `saved`（每次保存）和 `first_saved`（每個案例首次保存）的分母。四種狀態均列零值，`evaluable` 加總觸發與未觸發，`unavailable` 加總不足與不可比，`reasons` 說明原因。此表僅盤點案例數，不對不同門檻、尺度或來源的數值取平均。 |
+| `definition_groups` | 依規則版本、該規則使用的設定、公式、閾值、單位、來源與數值定義分開計數。每一版完整設定另在 `inputs[run].config`。 |
+| `cases[].captures` | 同股票、目標期別及定義的每次保存。可從 `check` 看公式、比較值、基準日期、所需筆數、原因、證據及原始 alert ID。期別或整組來源證據缺失時，每次保存獨立計數。 |
+| `inputs[run].raw_sources` | 行情證據逐筆帶 `raw_sha256`。營收以 `check.evidence[].input_snapshot_sha256` 查正規化快照內同 `dataset_id` 的原始收據。舊版本缺收據時保留缺口。 |
+| `inputs[run].revision_notices` | 查該版已保存的行情或月營收通知、對象、日期與目標雜湊，另可依通知雜湊／來源參考回看封存檔。缺少通知時無法判定發布者是否正式更正或撤回。 |
+
+依 `completed_at` 排序保留首次保存。跨版本的 `change` 以同案例的前一筆保存為基準。`repeat` 表示規則證據相同；同日或同月的同一輸入數值變動標記 `value_revised`。只有證據時間、快照等不同時標記 `provenance_changed`；觀察日期集合或計算狀態改變也各有標記。同時保存的相異計算結果無法決定先後，CLI 會停止。新設定或來源列入另一個定義。報價單位 `source_reported` 保持原值。
+
+可額外指定 `--calendar PATH` 讀已保存的市場日曆，並用可重複的 `--action-manifest PATH` 讀已保存的官方 11633 收據。每筆 `price_context` 只使用該 run 的 `known_at` 前已保存的日曆與已收的事件證據，列出提醒視窗中有開市旁證卻沒有觀察的日期、日曆衝突與未涵蓋天數。查缺口成因可接續使用[交易日完整性報告](CALENDAR_COVERAGE.md)。已知上櫃除權息落在首筆觀察日之後、末筆觀察日以前（含末日）時，列出市場、股票、日期及原始 CSV 列號。此旁證保留原規則結果，並列出分割、減資等完整區間仍未知的限制。[價格基準與 11633 適用範圍](PRICE_ACTION_REVIEW.md)
+
+數學觸發僅表示越過當時設定。未還原的價差可能來自除權息，觀察資料漏日可能改變價量基準，晚到修訂也可能改變同一期間的結果。現有樣本沒有可用於認定誤報的獨立標籤。真實兩市場六版逐例對照、尚缺的行情筆數與營收期別記在[品質驗收票](../.scratch/m4-research-quality/issues/01-alert-quality.md)。
