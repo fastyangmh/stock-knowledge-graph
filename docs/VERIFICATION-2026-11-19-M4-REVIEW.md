@@ -36,3 +36,9 @@
 可在候選 checkout 使用以上目錄的絕對路徑依次執行 `generate.py`、`verify.py`、`replay.py`、`expanded-replay.py`。品質核對使用同一鎖定 Python 環境。Chromium 私有腳本使用已備妥的 Playwright 環境。合成回歸入口為 `scripts/event_facts_browser_smoke.py --chromium <執行檔> --report <私有新路徑>`。
 
 可用真實歷史僅含兩日行情與一個月營收。20 筆前窗、第 5／20 筆後續、到期 1／3／6 月營收、同股不同事件重疊、真實修訂／公司行為、P1-02 行情尺度與誤報人工標籤仍待相應證據。Linux／NAS 需在目標環境另驗。
+
+## 開發分支整合重驗
+
+在 `b20fb50` 對另外一個從原件重建的 37 版兩市場共用目錄執行 `local.alert_quality` 及 `local.event_study`。其中 33 版未執行提醒，四版共有 48 筆規則狀態。首次保存的 32 個案例中有 12 個可計算、20 個資料不足，2 個觸發。逐版本的 48 筆中共有 4 次觸發，事件報告計為 2 個首次事件與 2 次重存。擴充前報告與新版報告各自重播後，canonical bytes 均與原檔相同。
+
+兩市場的圖譜、37 版歷史、新版事件六頁經 Chromium 桌機與手機寬度實測通過。完整套件通過 654 個 pytest、402 個 subtests、56 個 Node 測試；原有 924 個基準檔及先前兩市場各三版仍可驗。私有重跑程式、兩份報告、瀏覽器與完整測試紀錄位於 `local/private/m6-preflight/` 下的 `verify-quality-portfolio.py`、`quality-portfolio-b20fb50/`、`browser-portfolio-b20fb50/`、`post-b20fb50/` 及 `check-b20fb50.json`。

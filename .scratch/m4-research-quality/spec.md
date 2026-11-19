@@ -1,6 +1,8 @@
 # M4 私有提醒品質與事件描述統計
 
-**Status:** ready-for-agent
+**Status:** needs-info
+
+六條規則的分母、分組、截止重播、舊讀者與已保存的真實事件已通過[雙軸審查與重驗](../../docs/VERIFICATION-2026-11-19-M4-REVIEW.md)。P3-01 的長期與人工判讀案例仍需更多同來源、按時保存的歷史；P4A-01 的已核准工程與當前樣本交付已記在票 02。
 
 ## Problem Statement
 
