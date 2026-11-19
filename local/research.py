@@ -137,7 +137,7 @@ def _reuse_cache(conn, prior, model_name, revision):
 def run(input_file, symbols, *, history_db, output_root, analysis="none", known_at=None,
         prices_db=None, trade_date=None, price_market="twse", price_snapshots=None, model=DEFAULT_MODEL, revision=None,
         top_k=10, threshold=0.65, max_pairs=2_000_000, lookback_days=None, encoder=None,
-        alerts=False, alerts_config=None, max_information_nodes=100, enable_source_revisions=False):
+        alerts=False, alerts_config=None, max_information_nodes=100, enable_source_revisions=False, encoder_loader=None):
     """Materialize an isolated research database from as-recorded observations."""
     stock_ids = validate_symbols(symbols)
     if type(max_information_nodes) is not int or not 0 <= max_information_nodes <= 100:
@@ -225,7 +225,7 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
                 cached = _reuse_cache(conn, prior, model, revision) if analysis == "semantic" else 0
                 stats = {"mode": analysis, "encoded": 0, "pairs_evaluated": 0}
                 if analysis == "semantic":
-                    stats.update(compute_semantic(conn, model_name=model, revision=revision, encoder=encoder,
+                    stats.update(compute_semantic(conn, model_name=model, revision=revision, encoder=encoder, encoder_loader=encoder_loader,
                                  top_k=top_k, threshold=threshold, max_pairs=max_pairs,
                                  as_of=cutoff, lookback_days=lookback_days))
                 elif analysis == "lexical":
