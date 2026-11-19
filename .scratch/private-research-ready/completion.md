@@ -17,10 +17,10 @@
 | M3 | [P1-05](../../docs/DEVELOPMENT_BACKLOG.md#p1-05重大訊息新聞與產業證據) | [兩市場共 148 筆正式公告、跨兩股關聯、兩組更正、兩份新聞索引與產業季表已重播](../../docs/VERIFICATION-2026-11-19-M3-SOURCE-REVIEW.md) | 需可定位的真實撤回、第三方新聞權利及獨立產業分類 |
 | M4 | [P3-01](../../docs/DEVELOPMENT_BACKLOG.md#p3-01提醒品質與可解釋性) | [四檔股票 32 個規則／期間組合已對照來源](../m4-research-quality/issues/01-alert-quality.md)，私有 CLI 的 72 筆保存與逐例核算相符 | 補 20 筆同來源較早行情、相鄰營收月份及 P1-02 行情定義，核對長窗與修訂等真實案例 |
 | M4 | [P4A-01](../../docs/DEVELOPMENT_BACKLOG.md#p4a-01事件後描述統計擴充) | [兩市場三代事件報告及六規則雙軸重驗](../../docs/VERIFICATION-2026-11-19-M4-REVIEW.md)，各驗一個首次事件、兩次重複保存與兩個第 1 筆後續值 | 補第 5／20 筆行情、到期的 1／3／6 月營收、同股不同事件重疊及正式公司行為案例 |
-| M5 | [P0-03](../../docs/DEVELOPMENT_BACKLOG.md#p0-03復原與備份) | 在 macOS 同一裝置還原兩市場四組共十個版本，另以[混合財報庫還原 26 個版本、618 條引用](../m6-private-acceptance/issues/01-real-rehearsal.md) | 待全部必要來源整合後重跑，並在 Linux／NAS 與獨立儲存實測 |
-| M5 | [P2-05](../../docs/DEVELOPMENT_BACKLOG.md#p2-05容量量測與ann評估) | 有固定模型快取及精確 Top-K 工作預算 | 固定資料尺度，量測 CPU、記憶體、輸出與瀏覽器成本後決定索引需求 |
-| M5 | [P2-06](../../docs/DEVELOPMENT_BACKLOG.md#p2-06儲存預算與封存) | 已有部分讀取與工作量上限 | 盤點各類實際路徑、增長與超限，驗證封存 dry-run、還原及事件引用 |
-| M5 | [OPS-01](../../docs/DEVELOPMENT_BACKLOG.md#ops-01完整手動更新流程) | 個別 CLI 與私有一次性整合程序已運作 | 可重跑的分階段手動入口，驗部分失敗、健康報告及舊 pointer 保全 |
+| M5 | [P0-03](../../docs/DEVELOPMENT_BACKLOG.md#p0-03復原與備份) | [v2 還原 37 個版本、28 個來源快照，兩市場舊 v1 揭露月報 registry 缺件](../../docs/VERIFICATION-2026-11-19-M5-REVIEW.md) | Linux／NAS 與獨立儲存實測 |
+| M5 | [P2-05](../../docs/DEVELOPMENT_BACKLOG.md#p2-05容量量測與ann評估) | [固定模型的 32／128／512 文件已量測冷熱快取、CPU、RSS、精確邊及九次 Chromium](../../docs/VERIFICATION-2026-11-19-M5-REVIEW.md) | 更大尺度或新主機時重測 |
+| M5 | [P2-06](../../docs/DEVELOPMENT_BACKLOG.md#p2-06儲存預算與封存) | [完成分類、增長、唯讀盤點；單一 run 作根、組合封存與還原均已重驗](../../docs/VERIFICATION-2026-11-19-M5-REVIEW.md) | 實際刪除需保留期授權 |
+| M5 | [OPS-01](../../docs/DEVELOPMENT_BACKLOG.md#ops-01完整手動更新流程) | [兩市場手動原件、來源重試、候選與作業報告故障均已驗證](../../docs/VERIFICATION-2026-11-19-M5-REVIEW.md) | 持續到件與實際線上穩定性待驗 |
 | M6 | M1～M5 | [已在 macOS 預演原件重建、模型快取、兩類提醒、六頁真實瀏覽器與四個 SQLite 復原](../m6-private-acceptance/issues/01-real-rehearsal.md) | 同候選版本用真實來源重建、抽檢、復原及 audit，逐項對照完成條件 |
 
 ## 後續規格與可執行票

@@ -1,6 +1,8 @@
 # M5 手動維運、容量與私有研究復原
 
-**Status:** ready-for-agent
+**Status:** needs-info（01、03、04 已驗；02 尚待 Linux／NAS 和獨立媒體復原）
+
+[2026-11-19 雙軸審查修復與 37 版復原](../../docs/VERIFICATION-2026-11-19-M5-REVIEW.md)
 
 ## Problem Statement
 

@@ -118,6 +118,7 @@ uv run --locked python -m local.portable_backup create \
   --ledger local/private/history.db --runs local/private/research-runs \
   --input local/private/normalized.json --raw local/private/official \
   --prices-db local/private/prices.db --price-snapshots local/private/prices \
+  --config local/private/financial-registry.json \
   --event local/private/events/report.json --config local/private/event-policy.json \
   --output local/private/backups/portfolio-001
 
@@ -132,6 +133,9 @@ uv run --locked python -m local.bundle_audit --root local/private/restored-001/r
 
 - 每個 `--input`、`--event`、`--config` 指定一個檔案，`--raw` 可指定檔案或目錄，各旗標皆可重複。同類輸入的末段名稱須唯一。有行情時同時提供行情庫和對應 CSV 目錄。設定隨版本報告保留，另有私有設定檔時可明示封存。只選本次用途所需的原件和設定。
 - `manifest.json` 記錄相對目錄、逐檔路徑、類別、大小與 SHA256，以及研究版本所需來源和模型 revision。引用清單將 ledger、原始快照、收據、單位核對與事件對回封存內的檔案。模型權重不在這個介面的資料類別內。既有單一 SQLite 工作仍用 `local.backup`。
+- v2 的 `create --max-runs N --max-mib M` 指定 catalog 的版本數和總容量。預設 50 版、256 MiB，分別可設到 500 版、4096 MiB。verify 與 restore 自動重用封存內的預算。
+- 公司／月營收須提供原 `retrieval_manifest.json` 與同目錄結構的 CSV，以及私有副本中的已啟用來源 registry。季度財報、籌碼、公告、產業和新聞須提供其擷取收據及相鄰的 `<dataset>.response`；單位證明、財報人工複核、現金流筆記、公告選列與人工連結設定按實際來源提供。只以正規化輸入為來源的自訂研究按其原有範圍核對。HTTP 失敗收據的截斷片段按實存 bytes 與 captured SHA256 驗證。
+- 舊版 v1 可以直接 verify／restore；CLI 的 `verification.contract` 與 `source_replay_gaps` 分列原封存契約及逐快照無法重播的原因。要補成完整 v2，保留原封存，從新還原位置搭配缺少的原收據與 registry，再對新的輸出目錄執行 create。[雙軸審查、真實舊檔與 37 版復原](VERIFICATION-2026-11-19-M5-REVIEW.md)
 - 建立時使用 SQLite online backup 取得已提交的 WAL。不可變研究版本內的 `graph.db` 按原始 bytes 複製，維持舊報告的 hash。程式持有研究及所選來源目錄的協作鎖，檢查建檔前後的目錄、檔案身分、大小、時間戳，以及 SQLite WAL／journal。來源正在更新而導致拒絕時，待寫入者完成後再執行。
 - 還原先檢查完整目錄與檔案清單，再於目的地同一檔案系統暫存、重播 ledger、按歷史 cutoff 重讀行情原件、稽核 graph 和重算列入的事件報告。目的檔案系統須支援排他目錄 rename。遇到檔案缺漏、引用不符、連結或既有目的地時會回傳非零。收到成功退出後再使用新目錄的 `runs/latest.json`。強制終止可能留有隱藏暫存目錄，舊成功版本仍可讀。
 - 2026-11-19 的真實驗證使用 macOS 同一 APFS 裝置的不同目錄。移轉後須在 Linux／NAS 和獨立媒體上重跑建立、離線驗證與全新還原。實際停電後的耐久性需在目標設備另驗。[P0-03 演練紀錄](../.scratch/m5-private-operations/issues/02-restore.md)

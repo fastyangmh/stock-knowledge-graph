@@ -23,3 +23,7 @@
 - 私有重跑工具及原始輸出留在 `local/private/m5-manual-2026-11-19/ops01-v1/`。該處 `exercise.py` 產生 `replay-5ce1056/`，其 `summary.json`、分市場的 `*-command.json`、報告、原件、SQLite 與 bundle 可用來重驗。各作業根位於 `replay-5ce1056/operations/<market>/`。
 - 完整套件以 `uv run --locked python -m local.check --frontend` 驗證。第一次受限沙箱無法通過 loopback 情境，保留 `full-sandbox-5ce1056.json`。依環境權限重跑 exit 0，667 個 pytest、410 個 subtests、55 個 Node 測試通過，證據為 `full-5ce1056.json`。
 - 本次網路取得與失敗重試使用合成 HTTP 邊界。實際兩市場使用既有官方原件，未測此次線上來源是否到件或每日穩定性。Linux／NAS 實機另驗，M1 09／10 仍為 `needs-info`；行情的官方尺度及交易範圍不因通過此票改變。
+
+## 雙軸重驗
+
+兩市場真實原檔在模擬 HTTP 邊界各注入一格錯值，只補抓月報。兩市場的候選提醒及報告寫入故障均維持舊 catalog、事件輸入與 latest，同 job 重試可完成。[修復、操作與私有證據](../../../docs/VERIFICATION-2026-11-19-M5-REVIEW.md)

@@ -44,3 +44,7 @@
 - 在這台機器與這組三語短文件上，保留精確模式，已量到 512 份／130,816 對。建議在相似研究明示此上限；原 research CLI 預設的 2,000,000 對只是計數護欄。超過此次尺度、文件顯著變長、模型／硬體改變，或重建成本超過作業可用時間或記憶體時，先重測精確基準，再決定是否另立索引相容、快取失效、增刪修訂票。兩次程序計時不能估算長尾；模型檔案系統快取、其他負載及 CDN 都會影響結果。
 - 原始報告在 `local/private/m5-capacity-preflight/verified-10ca004-r2/{summary.json,browser.json,overbudget.json,check-frontend.json}` 與 `verified-10ca004-repeat/summary.json`。沙箱第一次拒絕硬體探測，另選新目錄取得完整結果。未量 NAS、其他模型、長篇真實全文或 ANN。
 - 乾淨候選 `10ca004` 執行 `uv run --locked python -m local.check --frontend`，exit 0，621 個 pytest、344 個 subtests、55 個 Node 測試；另有上述真實模型與 Chromium 驗收。文件變更另執行 `git diff --check`。
+
+## 雙軸重驗
+
+在最終產品重跑 32、128、512 份冷熱快取，六組精確對照全部通過，Chromium 經既有 CDN 實際載入九次。[修復、操作與私有證據](../../../docs/VERIFICATION-2026-11-19-M5-REVIEW.md)

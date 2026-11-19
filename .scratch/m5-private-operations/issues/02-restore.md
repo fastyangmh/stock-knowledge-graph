@@ -26,3 +26,7 @@
 - 合成 CLI 覆蓋持續開啟中的 WAL 交易、未變更指標的中途 I/O 失敗、複製中變動的 WAL／指標、事件來源雜湊、單位證明及收據的原件、檔案類別、路徑逃逸、symlink／hard link、缺檔、競爭建立空目錄與成功開啟還原資料。舊的 SQLite 備份測試持續通過。[測試](../../../local/tests/test_portable_backup.py)
 - 完整 `uv run --locked python -m local.check --frontend` 在允許 loopback 的當前環境 exit 0，615 pytest、344 subtests、55 Node tests。先前沙盒內的 HTTP 測試因埠綁定失敗，保留兩份私有輸出。此次未另跑瀏覽器。實際參數、雜湊、故障、重播輸出與完整報告保存於 `local/private/m5-restore-2026-11-19/`。
 - 待取得 Linux／NAS、獨立儲存媒體後，將封存搬到該裝置並在新位置重跑 verify／restore／audit；目前同機證據未涵蓋獨立裝置、實際斷電、異地故障或檔案系統不支援排他 rename 時的成功復原。
+
+## 雙軸重驗
+
+已在 macOS 完成 37 版／28 份原始輸入組合的還原及八類適配器重建。另重驗舊 v1、51 版與截斷失敗收據，Linux／NAS 和獨立媒體仍待實機。[修復、操作與私有證據](../../../docs/VERIFICATION-2026-11-19-M5-REVIEW.md)
