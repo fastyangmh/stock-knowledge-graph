@@ -5,7 +5,7 @@ from datetime import timedelta
 from hashlib import sha256
 from pathlib import Path
 
-from .alerts import CAVEATS, RULES, STATUSES, number
+from .alerts import CAVEATS, RULES, STATUSES, definition_number, number
 from .calendar_archive import MIB
 from .calendar_coverage import audited_bundles, calendar_day, load_calendar
 from .dates import analysis_cutoff, iso_date, timestamp
@@ -37,8 +37,8 @@ def definition(alert, check):
     for row in check["evidence"]:
         source = {field: row.get(field) for field in ("source_id", "source_url", *fields)}
         sources[canonical(source)] = source
-    return {"version": alert["schema_version"], "settings": {k: alert["config"][k] for k in CONFIG_KEYS[rule]},
-            "formula": check["formula"], "threshold": check["threshold"], "unit": check["unit"],
+    return {"version": alert["schema_version"], "settings": {k: definition_number(k, alert["config"][k]) for k in CONFIG_KEYS[rule]},
+            "formula": check["formula"], "threshold": definition_number(CONFIG_KEYS[rule][0], check["threshold"]), "unit": check["unit"],
             "sources": [sources[key] for key in sorted(sources)]}
 
 
@@ -221,7 +221,7 @@ def build(root, as_of, *, calendar=None, manifests=()):
     scope = "saved_alerts" if cases else "no_alerts_computed"
     if all(info["status"] == "after_analysis_cutoff" for info in inputs.values()):
         scope = "no_saved_run_by_cutoff"
-    return {"schema_version": "alert-quality-1", "definition_groups": definitions, "scope_status": scope, "as_of": cutoff.isoformat(),
+    return {"schema_version": "alert-quality-2", "definition_groups": definitions, "scope_status": scope, "as_of": cutoff.isoformat(),
             "calendar_evidence": [{k: row[k] for k in ("id", "market", "start", "end", "sha256", "saved_at", "source_url")}
                                   for row in calendar_entries], "action_sources": sources,
             "rules": rules, "cases": list(cases.values()), "inputs": inputs, "warnings": CAVEATS}

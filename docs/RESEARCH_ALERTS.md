@@ -91,7 +91,7 @@ uv run --locked python -m local.preview \
 
 ## 私有品質報告與逐規則分母
 
-每個研究版本庫可重播一份 `alert-quality-1` 報告。以下範例讀取截至指定時間已保存的版本。請以實際目錄與截止時間執行。
+每個研究版本庫可產生 `alert-quality-2` 報告。相同數值門檻的 JSON 寫法（例如 `30` 與 `30.0`）共用首次案例，保存次數仍逐版計入。先前的 `alert-quality-1` 使用原 JSON 數字表示產生定義 ID。以下範例讀取截至指定時間已保存的版本。請以實際目錄與截止時間執行。
 
 ```bash
 uv run --locked python -m local.alert_quality \

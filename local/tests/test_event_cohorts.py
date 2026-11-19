@@ -12,7 +12,7 @@ class EventCohortTests(unittest.TestCase):
         default = analyze([first], ASOF)
         custom = analyze([first], ASOF, {"max_quote_gap_days": 4})
         self.assertEqual(event(default)["event_id"], event(custom)["event_id"])
-        self.assertEqual(default["cohort_policy"]["version"], "event-cohorts-1")
+        self.assertEqual(default["cohort_policy"]["version"], "event-cohorts-2")
         self.assertNotEqual(default["cohort_policy"]["settings_id"], custom["cohort_policy"]["settings_id"])
         for report in (default, custom):
             groups = report["categories"]["price_volume"]["summaries"]
@@ -42,6 +42,15 @@ class EventCohortTests(unittest.TestCase):
         missing = outcome(result, metric="revenue_yoy_change_pp")
         self.assertEqual(missing["reason"], "target_month_not_saved_no_nearest_month_fill")
         self.assertFalse(missing["followup_window"]["right_censored"])
+
+    def test_target_month_closes_at_taipei_midnight_on_next_month(self):
+        first = complete_bundle(alerts=True)
+        for cutoff in ("2020-08-31T00:00:00+08:00", "2020-08-31T15:59:59Z"):
+            row = outcome(analyze([first], cutoff), metric="revenue_yoy_change_pp")
+            self.assertEqual((row["status"], row["followup_window"]["right_censored"]), ("pending", True))
+        row = outcome(analyze([first], "2020-08-31T16:00:00Z"), metric="revenue_yoy_change_pp")
+        self.assertEqual((row["reason"], row["followup_window"]["right_censored"]),
+                         ("target_month_not_saved_no_nearest_month_fill", False))
 
     def test_zero_observed_groups_trace_reason_and_censoring_to_events(self):
         first = complete_bundle(alerts=True)
@@ -150,6 +159,32 @@ class EventCohortTests(unittest.TestCase):
         groups = summarize([e])
         self.assertTrue(all(g["n_total"]==1 and "settings_id" not in g and "n_right_censored" not in g for g in groups))
 
+    def test_replay_uses_only_saved_included_and_excluded_inputs(self):
+        import copy
+        from event_fixtures import bundle
+        from local.event_study import replay_report
+        first = complete_bundle(alerts=True)
+        late = complete_bundle(2, "2021-01-01")
+        saved = analyze([first, late], ASOF)
+        added = [complete_bundle(3, "2021-01-02"), bundle(4, alerts=True)]
+        self.assertEqual(replay_report([first, late, *added], saved), saved)
+        for missing in ([first], [late]):
+            with self.assertRaisesRegex(ValueError, "missing saved"):
+                replay_report(missing, saved)
+        for label in ("inputs", "excluded_inputs"):
+            changed = copy.deepcopy(saved)
+            changed[label][0]["report_sha256"] = "e" * 64
+            with self.assertRaisesRegex(ValueError, "hash"):
+                replay_report([first, late], changed)
+        broken = copy.deepcopy(saved)
+        broken["excluded_inputs"].append(broken["inputs"][0])
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            replay_report([first, late], broken)
+        broken = copy.deepcopy(saved)
+        broken["excluded_inputs"][0]["reason"] = "different_fact_scope"
+        with self.assertRaisesRegex(ValueError, "differ"):
+            replay_report([first, late], broken)
+
     def test_archive_replay_recreates_original_study_ids_for_both_fact_scopes(self):
         from event_fixtures import bundle
         from local.event_study import replay_report
@@ -159,9 +194,13 @@ class EventCohortTests(unittest.TestCase):
         for factory, version, digest in cases:
             inputs = [factory(alerts=True),factory(2,"2020-08-16",close="115.5")]
             current = analyze(inputs, ASOF, CONFIG)
-            archived = {k:v for k,v in current.items() if k!="cohort_policy"}
+            archived = analyze(inputs, ASOF, CONFIG, cohort_version=None)
             rebuilt = replay_report(inputs, archived)
             self.assertEqual((rebuilt["schema_version"], rebuilt["study_id"]), (version,digest))
+            traced = analyze(inputs, ASOF, CONFIG, cohort_version="event-cohorts-1")
+            previous = {"event-study-1.0": "529adcff1912c33d1f381c7950c2a35b5a5ab92408b746ef598a3d20eb03a964",
+                        "event-study-2.0": "cc4131dd2f5d9cd41ef2da4f59ceabeee1a352a8ff3d8b454f9fc13d441cef4a"}
+            self.assertEqual(replay_report(inputs, traced)["study_id"], previous[version])
             self.assertEqual(replay_report(inputs,current),current)
             current["cohort_policy"]={"version":"future"}
             with self.assertRaisesRegex(ValueError, "unsupported"):

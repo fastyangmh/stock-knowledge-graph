@@ -58,6 +58,11 @@ def text_number(value):
         return format(value.quantize(Decimal("0.000001")), "f")
 
 
+def definition_number(setting, value):
+    """Keep each setting's documented numeric type when hashing a definition."""
+    return float(value) if isinstance(DEFAULTS[setting], float) else value
+
+
 def policy(overrides=None):
     if overrides is not None and (not isinstance(overrides, dict) or set(overrides)-set(DEFAULTS)):
         raise ValueError("unknown alert configuration keys")

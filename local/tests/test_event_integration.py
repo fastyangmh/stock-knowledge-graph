@@ -42,6 +42,30 @@ def research_run(root,n,day,close,volume,*,alerts=False,data=None,cap=100):
 
 
 class EventDefinitionIntegrationTests(unittest.TestCase):
+    def test_impossible_baselines_keep_denominators_without_open_windows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data = payload()
+            for row in data["financial_metrics"]:
+                if row["metric"] == "monthly_revenue":
+                    row.update(unit="TWD", currency="TWD", value=0)
+            research_run(root, 0, "2020-08-15", "--", 0, data=data, alerts=True)
+            report = build(root / "runs", "2020-08-15T23:00:00+08:00")
+            events = report["categories"]["monthly_revenue"]["events"]
+            self.assertEqual(len(events), 4)
+            for event in events:
+                for row in event["outcomes"]:
+                    if row["metric"] == "revenue_yoy_change_pp":
+                        self.assertTrue(row["followup_window"]["right_censored"])
+                        continue
+                    self.assertEqual(row["status"], "not_comparable")
+                    window = row["followup_window"]
+                    self.assertEqual((window["right_censored"], window["end_at"],
+                                      window["same_stock_overlapping_events"]), (False, None, None))
+            for group in report["categories"]["monthly_revenue"]["summaries"]:
+                if group["metric"] != "revenue_yoy_change_pp":
+                    self.assertEqual((group["n_total"], group["n_unavailable"], group["n_right_censored"]), (1, 1, 0))
+
     def test_audited_unit_versions_keep_both_first_captures_and_summary_denominators(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -47,7 +47,36 @@ test('versioned cohort reader checks both directions of event membership and exc
     followup_window:{start_at:event.event_at,end_at:'2020-08-16T12:00:00Z',right_censored:true,same_stock_overlapping_events:0}});
   Object.assign(group,{settings_id:settings,n_right_censored:1,n_observed:0,n_unavailable:1,statistics:null,
     status_counts:{observed:0,pending:1,insufficient_data:0,not_comparable:0},unavailable_by_reason:{[row.reason]:[event.event_id]}});
+  r.fact_scope='display_graph_only';r.cohort_selection='explicit';
+  const run='1'.repeat(32), digest='a'.repeat(64), other='2'.repeat(32), excluded='e'.repeat(64);
+  const repeat='3'.repeat(32), stamp=event.event_at;
+  r.inputs=[run,repeat].map(run=>({run,report_sha256:digest,completed_at:stamp,fact_scope:r.fact_scope}));
+  r.excluded_inputs=[{run:other,report_sha256:digest,completed_at:stamp,
+    fact_scope:'unpruned_facts',reason:'different_fact_scope'}];
+  Object.assign(r.counts,{included_runs:2,runs_after_cutoff:0,runs_excluded_by_cohort:1,
+    events_excluded_by_origin:1,duplicate_period_events_suppressed:1});
+  r.cohorts={display_graph_only:{total_runs:2,included_runs:2,excluded_runs:0},
+    unpruned_facts:{total_runs:1,included_runs:0,excluded_runs:1}};
+  r.excluded_events=[{event_id:excluded,category:'monthly_revenue',rule_id:'revenue_yoy',first_run:other,
+    first_event_at:stamp,first_fact_scope:'unpruned_facts',first_report_sha256:digest,
+    reason:'first_trigger_saved_in_other_cohort',selected_runs:[run]}];
+  r.categories.monthly_revenue.excluded_by_origin=[excluded];r.categories.price_volume.excluded_by_origin=[];
+  Object.assign(event,{run,report_sha256:digest,definition_id:digest,repeat_runs:[repeat],repeated_captures:1});
+  Object.assign(row,{horizon_unit:'quote_observations',unit:'percent',basis:{source_id:'fixture'}});
+  Object.assign(group,{definition_id:digest,unit:row.unit,basis:{...row.basis}});
   validate(r);
+  const mutations=[
+    v=>{v.categories.price_volume.summaries[0].rule_id='revenue_yoy';},
+    v=>{v.categories.price_volume.summaries[0].definition_id='b'.repeat(64);},
+    v=>{v.categories.price_volume.summaries[0].basis.source_id='other';},
+    v=>{v.categories.price_volume.summaries[0].unit='ratio';},
+    v=>{v.categories.price_volume.events[0].repeat_runs[0]='9'.repeat(32);},
+    v=>{v.categories.monthly_revenue.excluded_by_origin[0]='9'.repeat(64);},
+    v=>{v.excluded_events[0].selected_runs=['9'.repeat(32)];},
+  ];
+  for (const mutate of mutations) {
+    const altered=structuredClone(r); mutate(altered); assert.throws(()=>validate(altered),undefined,String(mutate));
+  }
   row.group_id='a'.repeat(64);assert.throws(()=>validate(r));row.group_id=group.group_id;
   group.unavailable_by_reason={};assert.throws(()=>validate(r));group.unavailable_by_reason={[row.reason]:[event.event_id]};
   group.n_right_censored=0;assert.throws(()=>validate(r));group.n_right_censored=1;

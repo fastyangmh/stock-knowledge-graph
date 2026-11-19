@@ -11,6 +11,36 @@
   const metrics = {close_change_pct:'收盤價變化（%）',volume_ratio:'成交股數倍數',
     revenue_change_pct:'月營收數值變化（%）',revenue_yoy_change_pp:'年增率變化（百分點）'};
   function validNumber(x) {return typeof x==='string' && x.trim()!=='' && Number.isFinite(Number(x));}
+  function ruleCategory(rule) {
+    if (!Object.hasOwn(titles,rule)) return null;
+    return rule==='price_change' || rule==='volume_ratio' ? 'price_volume' : 'monthly_revenue';
+  }
+  function sameBasis(a,b) {
+    return a && b && Object.keys(a).length===Object.keys(b).length &&
+      Object.keys(a).every(key=>Object.hasOwn(b,key) && a[key]===b[key]);
+  }
+  function traceInputs(report) {
+    if (!report.fact_scope) throw new Error('缺少可追查的版本清單');
+    const included=new Map(report.inputs.map(ref=>[ref.run,ref]));
+    const excluded=new Map(report.excluded_inputs.map(ref=>[ref.run,ref]));
+    if (included.size!==report.inputs.length || excluded.size!==report.excluded_inputs.length ||
+        [...included.keys()].some(run=>excluded.has(run))) throw new Error('保存版本重複');
+    const origins=new Map();
+    for (const event of report.excluded_events) {
+      const origin=excluded.get(event.first_run);
+      if (!/^[a-f0-9]{64}$/.test(event.event_id) || origins.has(event.event_id) ||
+          event.category!==ruleCategory(event.rule_id) || !origin || origin.reason!=='different_fact_scope' ||
+          event.reason!=='first_trigger_saved_in_other_cohort' || origin.fact_scope!==event.first_fact_scope ||
+          origin.fact_scope===report.fact_scope || origin.report_sha256!==event.first_report_sha256 ||
+          Date.parse(origin.completed_at)!==Date.parse(event.first_event_at) ||
+          !Array.isArray(event.selected_runs) || !event.selected_runs.length ||
+          new Set(event.selected_runs).size!==event.selected_runs.length ||
+          event.selected_runs.some(run=>!included.has(run)))
+        throw new Error('跨範圍事件無法追查至原版本');
+      origins.set(event.event_id,event.category);
+    }
+    return {included,origins};
+  }
   function validate(report) {
     if (!report || !['event-study-1.0','event-study-2.0'].includes(report.schema_version) || !/^[a-f0-9]{64}$/.test(report.study_id) ||
         report.combined_score!==false || report.trade_assumptions!==false || !report.counts ||
@@ -41,23 +71,37 @@
       }
     }
     const policy=report.cohort_policy;
-    if (policy!==undefined && (policy?.version!=='event-cohorts-1' || !/^[a-f0-9]{64}$/.test(policy.settings_id)))
+    if (policy!==undefined && (!['event-cohorts-1','event-cohorts-2'].includes(policy?.version) || !/^[a-f0-9]{64}$/.test(policy.settings_id)))
       throw new Error('事件分組設定版本無效');
-    let total=0;
+    const trace=policy ? traceInputs(report) : null;
+    let total=0, repeats=0;
     const eventIds=new Set();
     for (const category of categories) {
       const group=report.categories[category];
       if (!Array.isArray(group?.events) || !Array.isArray(group?.summaries) || group.summaries.length>48000)
         throw new Error('缺少事件或分組統計');
-      const localIds=new Set(), members=new Map();
+      const localIds=new Map(), members=new Map();
+      if (trace) {
+        const ids=group.excluded_by_origin;
+        if (!Array.isArray(ids) || new Set(ids).size!==ids.length ||
+            ids.some(id=>trace.origins.get(id)!==category) ||
+            ids.length!==[...trace.origins.values()].filter(c=>c===category).length)
+          throw new Error('分組排除事件與跨範圍清單不一致');
+      }
       for (const event of group.events) {
-        if (event.category!==category || !Object.hasOwn(titles,event.rule_id) || !directions[event.direction] ||
+        if (event.category!==category || ruleCategory(event.rule_id)!==category || !directions[event.direction] ||
             !/^[a-f0-9]{64}$/.test(event.event_id) || eventIds.has(event.event_id) || !Array.isArray(event.outcomes) ||
             event.outcomes.length>24) throw new Error('事件資料無效');
-        eventIds.add(event.event_id);localIds.add(event.event_id);
-        if (policy && (event.settings_id!==policy.settings_id || !Array.isArray(event.repeat_runs) ||
-            event.repeat_runs.length!==event.repeated_captures || new Set(event.repeat_runs).size!==event.repeated_captures))
-          throw new Error('重複保存版本或設定不一致');
+        eventIds.add(event.event_id);localIds.set(event.event_id,event);
+        if (trace) {
+          const first=trace.included.get(event.run);
+          if (!first || first.report_sha256!==event.report_sha256 || Date.parse(first.completed_at)!==Date.parse(event.event_at) ||
+              trace.origins.has(event.event_id) || event.settings_id!==policy.settings_id || !Array.isArray(event.repeat_runs) ||
+              event.repeat_runs.length!==event.repeated_captures || new Set(event.repeat_runs).size!==event.repeated_captures ||
+              event.repeat_runs.some(run=>run===event.run || !trace.included.has(run)))
+            throw new Error('首次與重複保存版本或設定不一致');
+          repeats+=event.repeated_captures;
+        }
         for (const row of event.outcomes) {
           if (!Object.hasOwn(metrics,row.metric) || !states.includes(row.status) ||
               (row.status==='observed' ? !validNumber(row.value) : row.value!==null) ||
@@ -93,7 +137,11 @@
         if (policy) {
           const rows=members.get(s.group_id);
           if (s.settings_id!==policy.settings_id || rows?.size!==s.n_total || !s.unavailable_by_reason ||
-              s.events.some(id=>!rows.has(id) || rows.get(id).metric!==s.metric || rows.get(id).horizon!==s.horizon))
+              s.events.some(id=>{
+                const event=localIds.get(id), row=rows.get(id);
+                return !row || ['rule_id','direction','definition_id','settings_id'].some(k=>event[k]!==s[k]) ||
+                  ['metric','horizon','horizon_unit','unit'].some(k=>row[k]!==s[k]) || !sameBasis(row.basis,s.basis);
+              }))
             throw new Error('分組與事件追蹤不一致');
           const censored=[...rows.values()].filter(r=>r.followup_window.right_censored).length;
           const excluded=new Set();
@@ -118,6 +166,7 @@
       if (members.size) throw new Error('事件指向未知分組');
       total+=group.events.length;
     }
+    if (trace && repeats!==report.counts.duplicate_period_events_suppressed) throw new Error('重存分母不一致');
     if (total!==report.counts.events) throw new Error('事件總數不一致');
     return report;
   }
@@ -154,7 +203,8 @@
       const group=report.categories[category], section=el('section');section.dataset.eventCategory=category;
       section.append(el('h2',`${labels[category]}（${group.events.length}筆）`));
       if (!group.events.length) {
-        const excluded=group.excluded_by_origin?.length || 0;
+        const excluded=group.excluded_by_origin?.length ??
+          (report.excluded_events || []).filter(event=>ruleCategory(event.rule_id)===category).length;
         const message=excluded ? `首次保存在另一範圍的事件有 ${excluded} 筆，本組可納入 0 筆。` :
           '這些已保存版本沒有符合定義的觸發事件；不代表市場沒有異常。';
         section.append(el('p',message));results.append(section);continue;

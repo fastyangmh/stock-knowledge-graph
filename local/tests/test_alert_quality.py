@@ -39,6 +39,17 @@ class QualityTests(unittest.TestCase):
         self.assertEqual(groups["revenue_mom"]["first_saved"]["triggered"], 1)
         self.assertEqual(sum(r["saved"]["total"] for r in groups.values()), 6)
 
+    def test_equivalent_decimal_thresholds_repeat_in_quality_and_event_reports(self):
+        from local.event_study import build
+        make_run(self.root, 1, config={"revenue_yoy_pct": 30})
+        make_run(self.root, 2, config={"revenue_yoy_pct": 30.0})
+        report = self.report()
+        totals = report["rules"]["revenue_yoy"]
+        self.assertEqual((totals["first_saved"]["total"], totals["saved"]["total"]), (1, 2))
+        study = build(self.root / "runs", report["as_of"])
+        events = [e for e in study["categories"]["monthly_revenue"]["events"] if e["rule_id"] == "revenue_yoy"]
+        self.assertEqual([e["repeated_captures"] for e in events], [1])
+
     def test_repeated_evidence_and_revised_values_have_one_first_saved_case(self):
         first = make_run(self.root, 1, value=10)
         repeated = make_run(self.root, 1, value=10)

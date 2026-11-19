@@ -164,7 +164,7 @@ def post_event_quotes(facts, event_at):
     return [periods[p] for p in sorted(periods)]
 
 
-def _market(event, facts, config):
+def _market(event, facts, config, revised_policy):
     base = event["baseline"]["market"]
     day = timestamp(event["event_at"]).astimezone(ZoneInfo("Asia/Taipei")).date()
     ordered = post_event_quotes(facts, event["event_at"])
@@ -183,6 +183,15 @@ def _market(event, facts, config):
             if event["category"] == "price_volume" and base["period"] != event["target_period"]:
                 row.update(status="not_comparable", reason="alert_and_baseline_period_differ")
                 continue
+            field = "close" if metric == "close_change_pct" else "volume_shares"
+            if revised_policy:
+                if base.get(field) is None or number(base[field]) <= 0:
+                    row.update(status="not_comparable", reason="missing_or_nonpositive_denominator_or_close")
+                    continue
+                if (base.get("raw_snapshot_verified") is not True or
+                        any(base.get(k) in (None, "") for k in ("market", "price_unit", "price_basis"))):
+                    row.update(status="not_comparable", reason="missing_price_basis_or_prior_raw_verification")
+                    continue
             if len(ordered) < horizon:
                 row["reason"] = "not_enough_saved_post_event_quotes_not_verified_sessions"
                 continue
@@ -203,7 +212,6 @@ def _market(event, facts, config):
             if any((b-a).days > config["max_quote_gap_days"] for a,b in zip(days, days[1:])):
                 row.update(status="not_comparable", reason="observed_quote_gap_exceeds_policy")
                 continue
-            field = "close" if metric == "close_change_pct" else "volume_shares"
             a, b = base.get(field), future.get(field)
             if a is None or b is None or number(a) <= 0 or (field == "close" and number(b) <= 0):
                 row.update(status="not_comparable", reason="missing_or_nonpositive_denominator_or_close")
@@ -218,7 +226,7 @@ def _market(event, facts, config):
     return result
 
 
-def _revenue(event, facts, config, analysis_at):
+def _revenue(event, facts, config, analysis_at, revised_policy):
     base_period = event["baseline"]["revenue_period"]
     event_day = timestamp(event["event_at"]).astimezone(ZoneInfo("Asia/Taipei")).date()
     analysis_day = timestamp(analysis_at).astimezone(ZoneInfo("Asia/Taipei")).date()
@@ -239,10 +247,14 @@ def _revenue(event, facts, config, analysis_at):
             if metric == "revenue_yoy_change_pp" and base.get("unit") != "percent":
                 row.update(status="not_comparable", reason="growth_rate_unit_not_percent")
                 continue
+            if revised_policy and metric == "revenue_change_pct" and number(base["value"]) <= 0:
+                row.update(status="not_comparable", reason="nonpositive_revenue_baseline")
+                continue
             if iso_date(target) <= event_day:
                 row.update(status="not_comparable", reason="target_month_not_after_actual_event_capture")
                 continue
-            if iso_date(target) > analysis_day:
+            target_day = iso_date(target)
+            if target_day > analysis_day or (revised_policy and target_day == analysis_day):
                 row.update(status="pending", reason="target_calendar_month_not_ended")
                 continue
             future = periods.get(target)
@@ -267,7 +279,7 @@ def _revenue(event, facts, config, analysis_at):
     return result
 
 
-def measure(event, facts, config, analysis_at):
+def measure(event, facts, config, analysis_at, *, revised_policy=True):
     cutoff = timestamp(analysis_at)
     eligible = [f for f in facts if timestamp(f["captured_at"]) <= cutoff and timestamp(f["available_at"]) <= cutoff]
-    return _market(event, eligible, config) + _revenue(event, eligible, config, analysis_at)
+    return _market(event, eligible, config, revised_policy) + _revenue(event, eligible, config, analysis_at, revised_policy)
