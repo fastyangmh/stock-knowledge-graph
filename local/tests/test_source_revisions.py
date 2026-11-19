@@ -191,3 +191,13 @@ class SourceRevisionTests(unittest.TestCase):
                 if hashlib.sha256(canonical(withdrawal)).hexdigest() < prior['registered_snapshot']['sha256']:
                     break
             self.assertEqual(self.values(self.submit(withdrawal)), [])
+
+    def test_notice_updates_only_the_named_record(self):
+        withdrawal = self.notice(self.original)
+        withdrawal['stocks'][0]['name'] = 'Stale name copied on the notice'
+        result = self.submit(withdrawal, enable_source_revisions=True)
+        graph = audit_bundle(self.runs, result['run']).graphs['TW:1000']
+        stock, = [node for node in graph['nodes'] if node['type'] == 'stock']
+        original = audit_bundle(self.runs, self.original['run']).graphs['TW:1000']
+        old_stock, = [node for node in original['nodes'] if node['type'] == 'stock']
+        self.assertEqual(stock['label'], old_stock['label'])

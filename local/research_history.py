@@ -257,18 +257,13 @@ notices control corrections, withdrawals and republications of managed records.
         used.append({"sha256": checksum, "observed_at": observed_at, "recorded_at": recorded_at,
                      "metadata": copy.deepcopy(payload["metadata"]),
                      "sources": copy.deepcopy(payload.get("sources", []))})
-        warnings.update(quality["warnings"])
-        for source in payload.get("sources", []):
-            keep("sources", source["source_id"], source, observed)
-        for stock in payload["stocks"]:
-            if stock["stock_id"] in relevant:
-                keep("stocks", stock["stock_id"], stock, observed)
         if 'source_revision' in payload:
             notice = payload['source_revision']
             if schema != 1:
                 raise ValueError('source revision in unmigrated ledger')
             used[-1]['revision_payload'] = payload
             if activation(payload) <= cutoff:
+                warnings.update(warning for warning in quality['warnings'] if not warning.startswith('no_documents:'))
                 group = notice['group']
                 row = next(iter(payload.get(group, [])), None)
                 available = timestamp(row.get('available_at', row.get('published_at'))) if row else observed
@@ -284,6 +279,12 @@ notices control corrections, withdrawals and republications of managed records.
                 key = notice['key']['document_id'] if group == 'documents' else record_key(group, notice['key'])
                 pending_revisions.append((entry, group, key, replacement))
             continue
+        warnings.update(quality["warnings"])
+        for source in payload.get("sources", []):
+            keep("sources", source["source_id"], source, observed)
+        for stock in payload["stocks"]:
+            if stock["stock_id"] in relevant:
+                keep("stocks", stock["stock_id"], stock, observed)
         for doc in payload.get("documents", []):
             links = set(doc.get("stock_ids", [])) & stock_ids
             if not links and doc["document_id"] not in selected["documents"]:
