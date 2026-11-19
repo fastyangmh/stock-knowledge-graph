@@ -20,7 +20,17 @@ from .research_history import canonical
 from .safety import exclusive_lock
 
 
-VERSION = "private-research-backup-1"
+VERSION = "private-research-backup-2"
+LEGACY_VERSION = "private-research-backup-1"
+DEFAULT_LIMITS = {"max_runs": 50, "max_mib": 256}
+
+
+def audit_limits(limits):
+    if (not isinstance(limits, dict) or limits.keys() != DEFAULT_LIMITS.keys() or
+            any(type(n) is not int for n in limits.values()) or
+            not 1 <= limits["max_runs"] <= 500 or not 1 <= limits["max_mib"] <= 4096):
+        raise ValueError("invalid portable catalog budget")
+    return limits
 DATABASES = {"ledger.db", "prices.db"}
 CLASSES = {"runs": "research_bundle", "raw": "raw", "prices": "price_snapshot",
            "inputs": "normalized_input", "config": "configuration", "events": "event_report"}
@@ -108,10 +118,20 @@ def inventory(root):
 
 def verify_payload(root, manifest):
     members = inventory(root)
-    if (set(manifest) != {"schema_version", "files", "directories", "audit"} or manifest["schema_version"] != VERSION
+    legacy = manifest.get("schema_version") == LEGACY_VERSION
+    keys = {"schema_version", "files", "directories", "audit"}
+    if not legacy:
+        keys.add("catalog_limits")
+    if (set(manifest) != keys or manifest["schema_version"] not in (VERSION, LEGACY_VERSION)
             or any(manifest[key] != value for key, value in members.items())):
         raise ValueError("archive manifest or file checksum mismatch")
-    if manifest.get("audit") != audit(root, members["files"]):
+    limits = audit_limits(DEFAULT_LIMITS if legacy else manifest["catalog_limits"])
+    rebuilt = audit(root, members["files"], **limits)
+    if legacy:
+        added_fields = {"acquisition_receipt_sha256", "source_registry_sha256", "announcement_review_sha256",
+                        "universe_input_sha256", "snapshot_evidence_sha256"}
+        rebuilt["references"] = [ref for ref in rebuilt["references"] if ref["field"] not in added_fields]
+    if manifest.get("audit") != rebuilt:
         raise ValueError("archive manifest or file checksum mismatch")
 
 
@@ -151,6 +171,7 @@ def new_target(output, sources):
 
 
 def create(args):
+    limits = audit_limits({"max_runs": args.max_runs, "max_mib": args.max_mib})
     bindings = [(guarded(args.ledger), Path("ledger.db")), (guarded(args.runs), Path("runs"))]
     if bool(args.prices_db) != bool(args.price_snapshots):
         raise ValueError("price database and original price snapshots must be supplied together")
@@ -179,7 +200,8 @@ def create(args):
         journals = journal_state(bindings)
         copy_entries(initial, payload, online=True)
         members = inventory(payload)
-        manifest = {"schema_version": VERSION, **members, "audit": audit(payload, members["files"])}
+        manifest = {"schema_version": VERSION, **members, "catalog_limits": limits,
+                    "audit": audit(payload, members["files"], **limits)}
         index = stage / "manifest.json"
         index.write_bytes(canonical(manifest))
         index.chmod(0o600)
@@ -207,6 +229,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     create_cmd = commands.add_parser("create")
+    create_cmd.add_argument("--max-runs", type=int, default=DEFAULT_LIMITS["max_runs"])
+    create_cmd.add_argument("--max-mib", type=int, default=DEFAULT_LIMITS["max_mib"])
     for option in ("ledger", "runs", "output"):
         create_cmd.add_argument("--" + option, required=True, type=Path)
     for option in ("prices-db", "price-snapshots"):
@@ -228,7 +252,7 @@ def main(argv=None):
             manifest = restore(args.bundle, args.destination)
     except (ValueError, TypeError, KeyError, OSError, RuntimeError, sqlite3.Error) as exc:
         parser.exit(1, f"{args.command} failed: {exc}\n")
-    print(json.dumps({"schema_version": VERSION, "files": len(manifest["files"]), "runs": manifest["audit"]["runs"],
+    print(json.dumps({"schema_version": manifest["schema_version"], "files": len(manifest["files"]), "runs": manifest["audit"]["runs"],
                       "events": manifest["audit"]["events"], "references": len(manifest["audit"]["references"])}))
     return 0
 

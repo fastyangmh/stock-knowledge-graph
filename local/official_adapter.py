@@ -128,7 +128,7 @@ def dataset_profile(source, rows, retrieved_at, selected=()):
     return profile
 
 
-def normalize_records(datasets, universe, *, as_of):
+def normalize_records(datasets, universe, *, as_of, required_kinds=('companies', 'monthly_revenue')):
     """datasets = [(reviewed_registry_entry, rows, retrieved_at), ...]. No IO."""
     selected = set(universe)
     if not selected:
@@ -214,10 +214,10 @@ def normalize_records(datasets, universe, *, as_of):
                 "availability_basis":"observed_at_retrieval_not_original_publication",
                 "source_report_date":reported.isoformat(),"period_end":period,"unit":"source_reported",**provenance}
     missing = selected-company_ids
-    if missing:
+    if missing and 'companies' in required_kinds:
         raise ValueError("Company coverage incomplete: "+", ".join(sorted(missing)))
     missing = selected-revenue_ids
-    if missing:
+    if missing and 'monthly_revenue' in required_kinds:
         raise ValueError("Revenue coverage incomplete: "+", ".join(sorted(missing)))
     return {"stocks":[stocks[k] for k in sorted(stocks)],"sources":[sources[k] for k in sorted(sources)],
             "documents":[documents[k] for k in sorted(documents)],"financial_metrics":[metrics[k] for k in sorted(metrics)],

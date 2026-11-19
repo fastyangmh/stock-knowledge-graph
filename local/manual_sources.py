@@ -8,7 +8,7 @@ from . import market_prices, official_import, research
 from .collect_official import atomic_bytes, download, save_failure
 from .core import ROOT
 from .http_evidence import ResponseBytes, body_metadata
-from .official_adapter import csv_rows, dataset_profile
+from .official_adapter import csv_rows, dataset_profile, normalize_records
 from .research import guarded
 from .research_history import MAX_INPUT_BYTES, canonical, strict_json, utc_now, validate_symbols
 from .source_registry import load_approved
@@ -46,14 +46,16 @@ def registry_for(plan):
     return registry, approved
 
 
-def verify_entry(plan, reviewed, entry, root, status):
+def verify_entry(plan, reviewed, entry, root, status, *, selected_values=False):
     relative = Path(entry['path'])
     if relative.is_absolute() or '..' in relative.parts or entry['resource_url'] != reviewed['resource_url']:
         raise ValueError('snapshot path or source differs from reviewed source')
     body = checked_bytes(root/relative, entry['sha256'], 15_000_000)
     if len(body) != entry['bytes']:
         raise ValueError('snapshot byte length mismatch')
-    profile = dataset_profile(reviewed, csv_rows(body), entry['retrieved_at'], validate_symbols(plan['symbols']))
+    rows = csv_rows(body)
+    symbols = validate_symbols(plan['symbols'])
+    profile = dataset_profile(reviewed, rows, entry['retrieved_at'], symbols)
     detail = {'dataset_id': entry['dataset_id'], 'retrieved_at': entry['retrieved_at'], 'sha256': entry['sha256'],
               'retrieval_day': profile['retrieval_day'], 'report_dates': list(profile['report_dates']),
               'revenue_months': list(profile['revenue_months'])}
@@ -64,6 +66,9 @@ def verify_entry(plan, reviewed, entry, root, status):
             detail['revenue_months'] != [plan['expected_revenue_month']]):
         status.update(kind='stale', actual=detail)
         raise ValueError('financial period differs from expected ' + plan['expected_revenue_month'])
+    if selected_values:
+        normalize_records([(reviewed, rows, entry['retrieved_at'])], symbols,
+                          as_of=plan['as_of'], required_kinds=(reviewed['kind'],))
     return detail
 
 
@@ -78,6 +83,16 @@ def collect_sources(plan, job, approved, status):
         dest.mkdir(parents=True, exist_ok=True)
         manifest_path = guarded(dest/'retrieval_manifest.json')
         pin = guarded(dest/'verified-receipt.json')
+        saved_pin = optional_json(pin)
+        if saved_pin and not saved_pin.get('selected_values'):
+            # Validate a legacy pin before allowing a new acquisition for that source.
+            manifest = strict_json(checked_bytes(manifest_path, saved_pin['sha256'], 4*1024**2))
+            [legacy] = manifest['datasets']
+            verify_entry(plan, source, legacy, dest, status)
+            try:
+                verify_entry(plan, source, legacy, dest, status, selected_values=True)
+            except ValueError:
+                pin.rename(guarded(dest/('rejected-'+saved_pin['sha256']+'.json')))
         if not pin.exists():
             registry = guarded(dest/'registry.json')
             atomic_bytes(registry, canonical([source]))
@@ -95,9 +110,9 @@ def collect_sources(plan, job, approved, status):
         relative = Path(entry['path'])
         if relative.is_absolute() or '..' in relative.parts:
             raise ValueError('invalid cached source path')
-        verify_entry(plan, source, entry, dest, status)
-        if not pin.exists():
-            atomic_bytes(pin, canonical({'sha256': research.file_digest(manifest_path)}))
+        verify_entry(plan, source, entry, dest, status, selected_values=True)
+        if not saved_pin or not saved_pin.get('selected_values'):
+            atomic_bytes(pin, canonical({'sha256': research.file_digest(manifest_path), 'selected_values': True}))
         datasets.append({**entry, 'path': str(Path(ident)/relative)})
         status.setdefault('verified_sources', []).append(ident)
     combined = {'schema_version': '1.0', 'datasets': datasets}

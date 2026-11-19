@@ -8,7 +8,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from . import research
-from .bundle_audit import audit_bundle
+from .bundle_audit import audit_bundle, pending_pointer
 from .manual_sources import closed_day_evidence, financial_sources, ingest_prices, normalize, read_json, optional_json
 from .calendar_coverage import calendar_day, load_calendar
 from .collect_official import atomic_bytes
@@ -93,28 +93,30 @@ def update(plan, market, job, through, report):
     if not base_path.exists():
         atomic_bytes(base_path, canonical({'pointer': optional_json(pointer_path)}))
     previous = read_json(base_path)['pointer']
-    pointer = optional_json(candidate/'latest.json')
-    if pointer is None:
+    if not guarded(candidate/'latest.json').exists():
         research.run(job/'input.json', plan['symbols'], history_db=guarded(market/'ledger.db'),
                      output_root=candidate, prices_db=guarded(market/'prices.db'), price_snapshots=market/'prices',
                      trade_date=plan['trade_date'], price_market=plan['market'], alerts=True,
                      analysis=plan.get('analysis', 'none'), revision=plan.get('revision'))
+    try:
         pointer = read_json(candidate/'latest.json')
+        if (not re.fullmatch(r'[0-9a-f]{32}', pointer['run']) or
+                not re.fullmatch(r'[0-9a-f]{64}', pointer['report_sha256']) or
+                pointer.get('engine') != research.ENGINE_VERSION):
+            raise ValueError('invalid candidate pointer')
+        final = guarded(runs/pointer['run'])
+        bundle_root = runs if final.exists() else candidate
+        bundle = audit_bundle(bundle_root, pointer['run'], expected_report_sha=pointer['report_sha256'],
+                              allow_pending=bundle_root == runs and optional_json(pending_pointer(runs, pointer['run'])) == pointer)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        candidate.rename(guarded(job/('rejected-candidate-'+uuid.uuid4().hex)))
+        raise
     report['stages']['research'].update(status='success', run=pointer['run'])
-    if through == 'research':
-        return
-    report['stage'] = 'audit'
-    runs.mkdir(exist_ok=True, mode=0o700)
+    if through != 'research':
+        report['stage'] = 'audit'
     current = optional_json(pointer_path)
     if current not in (previous, pointer):
         raise ValueError('another job advanced the last success pointer')
-    if (not re.fullmatch(r'[0-9a-f]{32}', pointer['run']) or
-            not re.fullmatch(r'[0-9a-f]{64}', pointer['report_sha256']) or
-            pointer.get('engine') != research.ENGINE_VERSION):
-        raise ValueError('invalid candidate pointer')
-    final = guarded(runs/pointer['run'])
-    bundle_root = runs if final.exists() else candidate
-    bundle = audit_bundle(bundle_root, pointer['run'], expected_report_sha=pointer['report_sha256'])
     if bundle.report['input_sha256'] != detail['input_sha256'] or bundle.alerts is None:
         raise ValueError('candidate input or alerts mismatch')
     prices = report['stages']['prices']
@@ -124,8 +126,9 @@ def update(plan, market, job, through, report):
                 or row['observed_at'] != prices['observed_at'] or row['source_id'] != prices['source']
                 for row in observations)):
         raise ValueError('candidate price evidence differs from the verified job input')
-    if not final.exists():
-        guarded(candidate/pointer['run']).rename(final)
+    if through == 'research':
+        return
+    runs.mkdir(exist_ok=True, mode=0o700)
     report['stages']['audit'].update(status='success', run=pointer['run'])
     return pointer
 
@@ -162,9 +165,25 @@ def execute(plan, market, job, through):
             report['last_success'] = candidate['run']
         report.update(status='success', finished_at=utc_now())
         save_report(job, report)
-        # The only visible promotion is the final write under the runs lock.
         if candidate and current != candidate:
-            atomic_bytes(pointer_path, canonical(candidate))
+            run = candidate['run']
+            pending = pending_pointer(pointer_path.parent, run)
+            final = guarded(pointer_path.parent/run)
+            source = guarded(job/'candidate'/run)
+            # Until the marker itself becomes latest, catalog and event readers exclude this run.
+            if not pending.exists():
+                atomic_bytes(pending, canonical(candidate))
+            if read_json(pending) != candidate:
+                raise ValueError('pending pointer differs from the audited job')
+            try:
+                if not final.exists():
+                    source.rename(final)
+                pending.replace(pointer_path)
+            except OSError:
+                if final.exists() and not source.exists():
+                    final.rename(source)
+                pending.unlink()
+                raise
         return 0
     except Exception as exc:
         report['last_success'] = previous_success

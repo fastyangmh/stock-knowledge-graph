@@ -78,7 +78,8 @@ def references(document, owner):
 
 
 class ArchivePlan:
-    def __init__(self, byte_budget):
+    def __init__(self, byte_budget, root_name):
+        self.root_name = root_name
         self.remaining = byte_budget
         self.hashes = {}
         self.refs = {}
@@ -130,7 +131,7 @@ class ArchivePlan:
             self.skip(path, "invalid_json")
             return
         if path.name == "report.json" and isinstance(document, dict) and document.get("engine") == ENGINE_VERSION:
-            if document.get("run") == path.parent.name and document.get("status") == "complete":
+            if document.get("run") == (path.parent.name or self.root_name) and document.get("status") == "complete":
                 self.bundles[str(path)] = document["run"]
                 self.requirements[str(path)] = bundle_requirements(document)
             else:

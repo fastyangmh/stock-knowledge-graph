@@ -56,6 +56,23 @@ class PortableBackupTests(unittest.TestCase):
         self.assertEqual(summary['latest'], self.run['run'])
         self.assertEqual(build(self.destination / 'runs', self.run['completed_at']), json.loads(self.event.read_bytes()))
 
+    def test_explicit_catalog_budget_survives_verify_and_restore(self):
+        from local.research import run
+        from local.event_study import analyze
+        old = analyze(catalog(self.runs)[1].values(), self.run['completed_at'], cohort_version=None)
+        self.event.write_bytes(canonical(old))
+        for _ in range(50):
+            run(self.input, ['1000'], history_db=self.ledger, output_root=self.runs)
+        self.create(ok=False)
+        args = ['create', '--ledger', self.ledger, '--runs', self.runs, '--input', self.input,
+                '--event', self.event, '--output', self.bundle]
+        self.cli(*args, '--max-runs', 501, ok=False)
+        self.cli(*args, '--max-mib', 4097, ok=False)
+        self.cli(*args, '--max-runs', 51, '--max-mib', 32)
+        self.cli('verify', '--bundle', self.bundle)
+        self.cli('restore', '--bundle', self.bundle, '--destination', self.destination)
+        self.assertEqual(catalog(self.destination/'runs', max_runs=51)[0]['counts']['valid'], 51)
+
     def test_missing_original_input_and_wrong_event_reference_fail_without_publishing(self):
         original_pointer = (self.runs / 'latest.json').read_bytes()
         original_input = self.input.read_bytes()
@@ -111,6 +128,23 @@ class PortableBackupTests(unittest.TestCase):
                 '--raw', self.raw, '--raw', receipt, '--output', self.bundle]
         self.cli(*args, ok=False)
         self.cli(*args, '--raw', statement)
+
+    def test_restore_preserves_failed_truncated_capture_without_claiming_full_hash(self):
+        from local.collect_official import save_failure
+        from local.http_evidence import ResponseBytes
+        capture = self.root/'attempt'
+        save_failure(capture, {'dataset_id': 'fixture', 'resource_url': 'https://example.org'},
+                     [], 'fetch', ValueError('incomplete'), ResponseBytes(b'ab', {'body_truncated': True}))
+        args = ['create', '--ledger', self.ledger, '--runs', self.runs, '--input', self.input,
+                '--raw', capture, '--output', self.bundle]
+        self.cli(*args)
+        self.cli('restore', '--bundle', self.bundle, '--destination', self.destination)
+        [receipt] = (self.destination/'raw/attempt').glob('retrieval-*.json')
+        failure = json.loads(receipt.read_bytes())['failure']
+        self.assertIsNone(failure['sha256'])
+        self.assertEqual((receipt.parent/failure['path']).read_bytes(), b'ab')
+        (capture/failure['path']).unlink()
+        self.cli(*args[:-1], self.root/'incomplete', ok=False)
 
     def test_dangling_retrieval_receipt_and_unsafe_recorded_path_fail(self):
         from hashlib import sha256

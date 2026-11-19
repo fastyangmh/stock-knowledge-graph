@@ -10,7 +10,7 @@ import stat
 import tempfile
 
 from .research import guarded
-from .storage_references import ArchivePlan
+from .storage_references import ArchivePlan, RUN
 
 
 SCHEMA = "private-storage-inventory-v1"
@@ -27,11 +27,13 @@ MAX_DEPTH = 128
 MAX_REPORT_BYTES = 64 * 1024 * 1024
 
 
-def category(path, classes, root_name):
+def category(path, classes, root):
     for prefix in (path, *path.parents):
         if prefix.as_posix() in classes:
             return classes[prefix.as_posix()]
-    for part in (root_name, *path.parts[:-1]):
+    if RUN.fullmatch(root.name) and DIRECTORIES.get(root.parent.name) == "bundle":
+        return "bundle"
+    for part in (root.name, *path.parts[:-1]):
         if part in DIRECTORIES:
             return DIRECTORIES[part]
     if DB_FILE.fullmatch(path.name):
@@ -60,7 +62,7 @@ def settings(options, *, budgets=False):
 
 def inventory(root, classes, budgets, content_budget):
     started = datetime.now(timezone.utc).isoformat()
-    plan = ArchivePlan(content_budget)
+    plan = ArchivePlan(content_budget, root.name)
     files, errors, inodes = [], [], {}
     counts = Counter(dict.fromkeys(CATEGORIES, 0))
     visited = 0
@@ -87,7 +89,7 @@ def inventory(root, classes, budgets, content_budget):
                     finally:
                         os.close(child)
                     continue
-                group = category(path, classes, root.name)
+                group = category(path, classes, root)
                 row = {"path": str(path), "category": group, "counted_bytes": 0}
                 files.append(row)
                 if stat.S_ISREG(info.st_mode):

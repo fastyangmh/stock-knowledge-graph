@@ -46,6 +46,17 @@ def guarded(path) -> Path:
     return private_path(original)
 
 
+def archive_snapshot_evidence(snapshots):
+    evidence_files = {}
+    for item in snapshots:
+        for kind, directory in [('revision', 'revisions'), ('chip', 'chips')]:
+            if kind+'_payload' in item:
+                path = f"{directory}/{item['sha256']}.json"
+                evidence_files[path] = item.pop(kind+'_payload')
+                item[kind+'_path'] = path
+    return evidence_files
+
+
 def attach_metrics(conn, payload):
     sources = {source["source_id"]: source for source in payload["sources"]}
     count = 0
@@ -188,13 +199,7 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
             covered.update(withdrawn_stocks(notices, trade_date, timestamp(cutoff)))
         if prices_db and covered != stock_ids:
             raise ValueError("market coverage missing at known_at")
-        evidence_files = {}
-        for item in quality['snapshots']:
-            for kind, directory in [('revision', 'revisions'), ('chip', 'chips')]:
-                if kind+'_payload' in item:
-                    path = f"{directory}/{item['sha256']}.json"
-                    evidence_files[path] = item.pop(kind+'_payload')
-                    item[kind+'_path'] = path
+        evidence_files = archive_snapshot_evidence(quality['snapshots'])
         facts = build_facts(payload, quality, stock_ids, cutoff, market_history,
                             price_market if prices_db else None, trade_date)
         alert_report = None

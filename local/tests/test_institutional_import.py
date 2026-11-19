@@ -55,6 +55,21 @@ class InstitutionalImportTests(unittest.TestCase):
                      output_root=self.runs, **kwargs)
         return audit_bundle(self.runs, report['run'])
 
+    def test_portable_restore_replays_archived_chip_snapshot(self):
+        from local.portable_backup import main
+        self.capture()
+        self.normalize()
+        original = self.research()
+        archive = self.root/'archive'
+        restored = self.root/'restored'
+        with self.assertRaises(SystemExit):
+            main(['create', '--ledger', str(self.root/'ledger.db'), '--runs', str(self.runs),
+                  '--input', str(self.output), '--raw', str(self.raw/'11856.response'), '--output', str(archive)])
+        main(['create', '--ledger', str(self.root/'ledger.db'), '--runs', str(self.runs),
+              '--input', str(self.output), '--raw', str(self.raw), '--output', str(archive)])
+        main(['restore', '--bundle', str(archive), '--destination', str(restored)])
+        self.assertEqual(audit_bundle(restored/'runs', original.report['run']).facts, original.facts)
+
     def test_class_and_source_total_remain_separate_locatable_numeric_facts(self):
         checksum = self.capture()
         self.normalize()

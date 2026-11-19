@@ -86,6 +86,38 @@ class ManualUpdateTests(unittest.TestCase):
         self.assertEqual(report['stages']['prices']['trade_date'], '2020-01-02')
         self.assertEqual(report['last_success'], pointer['run'])
 
+    def test_monthly_archive_requires_replayable_receipt_and_registry(self):
+        from local.portable_backup import main
+        from local.core import ROOT
+        from local.research import run
+        self.replay_sources()
+        code, _ = self.invoke(through='normalize')
+        self.assertEqual(code, 0)
+        normalized = self.market/'jobs/daily/input.json'
+        runs = self.base/'runs'
+        ledger = self.base/'ledger.db'
+        run(normalized, ['1000'], output_root=runs, history_db=ledger)
+        snapshots = Path(self.plan['financial_dir'])
+        archive = self.base/'archive'
+        args = ['create', '--input', str(normalized), '--ledger', str(ledger), '--runs', str(runs),
+                '--output', str(archive)]
+        with self.assertRaises(SystemExit):
+            main(args + [v for p in snapshots.glob('*.csv') for v in ('--raw', str(p))])
+        with self.assertRaises(SystemExit):
+            main(args + ['--raw', str(snapshots)])
+        registry = self.base/'registry.json'
+        registry.write_bytes((ROOT/'local/official_datasets.json').read_bytes())
+        main(args + ['--raw', str(snapshots), '--config', str(registry)])
+        main(['restore', '--bundle', str(archive), '--destination', str(self.base/'restored')])
+        manifest = archive/'manifest.json'
+        legacy = json.loads(manifest.read_bytes())
+        legacy['schema_version'] = 'private-research-backup-1'
+        del legacy['catalog_limits']
+        legacy['audit']['references'] = [row for row in legacy['audit']['references']
+                                         if row['field'] not in ('acquisition_receipt_sha256', 'source_registry_sha256')]
+        save(manifest, legacy)
+        main(['verify', '--bundle', str(archive)])
+
     def test_same_job_retry_and_candidate_audit_failure_keep_prior_success(self):
         self.replay_sources()
         self.assertEqual(self.invoke()[0], 0)
@@ -102,9 +134,14 @@ class ManualUpdateTests(unittest.TestCase):
         (candidate/'alerts.json').write_bytes(b'{}')
         code, failed = self.invoke('next')
         self.assertEqual(code, 2)
-        self.assertEqual(failed['stages']['audit']['status'], 'failed')
+        self.assertEqual(failed['stages']['research']['status'], 'failed')
         self.assertEqual(failed['last_success'], json.loads(old)['run'])
         self.assertEqual(pointer.read_bytes(), old)
+        code, repaired = self.invoke('next', through='research')
+        self.assertEqual(code, 0, repaired)
+        self.assertNotEqual(repaired['stages']['research']['run'], partial['stages']['research']['run'])
+        self.assertEqual(pointer.read_bytes(), old)
+        self.assertEqual(self.invoke('next')[0], 0)
 
     def test_partial_download_retries_only_missing_source_and_records_attempts(self):
         from unittest.mock import patch
@@ -167,6 +204,15 @@ class ManualUpdateTests(unittest.TestCase):
                      '--job', 'next'])
         self.assertNotEqual(code, 0)
         self.assertEqual((self.market/'runs/latest.json').read_bytes(), old)
+        from local.bundle_audit import catalog
+        from local.event_study import build
+        from local.research_history import utc_now
+        self.assertEqual(set(catalog(self.market/'runs')[1]), {json.loads(old)['run']})
+        events = build(self.market/'runs', utc_now())
+        self.assertEqual([row['run'] for row in events['inputs']], [json.loads(old)['run']])
+        report_path.rmdir()
+        self.assertEqual(self.invoke('next')[0], 0)
+        self.assertEqual(catalog(self.market/'runs')[0]['counts']['valid'], 2)
 
     def test_newer_price_observation_cannot_silently_replace_job_input(self):
         self.replay_sources()
@@ -213,6 +259,25 @@ class ManualUpdateTests(unittest.TestCase):
             code, success = self.invoke()
             self.assertEqual(code, 0, success)
             self.assertEqual(success['stages']['normalize']['revenue_months'], ['2019-12'])
+
+    def test_retry_reuses_company_after_invalid_selected_revenue(self):
+        from unittest.mock import patch
+        from local.tests.test_official_collection import Response
+        self.replay_sources()
+        snapshots = Path(self.plan.pop('financial_dir'))
+        self.plan.pop('financial_manifest_sha256')
+        self.plan['download_financial'] = True
+        company, revenue = json.loads((snapshots/'retrieval_manifest.json').read_bytes())['datasets']
+        def response(row, invalid=False):
+            body = (snapshots/row['path']).read_bytes()
+            return Response(body.replace(b',100\n', b',ERR\n') if invalid else body, row['resource_url'])
+        with patch('local.collect_official.build_opener') as client, \
+             patch('local.collect_official.now', return_value='2020-01-02T09:03:00Z'):
+            client.return_value.open.side_effect = [response(company), response(revenue, True)]
+            self.assertEqual(self.invoke()[0], 2)
+            client.return_value.open.side_effect = [response(revenue)]
+            code, result = self.invoke()
+            self.assertEqual(code, 0, result)
 
     def test_replay_revalidates_pins_and_cannot_promote_over_another_job(self):
         self.replay_sources()

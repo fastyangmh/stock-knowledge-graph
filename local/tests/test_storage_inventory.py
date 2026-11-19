@@ -154,6 +154,21 @@ class StorageInventoryTests(unittest.TestCase):
         self.assertEqual(plan["references"]["research-facts.json"], [
             {"field": "sha256", "sha256": digest, "declared_path": "source.pdf", "status": "matched_bytes"}])
 
+    def test_bundle_directory_as_root_preserves_dependencies(self):
+        run = 'a' * 32
+        self.root = self.root/'runs'/run
+        self.root.mkdir(parents=True)
+        (self.root/'report.json').write_text(json.dumps({
+            'engine': 'private-research-1', 'run': run, 'status': 'complete',
+            'source_id': 'fixture', 'input_sha256': '1'*64}))
+        self.cli()
+        report = json.loads(self.output.read_bytes())
+        plan = report['archive_plan']
+        self.assertEqual(plan['bundle_copies'][0]['report'], 'report.json')
+        self.assertEqual(plan['bundle_requirements']['report.json']['source_ids'], ['fixture'])
+        self.assertEqual(plan['references']['report.json'][0]['status'], 'unresolved')
+        self.assertEqual(report['bytes_by_category']['bundle'], report['total_bytes'])
+
     def test_copy_plan_preserves_declared_model_revision_and_source_identifiers(self):
         run = "b" * 32
         bundle = self.root / run
