@@ -49,3 +49,11 @@ TMPDIR=/private/tmp uv run --locked python -m local.check --frontend --report "$
 完整檢查於 macOS arm64、Python 3.11.11、uv 0.6.13、Node v22.16.0 執行。整合前 `e7edc48` 為 579 pytest、319 subtests、55 Node；整合後乾淨候選 `3c7f57c` 為 588 pytest、329 subtests、55 Node，編譯、SQLite／JSON smoke、圖譜驗證全部 exit 0。HTTP 測試以本機 loopback 權限執行。完整報告、逐版時間、SHA256、命令與來源核對都在 `local/private/m3-fin-review-3c7f57c/`。
 
 本次未另驗瀏覽器或 Linux／NAS。現金流官方原件封存、其他產業／期間及正式季報撤回仍待證；合成缺值與通知案例限於工程語意驗證。M3-03 保持 `needs-info`。
+
+## 價格通知與季度財報整合後的驗證
+
+開發分支先合併行情通知修正至 `cdb90f0`，再合併季度財報修正至 `63e0f491bde234dbbfde08fe2e1895e81cabe40f`。第二次合併後的乾淨候選，在同一 macOS 上重跑完整 `local.check --frontend`，597 個 pytest、341 個 subtests、55 個 Node 測試通過。私有報告 `local/private/m2-m3-integration-63e0f49/check.json` 的 SHA256 為 `8ff9a6c3fdef3a81e58c8d0822e4094925652bdd6135d53c247cbbc2b5db37b4`。
+
+- 原先保存的 924 份基準檔重新核對雜湊，兩市場各三個舊版研究通過 audit。11/17、18 原截止的真實行情重播各有兩檔，各市場 21 個舊檔與原事件結果一致。行情更正的交易所原件仍缺。[行情通知審查與修正](VERIFICATION-2026-11-19-MARKET-NOTICE-REVIEW.md)
+- 混合 ledger 經 21 次登錄及五次截止重播，每一步均以正常研究、audit 驗證。七家公司、12 個來源共 80 筆事實。損益 22 筆及資產負債 23 筆與獨立發行人資料等值，11 筆資產負債待核。五個截止的事實檔 SHA256 分別與原版本完全相同。重跑索引在 `local/private/m2-m3-integration-63e0f49/mixed/summary.json`。
+- Chromium 使用 `63e0f49` 正常提供的私有預覽，讀取已審過的七檔財報圖譜，逐檔比對 HTTP 內容與封存 bytes，全部相同。歷史頁顯示 26 個有效版本。桌面、手機寬度與頁面錯誤檢查均通過。前一次測試腳本重複拼接 `data/` 而停止，修正本地定位後完成。私有程式與本候選證據在 `local/private/m6-preflight/{quarterly-browser.py,quarterly-browser-63e0f49/result.json}`。

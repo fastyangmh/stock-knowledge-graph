@@ -11,8 +11,8 @@
 | M2 | [P2-01](../../docs/DEVELOPMENT_BACKLOG.md#p2-01研究事實與展示裁剪分離優先) | [已保存未裁剪事實並驗證新舊讀者與分母](../../docs/VERIFICATION-2026-11-17-REVIEW.md) | 持續用既有首次保存口徑做相容性回歸 |
 | M2 | [P2-02](../../docs/DEVELOPMENT_BACKLOG.md#p2-02交易日完整性) | [逐日、序號及兩市場真實驗收完成](../../docs/VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) | [521 pytest／282 subtests／55 Node，修復後 16 次真實 CLI 重播](../../docs/VERIFICATION-2026-11-19-CALENDAR-REVIEW.md)。本輪完成，日曆期間外仍顯示未知 |
 | M2 | [P2-03](../../docs/DEVELOPMENT_BACKLOG.md#p2-03公司行為與價格基準) | [兩市場真實區間與六類來源](../../docs/PRICE_ACTION_REVIEW.md)已核對，個別除權息證據與未知期間可讀 | 兩市場原始價格警告及跨幣別拒比已驗。較長歷史與其他公司行為的完整涵蓋仍未知。[修復驗收](../../docs/VERIFICATION-2026-11-19-M2-HISTORY-REVIEW.md) |
-| M2 | [P2-04](../../docs/DEVELOPMENT_BACKLOG.md#p2-04修訂與撤回) | 已驗舊庫重播與[兩份正式重大訊息更正](../m2-price-history/official-document-corrections-2026-11-19.md)，合成案例涵蓋撤回及重新發布 | 正式撤回、財務與籌碼的真實更正待驗。[行情 SQLite 通知的獨立票](../m2-market-revisions/issues/01-market-notices.md) |
-| M3 | [P1-03](../../docs/DEVELOPMENT_BACKLOG.md#p1-03季度財報) | [兩市場六家公司季報抽樣](../m3-evidence-sources/issuer-reference-2026-11-19.md)已核對 22 筆損益與 22 筆資產負債，另 12 筆資產負債待核 | 季度三表、產業差異、時間與單位逐源抽檢 |
+| M2 | [P2-04](../../docs/DEVELOPMENT_BACKLOG.md#p2-04修訂與撤回) | 已驗舊庫重播與[兩份正式重大訊息更正](../m2-price-history/official-document-corrections-2026-11-19.md)，已通過[原生行情通知雙軸審查](../../docs/VERIFICATION-2026-11-19-MARKET-NOTICE-REVIEW.md)，合成案例涵蓋撤回及重新發布 | 正式撤回、財務與籌碼的真實更正待驗。[行情 SQLite 通知的獨立票](../m2-market-revisions/issues/01-market-notices.md) |
+| M3 | [P1-03](../../docs/DEVELOPMENT_BACKLOG.md#p1-03季度財報) | [兩市場六家公司季報抽樣](../m3-evidence-sources/issuer-reference-2026-11-19.md)已核對 22 筆損益與 23 筆資產負債，另 11 筆資產負債待核 | [三表與兩市場月營收已同庫](../../docs/VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md)。現金流私有筆記兩家 12 筆可重播，正式原件封存、獨立金額差額與其他產業仍待驗 |
 | M3 | [P1-04](../../docs/DEVELOPMENT_BACKLOG.md#p1-04籌碼資料) | 有籌碼數值的保存與重播契約 | 核對官方法人／融資融券來源，驗證方向、尺度、修訂與冪等 |
 | M3 | [P1-05](../../docs/DEVELOPMENT_BACKLOG.md#p1-05重大訊息新聞與產業證據) | 已支援文件、股票對應與文字語意 | 每來源確認使用條件，驗證版本、重複、撤回與報表變更 |
 | M4 | [P3-01](../../docs/DEVELOPMENT_BACKLOG.md#p3-01提醒品質與可解釋性) | [四檔股票 32 個規則／期間組合已對照來源](../m4-research-quality/issues/01-alert-quality.md)，現有歷史仍不足以核實全部可計算情境 | 按規則核對真實歷史分母及人工案例，揭露誤報或無法判讀的原因 |
@@ -21,7 +21,7 @@
 | M5 | [P2-05](../../docs/DEVELOPMENT_BACKLOG.md#p2-05容量量測與ann評估) | 有固定模型快取及精確 Top-K 工作預算 | 固定資料尺度，量測 CPU、記憶體、輸出與瀏覽器成本後決定索引需求 |
 | M5 | [P2-06](../../docs/DEVELOPMENT_BACKLOG.md#p2-06儲存預算與封存) | 已有部分讀取與工作量上限 | 盤點各類實際路徑、增長與超限，驗證封存 dry-run、還原及事件引用 |
 | M5 | [OPS-01](../../docs/DEVELOPMENT_BACKLOG.md#ops-01完整手動更新流程) | 個別 CLI 與私有一次性整合程序已運作 | 可重跑的分階段手動入口，驗部分失敗、健康報告及舊 pointer 保全 |
-| M6 | M1～M5 | 待上述必要的功能及證據齊備 | 同候選版本用真實來源重建、抽檢、復原及 audit，逐項對照完成條件 |
+| M6 | M1～M5 | [已在 macOS 預演原件重建、模型快取、兩類提醒、六頁真實瀏覽器與四個 SQLite 復原](../m6-private-acceptance/issues/01-real-rehearsal.md) | 同候選版本用真實來源重建、抽檢、復原及 audit，逐項對照完成條件 |
 
 ## 後續規格與可執行票
 
