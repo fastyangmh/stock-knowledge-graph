@@ -234,5 +234,97 @@
     "reviewed_at": "2026-11-19",
     "usage": "offline_saved_receipt_only",
     "attribution": "證券櫃檯買賣中心，上櫃股票融資融券餘額，政府資料開放授權條款第 1 版。"
+  },
+  {
+    "dataset_id": "mops_industry_20756",
+    "title": "上市公司各產業EPS統計資訊",
+    "kind": "industry_classification",
+    "enabled": false,
+    "format": "csv",
+    "provider": "金融監督管理委員會證券期貨局",
+    "dataset_url": "https://data.gov.tw/dataset/20756",
+    "resource_url": "https://mopsfin.twse.com.tw/opendata/t187ap14_L.csv",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": false,
+    "reviewed_at": "2026-11-19",
+    "usage": "offline_saved_receipt_only",
+    "attribution": "金融監督管理委員會證券期貨局，上市公司各產業EPS統計資訊，政府資料開放授權條款第 1 版。",
+    "permitted_use": {
+      "index": "private_company_industry_fields",
+      "full_text": "not_applicable",
+      "summary": "private_company_industry_fields",
+      "embedding": "private_company_industry_fields",
+      "public_display": "unreviewed"
+    }
+  },
+  {
+    "dataset_id": "mops_industry_20757",
+    "title": "上櫃公司各產業EPS統計資訊",
+    "kind": "industry_classification",
+    "enabled": false,
+    "format": "csv",
+    "provider": "金融監督管理委員會證券期貨局",
+    "dataset_url": "https://data.gov.tw/dataset/20757",
+    "resource_url": "https://mopsfin.twse.com.tw/opendata/t187ap14_O.csv",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": false,
+    "reviewed_at": "2026-11-19",
+    "usage": "offline_saved_receipt_only",
+    "attribution": "金融監督管理委員會證券期貨局，上櫃公司各產業EPS統計資訊，政府資料開放授權條款第 1 版。",
+    "permitted_use": {
+      "index": "private_company_industry_fields",
+      "full_text": "not_applicable",
+      "summary": "private_company_industry_fields",
+      "embedding": "private_company_industry_fields",
+      "public_display": "unreviewed"
+    }
+  },
+  {
+    "dataset_id": "twse_news_11546",
+    "title": "證交所新聞",
+    "kind": "news_index",
+    "enabled": false,
+    "format": "csv",
+    "provider": "金融監督管理委員會證券期貨局／臺灣證券交易所",
+    "dataset_url": "https://data.gov.tw/dataset/11546",
+    "resource_url": "https://www.twse.com.tw/news/newsList?response=open_data",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": false,
+    "reviewed_at": "2026-11-19",
+    "usage": "offline_saved_receipt_only",
+    "attribution": "金融監督管理委員會證券期貨局／臺灣證券交易所，證交所新聞，政府資料開放授權條款第 1 版。",
+    "permitted_use": {
+      "index": "private_title_link_date",
+      "full_text": "unreviewed",
+      "summary": "unreviewed",
+      "embedding": "unreviewed",
+      "public_display": "unreviewed"
+    }
+  },
+  {
+    "dataset_id": "fsc_news_6040",
+    "title": "金管會新聞稿",
+    "kind": "news_index",
+    "enabled": false,
+    "format": "rss",
+    "provider": "金融監督管理委員會",
+    "dataset_url": "https://data.gov.tw/dataset/6040",
+    "resource_url": "https://www.fsc.gov.tw/RSS/Messages?language=chinese&serno=201202290009",
+    "license_url": "https://data.gov.tw/license",
+    "license_reviewed": true,
+    "redistribution_reviewed": false,
+    "reviewed_at": "2026-11-19",
+    "usage": "offline_saved_receipt_only",
+    "attribution": "金融監督管理委員會，金管會新聞稿，政府資料開放授權條款第 1 版。",
+    "permitted_use": {
+      "index": "private_guid_title_link_time_description_presence",
+      "full_text": "unreviewed",
+      "summary": "unreviewed",
+      "embedding": "unreviewed",
+      "public_display": "unreviewed"
+    }
   }
 ]

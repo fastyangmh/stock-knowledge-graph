@@ -86,6 +86,10 @@ def import_payload(conn, payload):
         for key in ("source_url","license_url","attribution","period_end","unit","availability_basis","source_report_date","registered_at","input_snapshot_sha256"):
             if key in d:
                 props[key]=d[key]
+        if d["doc_type"] == "industry_report":
+            for key in ("industry", "relation_basis", "raw_sha256", "source_column", "row_number"):
+                if key in d:
+                    props[key] = d[key]
         upsert_node(conn,"doc:"+did,d["doc_type"],d["title"],document_id=did,props=props)
         # A provided stock_ids list replaces that document's links; an absent field preserves them.
         if "stock_ids" in d:
