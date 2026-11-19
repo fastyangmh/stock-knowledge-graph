@@ -133,3 +133,26 @@ uv run --locked python -m local.bundle_audit --root local/private/restored-001/r
 - 建立時使用 SQLite online backup 取得已提交的 WAL。不可變研究版本內的 `graph.db` 按原始 bytes 複製，維持舊報告的 hash。程式持有研究及所選來源目錄的協作鎖，檢查建檔前後的目錄、檔案身分、大小、時間戳，以及 SQLite WAL／journal。來源正在更新而導致拒絕時，待寫入者完成後再執行。
 - 還原先檢查完整目錄與檔案清單，再於目的地同一檔案系統暫存、重播 ledger、按歷史 cutoff 重讀行情原件、稽核 graph 和重算列入的事件報告。目的檔案系統須支援排他目錄 rename。遇到檔案缺漏、引用不符、連結或既有目的地時會回傳非零。收到成功退出後再使用新目錄的 `runs/latest.json`。強制終止可能留有隱藏暫存目錄，舊成功版本仍可讀。
 - 2026-11-19 的真實驗證使用 macOS 同一 APFS 裝置的不同目錄。移轉後須在 Linux／NAS 和獨立媒體上重跑建立、離線驗證與全新還原。實際停電後的耐久性需在目標設備另驗。[P0-03 演練紀錄](../.scratch/m5-private-operations/issues/02-restore.md)
+
+## 量測私有精確搜尋容量
+
+先準備已用 `local.model_check` 核對且含 `model-provenance.json` 的私有模型快取。以下命令在新目錄保存固定 seed 的中、英、日合成文件、冷／熱兩個研究版本與 `summary.json`。每個規模的兩次研究各開一個新程序，CPU 單執行緒編碼。可調整 `--sizes`、`--seed`、`--max-pairs`；任一規模超限會在讀模型與建立輸出前停止。
+
+```bash
+uv run --locked python -m local.capacity_benchmark \
+  --model-cache local/private/m1/02/model-cache \
+  --output local/private/scale-run-01 --sizes 32 128 512 \
+  --seed 20261119 --max-pairs 130816
+```
+
+`model_load_seconds` 包含匯入模型依賴與從已校驗的本機檔建立模型，`encode_seconds` 只計各批 `encoder.encode` 呼叫。`pair_cpu_seconds` 計 `top_k_pairs` 的程序 CPU 時間；子程序另記整體 user/system CPU 與峰值 RSS。冷／熱指文件向量與研究圖快取；OS 檔案快取未清空。每個版本的完整文件邊都對 float64 餘弦全排序，報告列缺邊、多邊、recall 與重疊邊最大絕對分數誤差。六位小數表示容許誤差為 0.00000051。任何不一致都以失敗離開。展示 JSON 與整個 bundle JSON 分別加總 bytes。
+
+以已裝 Playwright 的 Python 執行下列命令。可用 `--chromium` 指定已安裝的瀏覽器執行檔。每個規模用同一個新瀏覽器環境開三次正常預覽，等待第一檔股票的圖譜狀態與 canvas 就緒，另存 Chromium 的圖檔與 CDN 資源時間。此步驟需要 loopback 和前端既有 CDN。
+
+```bash
+PYTHONPATH=. python scripts/capacity_browser.py \
+  --benchmark local/private/scale-run-01 \
+  --output local/private/scale-run-01/browser.json
+```
+
+本機量到 512 份短文件時，可在相似負載的私有研究顯式指定 `--max-pairs 130816`。計算量按有效文件數的平方成長；超過預算時可縮短 `--lookback-days`，需保留整段時應依目標設備與實際文本長度重新量測。[候選與驗收紀錄](../.scratch/m5-private-operations/issues/03-scale.md)
