@@ -171,4 +171,3 @@ class AnnouncementTests(unittest.TestCase):
         nodes = [n for n in repeated.graphs['TW:1000']['nodes'] if n['id'].startswith('doc:')]
         self.assertEqual({n['id'] for n in nodes}, {'doc:tpex:18418:1000:1090102:070501',
                                                     'doc:twse:18415:1000:1090102:070501'})
-
