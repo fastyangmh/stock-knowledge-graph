@@ -100,7 +100,7 @@ def _element_diff(before, after, *, edge=False, limit=50):
             "details_truncated": any(n > limit for n in (len(added), len(removed), len(changed)))}
 
 
-def compare(before: Bundle, after: Bundle, *, detail_limit=50):
+def compare(before: Bundle, after: Bundle, *, detail_limit=50, price_review=False, action_manifests=()):
     _require(type(detail_limit) is int and 1 <= detail_limit <= 500, "invalid_detail_budget")
     _require(timestamp(before.report["known_at"]) <= timestamp(after.report["known_at"]), "before_cutoff_is_later_than_after")
     a, b = set(before.graphs), set(after.graphs)
@@ -133,6 +133,9 @@ def compare(before: Bundle, after: Bundle, *, detail_limit=50):
               "caveats": ["no_combined_score_or_buy_sell_instructions", "missing_data_does_not_mean_alert_resolved",
                           "graph_pruning_and_settings_can_change_visible_nodes", "local_hashes_are_not_digital_signatures",
                           "not_an_event_study_backtest_or_forecast_validation"]}
+    if price_review or action_manifests:
+        from .price_action_review import review_prices
+        result["price_review"] = review_prices(before, after, action_manifests)
     result["comparison_id"] = hashlib.sha256(canonical(result)).hexdigest()
     return result
 
@@ -142,8 +145,12 @@ def main(argv=None):
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--before", required=True, help="Saved run ID; no path or implicit latest")
     parser.add_argument("--after", required=True)
+    parser.add_argument("--price-review", action="store_true", help="Review original prices and action evidence for the saved trade dates")
+    parser.add_argument("--action-manifest", type=Path, action="append", default=[],
+                        help="Private data.gov.tw 11633 capture manifest; repeat for saved versions (implies --price-review)")
     args = parser.parse_args(argv)
-    result = compare(audit_bundle(args.root, args.before), audit_bundle(args.root, args.after))
+    result = compare(audit_bundle(args.root, args.before), audit_bundle(args.root, args.after),
+                     price_review=args.price_review, action_manifests=args.action_manifest)
     print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
 
 
