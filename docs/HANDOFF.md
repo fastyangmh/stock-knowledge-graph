@@ -26,6 +26,8 @@ M2 價格基準與正規化來源通知已整合至 `9a0bce9`。兩市場四檔�
 
 Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/private-research-ready`，尚不能把開發分支驗收視為 `main` 已更新。
 
+M5 精確搜尋在本機的 32、128、512 份短文件已完成兩輪 CPU、峰值記憶體、快取及完整文件邊核對，並量到實際瀏覽器開圖時間。下一個較大規模或新硬體可沿用[容量量測指令](OPERATIONS.md#量測私有精確搜尋容量)。
+
 ## 2. 已確認決策，不要重新詢問
 
 | 主題 | 已確認的方向 |
@@ -70,6 +72,8 @@ Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/pri
 05／06／07 的原始官方擷取證據仍保留。本輪重讀其 bytes、重新正規化財務且與08已核對輸入相同，在全新 ledger／runs 合併財務新版與未確認行情原值。每市場兩版、每版8筆完整 facts；首次編碼2文件／1配對，重跑 encoded=0、pairs=0、loader=0。各市場一個營收事件，後續數值均為 insufficient_data 或 pending，沒有真實 observed 結果。完整金融／模型 bytes、報告與截圖只留私有。
 
 Linux／NAS、完整歷史、每日穩定性、其餘季度產業與期別、籌碼／公告適配及真實投資品質待驗。單次下載、hash、模型執行或工程綠燈都不能替代來源尺度、授權或金融有效性。較早[事件驗證](VERIFICATION-2026-11-16-EVENTS.md)保留為歷史，不冒稱本輪執行。
+
+OPS-01 的 `local.manual_update` 可重播兩市場已驗原件，逐階段保留資料期別、磁碟水位、來源錯誤與舊成功指標。[手動更新手冊](MANUAL_UPDATE.md) · [兩市場重送與日曆驗收](../.scratch/m5-private-operations/issues/04-manual-update.md)
 
 ## 5. 接手操作
 

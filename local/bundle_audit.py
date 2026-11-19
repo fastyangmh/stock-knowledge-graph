@@ -66,11 +66,16 @@ def _hash(body):
     return hashlib.sha256(body).hexdigest()
 
 
-def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE_BYTES):
+def pending_pointer(root, run_id):
+    return guarded(root / (".research-stage-manual-" + run_id))
+
+
+def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE_BYTES, allow_pending=False):
     """Validate a captured bundle. SQLite is hashed as bytes, never opened as SQL."""
     _require(isinstance(run_id, str) and RUN.fullmatch(run_id), "invalid_run_id")
     _require(type(max_bytes) is int and max_bytes > 0, "invalid_size_budget")
     root = guarded(root)
+    _require(allow_pending or not pending_pointer(root, run_id).exists(), "unpublished_manual_run")
     bundle = guarded(root/run_id)
     _require(bundle.is_dir(), "bundle_not_found")
     expected = {"report.json", "graph.db", "data/manifest.json"}
@@ -225,6 +230,8 @@ def catalog(root, *, max_runs=50, max_bytes=MAX_BUNDLE_BYTES):
         root_entries += 1
         _require(root_entries <= max_runs + 100, "too_many_root_entries")
         if RUN.fullmatch(path.name):
+            if pending_pointer(root, path.name).exists():
+                continue
             entries.append(path.name)
             _require(len(entries) <= max_runs, "run_budget_exceeded")
         elif path.name.startswith(".research-stage-"):
