@@ -33,7 +33,7 @@ uv run --locked python -m local.calendar_coverage \
 
 報告的 `event_sequence.anchor` 列出事件 ID、首次觸發的版本、報告雜湊、完成時間與台北日期。`event_sequence.days` 從事件台北日期的次日起算，每列並列該市場的 `session_ordinal` 與原事件工具的 `quote_ordinal`。例如週一開市缺行情、週二才有該股第一筆報價，週二會列交易日 2、報價 1。首次保存的後續報價使用原有的市場、事實 ID、bundle 及數值；原本缺收盤價的一筆仍占其位置。
 
-`event_sequence.horizons` 並列第 1、5、20 個市場交易日與第 1、5、20 筆報價的目標日期。未到的已知開市日列 `pending`，無法確定日期列 `unknown_calendar`，區間太短列 `outside_report_range`。市場交易日的連續性與報價是否有足夠數值各自判讀。關於價格定義及來源能否比較，查原事件報告的 `status`、`reason` 與分母。[合成 CLI 驗收](../.scratch/m2-trading-calendar/issues/03-session-ordinal.md)
+`event_sequence.horizons` 並列第 1、5、20 個市場交易日與第 1、5、20 筆報價的目標日期。未到的日期依截止時已保存的開市安排標示序號，可用性列 `pending`，無法確定日期列 `unknown_calendar`，區間太短列 `outside_report_range`。市場交易日的連續性與報價是否有足夠數值各自判讀。關於價格定義及來源能否比較，查原事件報告的 `status`、`reason` 與分母。[合成 CLI 驗收](../.scratch/m2-trading-calendar/issues/03-session-ordinal.md)
 
 ## 日曆輸入
 
@@ -82,4 +82,4 @@ uv run --locked python -m local.calendar_coverage \
 
 預設整個研究目錄、索引與適用原檔合計預算 256 MiB、50 個版本及 50,000 個「股票 × 曆日」列，可用 `--max-mib`、`--max-runs`、`--max-rows` 調整。日曆索引上限 4 MiB、512 個條目，單份封存證據 32 MiB；另設日曆判讀工作量與報告大小上限。既有 `local.trading_calendar` 的 CSV 判讀入口仍用於原盤後流程。
 
-01 的合成 SQLite／CLI 驗收見 [01 票](../.scratch/m2-trading-calendar/issues/01-daily-coverage.md)。缺口原因、事件後序號及分市場官方樣本依後續票驗收。
+01 的合成 SQLite／CLI 驗收見 [01 票](../.scratch/m2-trading-calendar/issues/01-daily-coverage.md)。缺口原因與分市場官方樣本依各票驗收。
