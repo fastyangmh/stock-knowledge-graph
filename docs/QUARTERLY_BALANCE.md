@@ -25,10 +25,12 @@
 | --- | ---: | --- | --- |
 | 上市一般 | 12 | 台積及聯發科兩份合併財報的期末流動資產、資產、負債、總權益與母公司權益，共 10 筆 | 兩家每股參考淨值待核。聯發科最初採用整數百萬元之業績發表資料，資產按倍率換算仍失配；另以正式合併財報仟元數覆核。原先的失配及後來的核對各有不可變研究版本。[台積公司 PDF 第 4 頁](https://investor.tsmc.com/sites/ir/financial-report/2026/TSMC%202026Q3%20Consolidated%20Financial%20Statements_E.pdf) · [聯發科合併財報印刷第 4～5 頁](https://www.mediatek.com/hubfs/MediaTek-Assets/Pdfs/Financial%20Reports/2026/Q3%20Consolidated%20Report.pdf) |
 | 上櫃一般 | 6 | 環球晶合併財報期末資產 1 筆 | 其餘 5 筆待核。[環球晶合併財報第 4 頁](https://www.sas-globalwafers.com/wp-content/uploads/2026/05/GlobalWafers_2026Q3-consolidated-financial-statement_CN.pdf) |
-| 上市金融 | 5 | 高雄銀行個別財報期末資產、負債、權益共 3 筆 | 2 筆待核、1 欄空值。[銀行季報印刷第 4 頁](https://www.bok.com.tw/zh/-107?_com_khb_announcearea_AnnounceListN_INSTANCE_dsew_fileID=1301958&p_p_cacheability=cacheLevelPage&p_p_id=com_khb_announcearea_AnnounceListN_INSTANCE_dsew&p_p_lifecycle=2&p_p_mode=view&p_p_resource_id=download&p_p_state=normal) |
-| 上市保險 | 5 | 旺旺友聯個別財報期末資產、負債、權益共 3 筆 | 2 筆待核、1 欄空值。[保險公司季報印刷第 4 頁](https://www.wwunion.com/wp-content/uploads/2026/11/115Aud-Report-Q3.pdf) |
+| 上市金融 | 5 | 高雄銀行個別財報期末資產、負債、權益共 3 筆 | 2 筆待核，歸屬母公司權益欄空白。[銀行季報印刷第 4 頁](https://www.bok.com.tw/zh/-107?_com_khb_announcearea_AnnounceListN_INSTANCE_dsew_fileID=1301958&p_p_cacheability=cacheLevelPage&p_p_id=com_khb_announcearea_AnnounceListN_INSTANCE_dsew&p_p_lifecycle=2&p_p_mode=view&p_p_resource_id=download&p_p_state=normal) |
+| 上市保險 | 5 | 旺旺友聯個別財報期末資產、負債、權益共 3 筆 | 2 筆待核，歸屬母公司權益欄空白。[保險公司季報印刷第 4 頁](https://www.wwunion.com/wp-content/uploads/2026/11/115Aud-Report-Q3.pdf) |
 
 17 筆已核實為新台幣仟元，11 筆仍為 `source_reported`。每股欄雖可與金額欄區分，這次抽樣尚缺可直接核對的每股數值。兩份早期核對檔與原件索引見[歷次發行人抽檢](../.scratch/m3-evidence-sources/issuer-reference-2026-11-19.md)。其他期間、全體發行人與正式撤回紀錄尚待取得。
+
+產品候選 `f458b81` 在 macOS arm64／Python 3.11.11 上執行 `uv run --locked python -m local.check`，544 個 pytest、301 個 subtests 通過，exit 0。相同候選重新跑四份原件及後續詳表，五個研究版本全數通過 audit；未支援的兩個 ID 均 exit 2，沒有建立輸出。完整檢查報告在 `local/private/m3-balance-2026-11-19/offline-check.json`，對應私有原件重播在同目錄的 `committed-run/`。本輪未另測前端或 Linux／NAS。
 
 ## 重播
 
