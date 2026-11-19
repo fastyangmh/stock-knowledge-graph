@@ -91,6 +91,7 @@ def _market_ref(item):
     record, source = item["record"], item["source"]
     return {"source_id":source["source_id"], "source_url":source.get("dataset_url"),
             "period":record["trade_date"], "observed_at":item["observed_at"],
+            **{k:item[k] for k in ("available_at", "recorded_at", "notice_sha256") if k in item},
             "raw_sha256":item["raw_sha256"], "acquisition":item["acquisition"],
             "raw_snapshot_verified":item["raw_snapshot_verified"],
             "close":record["close"], "volume_shares":record["volume_shares"],
@@ -109,7 +110,7 @@ def _price_checks(items, sid, target, cutoff, config):
     for item in items:
         row = item["record"]
         day = iso_date(row["trade_date"])
-        if timestamp(item["observed_at"]) > cutoff or day > iso_date(target):
+        if timestamp(item.get("available_at", item["observed_at"])) > cutoff or day > iso_date(target):
             continue
         if row["symbol"] != sid[3:] or row["trade_date"] in known:
             raise ValueError("wrong stock or duplicate price date in alert history")

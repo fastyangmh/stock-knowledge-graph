@@ -193,10 +193,14 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
                 snapshot = {**snapshot, 'revision_payload': strict_json(captured[path])}
             archived.append(snapshot)
         validate_facts(facts, report, archived_snapshots=archived, graphs=graphs)
+        if facts.get("market_notices"):
+            from .market_notices import audit_bundle_prices
+            audit_bundle_prices(facts, report, graphs, alerts)
     else:
         _require("research-facts.json" not in captured, "unlisted_facts")
         _require(not any(p.startswith('revisions/') for p in captured) and
                  not report.get('quality', {}).get('source_revisions') and
+                 not report.get('quality', {}).get('market_notices') and
                  not any('revision_payload' in s or 'revision_path' in s
                          for s in report['quality'].get('snapshots', [])), 'revision_facts_missing')
     return Bundle(report, digests["report.json"], manifest, graphs, data_files,
