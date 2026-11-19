@@ -81,6 +81,7 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
         if path.is_file():
             relative = path.relative_to(bundle).as_posix()
             _require(relative in expected or relative in ("alerts.json", "research-facts.json") or
+                     re.fullmatch(r"revisions/[a-f0-9]{64}\.json", relative) or
                      re.fullmatch(r"data/stocks/[A-Za-z0-9_.-]+/graph\.json", relative), "unexpected_bundle_file")
             if relative != "graph.db":
                 _require(path.stat().st_size <= MAX_INPUT_BYTES, "json_size_budget_exceeded")
@@ -179,9 +180,25 @@ def audit_bundle(root, run_id, *, expected_report_sha=None, max_bytes=MAX_BUNDLE
         _require(type(index.get("size_bytes")) is int and index["size_bytes"] == len(captured["research-facts.json"]), "facts_size_mismatch")
         facts = strict_json(captured["research-facts.json"])
         from .research_facts import validate_facts
-        validate_facts(facts, report)
+        snapshots = report['quality']['snapshots']
+        paths = {s['revision_path'] for s in snapshots if 'revision_path' in s}
+        _require(paths == {p for p in captured if p.startswith('revisions/')}, 'revision_file_set_mismatch')
+        archived = []
+        for snapshot in snapshots:
+            if 'revision_path' in snapshot:
+                path = snapshot['revision_path']
+                sha = snapshot['sha256']
+                _require('revision_payload' not in snapshot and path == f'revisions/{sha}.json'
+                         and digests[path] == sha, 'revision_file_mismatch')
+                snapshot = {**snapshot, 'revision_payload': strict_json(captured[path])}
+            archived.append(snapshot)
+        validate_facts(facts, report, archived_snapshots=archived, graphs=graphs)
     else:
         _require("research-facts.json" not in captured, "unlisted_facts")
+        _require(not any(p.startswith('revisions/') for p in captured) and
+                 not report.get('quality', {}).get('source_revisions') and
+                 not any('revision_payload' in s or 'revision_path' in s
+                         for s in report['quality'].get('snapshots', [])), 'revision_facts_missing')
     return Bundle(report, digests["report.json"], manifest, graphs, data_files,
                   alerts, read_bytes, expected_report_sha is not None, facts)
 

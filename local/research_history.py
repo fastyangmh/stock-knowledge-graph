@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 from .dates import iso_date, timestamp
 from .financial_definitions import financial_definition
-from .source_revisions import RevisionTarget, activation, record_key, revision_entry, validate_envelope
+from .source_revisions import RevisionTarget, activation, record_available_at, record_key, revision_entry, validate_envelope
 
 MAX_INPUT_BYTES = 32 * 1024 * 1024
 MAX_REPLAY_SNAPSHOTS = 5000
@@ -227,8 +227,10 @@ notices control corrections, withdrawals and republications of managed records.
     rows = conn.execute("SELECT sha256,observed_at,recorded_at,payload_json FROM research_snapshots ORDER BY observed_at,recorded_at,sha256")
     read_bytes = 0
     selected = {group: {} for group in GROUPS}
-    ranks, used, warnings = {}, [], set()
+    ranks, warnings = {}, set()
     pending_revisions = []
+    candidates = {}
+    used_ids = set()
     def keep(group, key, item, rank, facts=None):
         prior = ranks.get((group, key))
         facts = canonical(item) if facts is None else canonical(facts)
@@ -252,22 +254,24 @@ notices control corrections, withdrawals and republications of managed records.
             raise ValueError("snapshot timestamp differs from payload")
         relevant = {s["stock_id"] for s in payload["stocks"]} & stock_ids
         updates_selected_doc = any(d["document_id"] in selected["documents"] for d in payload.get("documents", []))
-        if not relevant and (not updates_selected_doc or 'source_revision' in payload):
-            continue
-        used.append({"sha256": checksum, "observed_at": observed_at, "recorded_at": recorded_at,
-                     "metadata": copy.deepcopy(payload["metadata"]),
-                     "sources": copy.deepcopy(payload.get("sources", []))})
+        snapshot = {"sha256": checksum, "observed_at": observed_at, "recorded_at": recorded_at,
+                    "metadata": payload["metadata"], "sources": payload.get("sources", [])}
+        candidates[checksum] = snapshot
+        if relevant or updates_selected_doc:
+            used_ids.add(checksum)
         if 'source_revision' in payload:
             notice = payload['source_revision']
             if schema != 1:
                 raise ValueError('source revision in unmigrated ledger')
-            used[-1]['revision_payload'] = payload
+            if not relevant and notice['group'] != 'documents':
+                continue
+            snapshot['revision_payload'] = payload
             if activation(payload) <= cutoff:
                 warnings.update(warning for warning in quality['warnings'] if not warning.startswith('no_documents:'))
                 group = notice['group']
                 row = next(iter(payload.get(group, [])), None)
-                available = timestamp(row.get('available_at', row.get('published_at'))) if row else observed
-                entry = revision_entry(used[-1], stock_ids)
+                available = record_available_at(group, row) if row else observed
+                entry = revision_entry(snapshot, stock_ids)
                 replacement = None
                 if row is not None:
                     replacement = {**row, 'input_snapshot_sha256': checksum, 'registered_at': recorded_at,
@@ -278,6 +282,8 @@ notices control corrections, withdrawals and republications of managed records.
                         replacement.update(source_available_at=row['available_at'], observed_at=observed_at)
                 key = notice['key']['document_id'] if group == 'documents' else record_key(group, notice['key'])
                 pending_revisions.append((entry, group, key, replacement))
+            continue
+        if not relevant and not updates_selected_doc:
             continue
         warnings.update(quality["warnings"])
         for source in payload.get("sources", []):
@@ -290,7 +296,7 @@ notices control corrections, withdrawals and republications of managed records.
             if not links and doc["document_id"] not in selected["documents"]:
                 continue
             item = copy.deepcopy(doc)
-            available = timestamp(doc.get("available_at", doc["published_at"]))
+            available = record_available_at('documents', doc)
             if available > cutoff:
                 continue
             item["stock_ids"] = sorted(links)
@@ -319,7 +325,11 @@ notices control corrections, withdrawals and republications of managed records.
                     raise ValueError("multiple sources for one metric require an explicit reconciliation policy")
                 keep(group, key, item, (observed, available), metric)
     revisions = []
+    selected_doc_ids = set(selected["documents"])
     for entry, group, key, replacement in sorted(pending_revisions, key=lambda item: timestamp(item[0]['notice']['published_at'])):
+        if not entry['stock_ids'] and key not in selected_doc_ids:
+            continue
+        used_ids.add(entry['snapshot_sha256'])
         revisions.append(entry)
         source = entry['notice']['source_id']
         old = selected[group].pop(key, None)
@@ -327,6 +337,14 @@ notices control corrections, withdrawals and republications of managed records.
             raise ValueError('conflicting source for managed revision target')
         if replacement is not None:
             selected[group][key] = replacement
+    # Keep the parent evidence for selected notices, including documents whose
+    # stock links were subsequently reassigned in an ordinary snapshot.
+    notice_snapshots = (s for s in candidates.values() if 'revision_payload' in s)
+    for snapshot in sorted(notice_snapshots, reverse=True,
+                           key=lambda s: timestamp(s['revision_payload']['source_revision']['published_at'])):
+        if snapshot['sha256'] in used_ids:
+            used_ids.add(snapshot['revision_payload']['source_revision']['target_snapshot_sha256'])
+    used = [snapshot for sha, snapshot in candidates.items() if sha in used_ids]
     if set(selected["stocks"]) != stock_ids:
         raise ValueError("no as-recorded stock coverage for: " + ",".join(sorted(stock_ids-set(selected["stocks"]))))
     selected["documents"] = {key: doc for key, doc in selected["documents"].items() if doc["stock_ids"]}

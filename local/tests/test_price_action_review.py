@@ -23,23 +23,27 @@ class PriceActionReviewTests(unittest.TestCase):
         self.input = self.root / 'input.json'
         self.input.write_bytes(canonical(payload()))
 
-    def bundle(self, day, close, *, feed='tpex', review=None):
+    def ingest_day(self, day, close, feed, review, database, snapshots):
         body = io.StringIO(newline='')
         writer = csv.writer(body)
         writer.writerow(FEEDS[feed]['columns'])
         writer.writerow([day.replace('-', ''), '1000', 'Example', close, close, close, close, 1000, 20000, 10])
         raw = body.getvalue().encode()
         from hashlib import sha256
-        database, snapshots = self.root / (feed+day+'.db'), self.root/'raw'
         if review:
             review = {**review, 'source_id': FEEDS[feed]['source_id'], 'trade_date': day,
                       'raw_sha256': sha256(raw).hexdigest()}
         ingest(raw, feed, ['1000'], day, db=database, output=snapshots,
                observed_at=T1, acquisition='local_file_unverified', unit_review=review)
+    def bundle(self, day, close, *, feed='tpex', review=None, prior_day=None):
+        database, snapshots = self.root / (feed+day+'.db'), self.root/'raw'
+        self.ingest_day(day, close, feed, review, database, snapshots)
+        if prior_day:
+            self.ingest_day(prior_day, '19', feed, review, database, snapshots)
         with patch('local.research.utc_now', return_value=T1), patch('local.research_history.utc_now', return_value=T1):
             result = run(self.input, ['1000'], history_db=self.root/'ledger.db', output_root=self.root/'runs',
                          known_at=T1, prices_db=database, price_snapshots=snapshots,
-                         trade_date=day, price_market=feed, max_information_nodes=0)
+                         trade_date=day, price_market=feed, max_information_nodes=0, alerts=bool(prior_day))
         return result['run']
 
     def compare(self, before, after, *options):
@@ -57,6 +61,32 @@ class PriceActionReviewTests(unittest.TestCase):
         self.assertEqual(row['after']['run'], b)
         self.assertIn('price_definition_unknown', row['warnings'])
         self.assertEqual(set(row['unknown_interval_coverage']), {'ex_rights_dividend','split_reverse_split','capital_reduction'})
+
+    def test_http_compare_rejects_evaluable_alerts_in_different_currencies(self):
+        from http.client import HTTPConnection
+        from threading import Thread
+        from local.research_archive import make_server
+        from test_market_unit_review import definition
+        first = self.bundle('2019-12-29', '20', review=definition(), prior_day='2019-12-28')
+        second = self.bundle('2019-12-31', '22', prior_day='2019-12-30',
+                             review={**definition(), 'price_currency': 'USD', 'turnover_currency': 'USD'})
+        with make_server(self.root/'runs', port=0) as server:
+            worker = Thread(target=server.handle_request)
+            worker.start()
+            client = HTTPConnection('127.0.0.1', server.server_port, timeout=5)
+            try:
+                client.request('GET', f'/api/compare?before={first}&after={second}')
+                response = client.getresponse()
+                self.assertEqual(response.status, 200)
+                result = json.loads(response.read())
+            finally:
+                client.close()
+                worker.join(5)
+        change = next(row for row in result['stocks'][0]['categories']['price_volume'] if row['rule_id'] == 'price_change')
+        self.assertEqual(change['before']['status'], 'triggered')
+        self.assertEqual(change['after']['status'], 'triggered')
+        self.assertFalse(change['comparable'])
+        self.assertEqual(change['transition'], 'definition_changed')
 
     def test_same_stock_with_different_market_or_currency_is_incomparable(self):
         from test_market_unit_review import definition
