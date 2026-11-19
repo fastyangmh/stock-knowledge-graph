@@ -23,4 +23,14 @@
 | M5 | [OPS-01](../../docs/DEVELOPMENT_BACKLOG.md#ops-01完整手動更新流程) | 個別 CLI 與私有一次性整合程序已運作 | 可重跑的分階段手動入口，驗部分失敗、健康報告及舊 pointer 保全 |
 | M6 | M1～M5 | 待上述必要的功能及證據齊備 | 同候選版本用真實來源重建、抽檢、復原及 audit，逐項對照完成條件 |
 
+## 後續規格與可執行票
+
+| 批次 | 原待辦與驗收入口 |
+| --- | --- |
+| [M2 價格基準與歷史](../m2-price-history/spec.md) | P2-03 原始行情比較、P2-04 依截止重播明示更正或撤回 |
+| [M3 新來源](../m3-evidence-sources/spec.md) | P1-03 季度三表、P1-04 法人及融資融券、P1-05 公告與新聞／產業來源，按來源、權利及產業逐票驗收 |
+| [M4 研究品質](../m4-research-quality/spec.md) | P3-01 六條提醒的實際分母與人工案例、P4A-01 事件觀察期與樣本重疊 |
+| [M5 私有維運](../m5-private-operations/spec.md) | P0-03 實際復原、P2-05 固定負載、P2-06 儲存與封存、OPS-01 手動更新與重試 |
+| [M6 總驗收](../m6-private-acceptance/spec.md) | 同一候選、真實來源、獨立參考、整組還原及逐項簽核 |
+
 [REL-01](../../docs/DEVELOPMENT_BACKLOG.md#rel-01正式公開)、[REL-02](../../docs/DEVELOPMENT_BACKLOG.md#rel-02每日排程) 分別待公開授權及排程決定。[HOLD-01](../../docs/DEVELOPMENT_BACKLOG.md#hold-01研究名單暫緩不阻塞) 名單暫緩，[HOLD-02](../../docs/DEVELOPMENT_BACKLOG.md#hold-02策略回測交易未選定) 策略 B 未選定。
