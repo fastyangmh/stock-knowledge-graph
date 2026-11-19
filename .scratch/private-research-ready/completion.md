@@ -21,7 +21,7 @@
 | M5 | [P2-05](../../docs/DEVELOPMENT_BACKLOG.md#p2-05容量量測與ann評估) | [固定模型的 32／128／512 文件已量測冷熱快取、CPU、RSS、精確邊及九次 Chromium](../../docs/VERIFICATION-2026-11-19-M5-REVIEW.md) | 更大尺度或新主機時重測 |
 | M5 | [P2-06](../../docs/DEVELOPMENT_BACKLOG.md#p2-06儲存預算與封存) | [完成分類、增長、唯讀盤點；單一 run 作根、組合封存與還原均已重驗](../../docs/VERIFICATION-2026-11-19-M5-REVIEW.md) | 實際刪除需保留期授權 |
 | M5 | [OPS-01](../../docs/DEVELOPMENT_BACKLOG.md#ops-01完整手動更新流程) | [兩市場手動原件、來源重試、候選與作業報告故障均已驗證](../../docs/VERIFICATION-2026-11-19-M5-REVIEW.md) | 持續到件與實際線上穩定性待驗 |
-| M6 | M1～M5 | [已在 macOS 預演原件重建、模型快取、兩類提醒、六頁真實瀏覽器與四個 SQLite 復原](../m6-private-acceptance/issues/01-real-rehearsal.md) | 同候選版本用真實來源重建、抽檢、復原及 audit，逐項對照完成條件 |
+| M6 | M1～M5 | [同候選重建 37 版，從還原原件重做 28 個輸入與兩市場更新，桌機／手機及 21 個原 ID 已核對](../../docs/VERIFICATION-2026-11-19-M6.md) | `needs-info`。補行情同範圍獨立抽檢、缺少的來源與長期樣本、Linux／NAS 獨立復原 |
 
 ## 後續規格與可執行票
 
