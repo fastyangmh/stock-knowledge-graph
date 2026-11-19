@@ -246,8 +246,9 @@ async def event_checks(browser, root, report, screenshot):
             for width in (1280, 390):
                 await page.set_viewport_size({'width': width, 'height': 900})
                 section = page.locator('[data-event-category="monthly_revenue"]')
+                event_selector = section.get_by_role('combobox', name='月營收提醒事件單一事件', exact=True)
                 for index in (1, 0, 1):
-                    await section.locator('select').select_option(index=index)
+                    await event_selector.select_option(index=index)
                 details = section.locator('details').filter(has=page.locator('summary', has_text='事件基準與原始提醒'))
                 await details.locator('summary').click()
                 assert 'report_sha256' in await details.inner_text()
