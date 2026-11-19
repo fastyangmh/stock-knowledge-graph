@@ -41,3 +41,5 @@ P1-03。2026-11-19 正常閱覽兩家公司分別公布的 2026 年第 3 季合�
 ### 上市金融業淨放款追加核對
 
 再讀高雄銀行 115 年第三季報表附註「（八）貼現及放款－淨額」，以 9 月 30 日欄扣除備抵損失後的淨額核對 94829。此欄零容差等值。以加入此欄的新 review 在 `b0807dd` 重做四份資產負債表，仍為 34 筆，23 筆等值、11 筆待核。保留原 22 筆等值的舊版驗收與時間。私有程式與結果位於 `local/private/m3-balance-issuer-bank/{replay.py,out-b0807dd/summary.json}`。[高雄銀行原始季報](https://www.bok.com.tw/zh/-107?_com_khb_announcearea_AnnounceListN_INSTANCE_dsew_fileID=1301958&p_p_cacheability=cacheLevelPage&p_p_id=com_khb_announcearea_AnnounceListN_INSTANCE_dsew&p_p_lifecycle=2&p_p_mode=view&p_p_resource_id=download&p_p_state=normal)
+
+後續另閱環球晶圓 2026-11-03 第三季業績稿。稿件分別給出第三季及前三季的營收與 EPS，另給下次除息基準日與付款日。其揭露內容未涵蓋待核的 9 月 30 日流動資產、母公司權益、負債與每股參考淨值。重試環球晶第三季財報及旺旺友聯第三季原表當次未能開啟，資產負債仍為 23／34 欄次等值；本次未採用第三方股票網站的轉載值。[環球晶圓第三季業績稿](https://www.sas-globalwafers.com/en/globalwafers-reports-q3-2026-results/)
