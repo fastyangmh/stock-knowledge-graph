@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import math
 import struct
+import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from .core import digest, now, upsert_edge
@@ -77,7 +78,7 @@ def _edge_hash(conn, model_id):
 
 def compute_semantic(conn, model_name=DEFAULT_MODEL, top_k=10, threshold=0.65,
                      batch_size=32, encoder=None, revision=None, *,
-                     as_of=None, lookback_days=None, max_pairs=2_000_000):
+                     as_of=None, lookback_days=None, max_pairs=2_000_000, encoder_loader=None):
     if type(top_k) is not int or top_k < 1 or type(batch_size) is not int or batch_size < 1:
         raise ValueError("top_k and batch_size must be positive integers")
     if not math.isfinite(threshold) or not -1 <= threshold <= 1 or not model_name.strip():
@@ -115,10 +116,13 @@ def compute_semantic(conn, model_name=DEFAULT_MODEL, top_k=10, threshold=0.65,
         else:
             changed.append((nid, text, content_hash))
     # No model construction, import or download when all active vectors are cached.
+    timing = {"model_load_seconds": 0., "encode_seconds": 0., "pair_cpu_seconds": 0.}
     model_loaded = False
     if changed or (entries and dimension is None):
         if encoder is None:
-            encoder = load_encoder(model_name, revision)
+            start = time.perf_counter()
+            encoder = (encoder_loader or load_encoder)(model_name, revision)
+            timing["model_load_seconds"] = time.perf_counter() - start
             model_loaded = True
         get_dimension = getattr(encoder, "get_embedding_dimension", None)
         if get_dimension is None:
@@ -140,10 +144,10 @@ def compute_semantic(conn, model_name=DEFAULT_MODEL, top_k=10, threshold=0.65,
     state = conn.execute("SELECT * FROM similarity_state WHERE model_id=?", (model_id,)).fetchone()
     if not changed and state and state["input_hash"] == fingerprint and state["edge_hash"] == _edge_hash(conn,model_id):
         stats = json.loads(state["stats_json"])
-        return {**stats, "encoded":0, "cache_hits":len(entries), "model_loaded":False,
+        return {**stats, **timing, "encoded":0, "cache_hits":len(entries), "model_loaded":False,
                 "graph_reused":True, "pairs_evaluated":0, "retained_candidates":0}
     if dimension is None:
-        return {"model_id":model_id,"documents":0,"cache_hits":0,"encoded":0,
+        return {**timing, "model_id":model_id,"documents":0,"cache_hits":0,"encoded":0,
                 "document_pairs":0,"stock_pairs":0,"model_loaded":False,"graph_reused":False,
                 "pairs_evaluated":0,"retained_candidates":0}
     with _transaction(conn):
@@ -151,7 +155,9 @@ def compute_semantic(conn, model_name=DEFAULT_MODEL, top_k=10, threshold=0.65,
                      (model_id,model_name,dimension,config))
         for start in range(0,len(changed),batch_size):
             batch = changed[start:start+batch_size]
+            start_time = time.perf_counter()
             encoded = encoder.encode([x[1] for x in batch],batch_size=batch_size)
+            timing["encode_seconds"] += time.perf_counter() - start_time
             if len(encoded) != len(batch):
                 raise ValueError("encoder returned wrong batch size")
             for (nid,_,content_hash),raw in zip(batch,encoded):
@@ -167,7 +173,9 @@ def compute_semantic(conn, model_name=DEFAULT_MODEL, top_k=10, threshold=0.65,
         # Old-window embeddings remain cached; only truly removed document entries are stale.
         for nid in set(existing)-all_ids:
             conn.execute("DELETE FROM embeddings WHERE node_id=? AND model_id=?", (nid,model_id))
+        pair_start = time.process_time()
         selected, counts = top_k_pairs(vectors,top_k,threshold,max_pairs=max_pairs)
+        timing["pair_cpu_seconds"] = time.process_time() - pair_start
         doc_stocks = {}
         for did,sid in links:
             doc_stocks.setdefault("doc:"+did,set()).add(sid)
@@ -203,4 +211,4 @@ def compute_semantic(conn, model_name=DEFAULT_MODEL, top_k=10, threshold=0.65,
         conn.execute("""INSERT INTO similarity_state VALUES(?,?,?,?) ON CONFLICT(model_id) DO UPDATE SET
             input_hash=excluded.input_hash,edge_hash=excluded.edge_hash,stats_json=excluded.stats_json""",
             (model_id,fingerprint,_edge_hash(conn,model_id),json.dumps(stats,allow_nan=False)))
-    return stats
+    return {**stats, **timing}
