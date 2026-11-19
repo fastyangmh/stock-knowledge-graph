@@ -16,7 +16,7 @@
 | M3 | [P1-04](../../docs/DEVELOPMENT_BACKLOG.md#p1-04籌碼資料) | 有籌碼數值的保存與重播契約 | 核對官方法人／融資融券來源，驗證方向、尺度、修訂與冪等 |
 | M3 | [P1-05](../../docs/DEVELOPMENT_BACKLOG.md#p1-05重大訊息新聞與產業證據) | 已支援文件、股票對應與文字語意 | 每來源確認使用條件，驗證版本、重複、撤回與報表變更 |
 | M4 | [P3-01](../../docs/DEVELOPMENT_BACKLOG.md#p3-01提醒品質與可解釋性) | [四檔股票 32 個規則／期間組合已對照來源](../m4-research-quality/issues/01-alert-quality.md)，私有 CLI 的 72 筆保存與逐例核算相符 | 補 20 筆同來源較早行情、相鄰營收月份及 P1-02 行情定義，核對長窗與修訂等真實案例 |
-| M4 | [P4A-01](../../docs/DEVELOPMENT_BACKLOG.md#p4a-01事件後描述統計擴充) | 已保存兩市場各一個事件的第 1 筆真實後續觀察，5／20 筆仍不足。[後續行情與原件](source-samples-2026-11-19.md) | 在可確認的資料範圍檢查右設限、分組、重疊及選樣偏誤 |
+| M4 | [P4A-01](../../docs/DEVELOPMENT_BACKLOG.md#p4a-01事件後描述統計擴充) | [兩市場新舊事件報告及六規則整合重驗](../../docs/VERIFICATION-2026-11-19-EVENT-COHORTS.md#整合六條提醒與事件報告後的重驗)，各驗一個首次事件、兩次重複保存與兩個第 1 筆後續值 | 補第 5／20 筆行情、到期的 1／3／6 月營收、同股不同事件重疊及正式公司行為案例 |
 | M5 | [P0-03](../../docs/DEVELOPMENT_BACKLOG.md#p0-03復原與備份) | 在 macOS 同一裝置還原兩市場四組共十個版本，另以[混合財報庫還原 26 個版本、618 條引用](../m6-private-acceptance/issues/01-real-rehearsal.md) | 待全部必要來源整合後重跑，並在 Linux／NAS 與獨立儲存實測 |
 | M5 | [P2-05](../../docs/DEVELOPMENT_BACKLOG.md#p2-05容量量測與ann評估) | 有固定模型快取及精確 Top-K 工作預算 | 固定資料尺度，量測 CPU、記憶體、輸出與瀏覽器成本後決定索引需求 |
 | M5 | [P2-06](../../docs/DEVELOPMENT_BACKLOG.md#p2-06儲存預算與封存) | 已有部分讀取與工作量上限 | 盤點各類實際路徑、增長與超限，驗證封存 dry-run、還原及事件引用 |

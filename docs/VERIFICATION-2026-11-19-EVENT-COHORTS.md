@@ -23,3 +23,16 @@
 私有驗收位於 `local/private/m4-quality/event-cohorts/acceptance/`。其中 `verify.py`、`event-source-check.json` 沿用原件抽檢邏輯，`replay.py` 從目前 checkout 重算兩版本。從專案根目錄可用 `uv run --locked python local/private/m4-quality/event-cohorts/acceptance/verify.py` 與同目錄的 `replay.py` 重驗，兩者本輪均 exit 0。
 
 下一批真實驗證需要每個事件後第 5／20 筆同基準行情、到期且保存的第 1／3／6 個確切營收月份、同股另一首次事件及相交區間。實際拆併股與正式行情撤回仍缺相應原件。P1-02 行情尺度、完整市場覆蓋及投資有效性均維持原有驗證範圍。
+
+## 整合六條提醒與事件報告後的重驗
+
+在 `5eece06` 依序合併提醒品質票 `f903bb4`、事件分組票 `8746d5b`，固定乾淨候選 `332e01523df31c059999bbc61846d39763d5a39d`。本輪使用 macOS arm64、Python 3.11.11、uv 0.6.13 與 Node 22.16.0。下列路徑以主工作區的 `local/private/m4-quality/` 為準，命令從候選工作樹執行。
+
+| 入口 | 本次結果 | 私有證據 |
+| --- | --- | --- |
+| `uv run --locked python -m local.check --frontend --report …` | exit 0，614 個 pytest、341 個 subtests、56 個 Node 測試，SQLite 匯出及驗證通過 | `integrated-332e015/full.json`，SHA256 `405e289ac95e914f26bc515d520cc66d3de8fe65eb79a005511cb1fb751ac12a` |
+| `cli-2026-11-19/verify.py` | 兩市場各三版的品質 CLI 連跑兩次成功。核對四股共 32 個首存案例及 72 筆規則狀態，28 筆數值與原始 CSV 算式相符，44 筆缺值均有保存狀態 | `cli-2026-11-19/332e015/verification.json` |
+| `local.event_study`、`verify.py` 與 `replay.py` | 按兩市場舊報告各自的 `analysis_at` 執行 CLI。每市場均有一個首次事件、兩次重複保存、兩個已觀察值、四個後續行情不足與六個營收尚未到期。原始 CSV 獨立重算四個數值相符。兩市場的新、舊共四份報告從稽核過的 runs 重播後逐位元組相同 | `event-cohorts/integrated-332e015/` 內的腳本、報告與 `event-source-check.json` |
+| 本機 Chromium／HTTP | 合成的新版、舊版與混合情境通過。兩市場的新、舊真實報告均在 1280px 及 390px 開啟，共八個組合，無頁面錯誤 | `integrated-332e015/browser-synthetic.json`、`event-cohorts/integrated-332e015/browser.json` |
+
+提醒仍缺完整 20 筆同來源較早行情、相鄰營收月份、正式修訂與公司行為案例。P1-02 行情範圍及尺度仍待獨立證據。[六條規則的分母與缺少期別](../.scratch/m4-research-quality/issues/01-alert-quality.md)
