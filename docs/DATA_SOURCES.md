@@ -61,3 +61,15 @@ TWSE 公司／月營收 CSV 已於 2026-11-17 完成一次真實全檔下載；�
 本次保存官方 metadata／條款 HTML、三份原始 CSV、HTTP metadata、hash、全檔 profile
 及私有研究版本。完整記錄見 [TPEx 驗證](VERIFICATION-2026-11-17-TPEX-MARKET.md)。
 金額仍 `source_reported`，來源審核與下載成功不代表金額倍率、幣別、交易範圍或全市場數值抽檢完成。
+
+
+## 季度財報的私有離線來源
+
+`local/official_datasets.json` 逐一登記已保存的八份 CSV。每一項均有自己的目錄、資源 URL、署名及條款；`offline_saved_receipt_only` 表示私有匯入只讀已保存的取得紀錄與對應原件。八項均設 `enabled=false`、`redistribution_reviewed=false`。提供機關為金融監督管理委員會證券期貨局，目錄標示政府資料開放授權條款第 1 版。[授權與署名](https://data.gov.tw/license)
+
+| 報表 | 上市一般、金融、保險 | 上櫃一般 |
+| --- | --- | --- |
+| 綜合損益表 | [91998](https://data.gov.tw/dataset/91998)、[91995](https://data.gov.tw/dataset/91995)、[92000](https://data.gov.tw/dataset/92000) | [94853](https://data.gov.tw/dataset/94853) |
+| 資產負債表 | [94831](https://data.gov.tw/dataset/94831)、[94829](https://data.gov.tw/dataset/94829)、[94833](https://data.gov.tw/dataset/94833) | [91967](https://data.gov.tw/dataset/91967) |
+
+現金流的兩份發行人筆記另按各自使用條件私有保存。可用欄位、未取得樣本和逐表核對證據見[損益表](QUARTERLY_STATEMENTS.md)、[資產負債表](QUARTERLY_BALANCE.md)及[現金流量表](QUARTERLY_CASHFLOW.md)。

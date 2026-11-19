@@ -15,9 +15,11 @@ import sqlite3
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from .quarterly_observations import missing_cells, quarterly_receipt
 from .dates import iso_date, timestamp
-from .financial_definitions import financial_definition
-from .source_revisions import RevisionTarget, activation, record_available_at, record_key, revision_entry, validate_envelope
+from .financial_definitions import financial_definition, source_definitions, validate_financial_versions
+from .source_revisions import (RevisionTarget, activation, observation_rank, observed_records,
+                               record_available_at, record_key, revision_entry, validate_envelope)
 
 MAX_INPUT_BYTES = 32 * 1024 * 1024
 MAX_REPLAY_SNAPSHOTS = 5000
@@ -39,7 +41,7 @@ def canonical(value) -> bytes:
                       separators=(",", ":")).encode("utf-8")
 
 
-def strict_json(body: bytes) -> dict:
+def strict_json_value(body: bytes):
     if not body or len(body) > MAX_INPUT_BYTES:
         raise ValueError("normalized input is empty or exceeds 32 MiB")
     def pairs(items):
@@ -51,7 +53,11 @@ def strict_json(body: bytes) -> dict:
         return result
     def invalid(value):
         raise ValueError("nonfinite JSON value: " + value)
-    value = json.loads(body.decode("utf-8-sig"), object_pairs_hook=pairs, parse_constant=invalid)
+    return json.loads(body.decode("utf-8-sig"), object_pairs_hook=pairs, parse_constant=invalid)
+
+
+def strict_json(body: bytes) -> dict:
+    value = strict_json_value(body)
     if not isinstance(value, dict):
         raise ValueError("normalized input must be a JSON object")
     return value
@@ -129,6 +135,7 @@ def validate_payload(payload: dict) -> dict:
     metadata = payload.get("metadata")
     if not isinstance(metadata, dict) or not metadata.get("observed_at"):
         raise ValueError("metadata.observed_at is required; do not invent a publication date")
+    validate_financial_versions(payload)
     observed = timestamp(metadata["observed_at"])
     if len(canonical(payload)) > MAX_INPUT_BYTES:
         raise ValueError("normalized payload exceeds 32 MiB")
@@ -149,6 +156,10 @@ def record_snapshot(conn: sqlite3.Connection, payload: dict, *, enable_source_re
     recorded = utc_now()
     if timestamp(quality["observed_at"]) > timestamp(recorded):
         raise ValueError("observation timestamp is in the future")
+    reviewed = payload['metadata'].get('reviewed_at')
+    receipt = quarterly_receipt(payload)
+    if receipt and reviewed and timestamp(reviewed) > timestamp(recorded):
+        raise ValueError('quarterly review timestamp is in the future')
     body = canonical(payload)
     checksum = hashlib.sha256(body).hexdigest()
     conn.execute("SAVEPOINT research_observation")
@@ -157,7 +168,12 @@ def record_snapshot(conn: sqlite3.Connection, payload: dict, *, enable_source_re
         conn.execute("CREATE INDEX IF NOT EXISTS idx_research_recorded ON research_snapshots(recorded_at, observed_at)")
         # Unit migrations use a new ledger. Never rewrite observation times to
         # make revised definitions win the old ledger's same-time conflict rule.
-        version = payload['metadata'].get('normalization_version')
+        # A fully missing row is meaningful only as an update to a previously
+        # observed number for the same source, issuer and period.
+        numeric_stocks = {row['stock_id'] for row in payload.get('financial_metrics', [])}
+        missing_only = {(row['source_id'], row['stock_id'], row['period_end'])
+                        for row in missing_cells(payload) if row['stock_id'] not in numeric_stocks}
+        definitions = source_definitions(payload)
         schema = conn.execute("PRAGMA user_version").fetchone()[0]
         if schema not in (0, 1):
             raise ValueError('unsupported research ledger schema')
@@ -179,6 +195,13 @@ def record_snapshot(conn: sqlite3.Connection, payload: dict, *, enable_source_re
         for sha, observed, registered, prior_body in prior_rows:
             prior_bytes = prior_body.encode('utf-8')
             prior = strict_json(prior_bytes)
+            if missing_only and observed < quality['observed_at']:
+                missing_only.difference_update((r['source_id'], r['stock_id'], r['period_end'])
+                                               for r in prior.get('financial_metrics', []))
+            if receipt and observed == quality['observed_at']:
+                prior_receipt = quarterly_receipt(prior)
+                if prior_receipt and receipt[0] == prior_receipt[0] and receipt[1] != prior_receipt[1]:
+                    raise ValueError('conflicting same-time revision of quarterly raw snapshot')
             if migrating or target:
                 if (hashlib.sha256(prior_bytes).hexdigest() != sha or validate_payload(prior)['observed_at'] != observed
                         or not timestamp(observed) <= timestamp(registered) <= timestamp(recorded)
@@ -186,8 +209,11 @@ def record_snapshot(conn: sqlite3.Connection, payload: dict, *, enable_source_re
                     raise ValueError('invalid prior snapshot during source revision validation')
             if target:
                 target.inspect(sha, observed, prior, timestamp(recorded))
-            if prior['metadata'].get('normalization_version') != version:
+            previous = source_definitions(prior)
+            if any(definitions[key] != previous[key] for key in definitions.keys() & previous.keys()):
                 raise ValueError('normalization version changed; use a separate ledger and output root')
+        if missing_only:
+            raise ValueError('no numeric observation for ' + ', '.join(sorted(key[1] for key in missing_only)))
         if target:
             target.verify()
         if migrating:
@@ -228,6 +254,7 @@ notices control corrections, withdrawals and republications of managed records.
     read_bytes = 0
     selected = {group: {} for group in GROUPS}
     ranks, warnings = {}, set()
+    raw_receipts = {}
     pending_revisions = []
     candidates = {}
     used_ids = set()
@@ -252,12 +279,18 @@ notices control corrections, withdrawals and republications of managed records.
         quality = validate_payload(payload)
         if quality["observed_at"] != observed_at:
             raise ValueError("snapshot timestamp differs from payload")
+        receipt = quarterly_receipt(payload)
+        reviewed = payload['metadata'].get('reviewed_at')
+        if receipt and reviewed and timestamp(reviewed) > cutoff:
+            continue
         relevant = {s["stock_id"] for s in payload["stocks"]} & stock_ids
         updates_selected_doc = any(d["document_id"] in selected["documents"] for d in payload.get("documents", []))
         snapshot = {"sha256": checksum, "observed_at": observed_at, "recorded_at": recorded_at,
                     "metadata": payload["metadata"], "sources": payload.get("sources", [])}
         candidates[checksum] = snapshot
         if relevant or updates_selected_doc:
+            if receipt and raw_receipts.setdefault(receipt[0], receipt[1]) != receipt[1]:
+                raise ValueError('conflicting same-time revision of quarterly raw snapshot')
             used_ids.add(checksum)
         if 'source_revision' in payload:
             notice = payload['source_revision']
@@ -290,6 +323,10 @@ notices control corrections, withdrawals and republications of managed records.
             keep("sources", source["source_id"], source, observed)
         for stock in payload["stocks"]:
             if stock["stock_id"] in relevant:
+                if receipt:
+                    # v1 also wrote report-specific attribution on the issuer.
+                    stock = {k: v for k, v in stock.items()
+                             if k not in ('source_id', 'source_url', 'license_url', 'attribution')}
                 keep("stocks", stock["stock_id"], stock, observed)
         for doc in payload.get("documents", []):
             links = set(doc.get("stock_ids", [])) & stock_ids
@@ -307,7 +344,7 @@ notices control corrections, withdrawals and republications of managed records.
             rank = (observed, available)
             keep("documents", doc["document_id"], item, rank, {**doc, "stock_ids": sorted(links)})
         for group in ("financial_metrics", "chip_metrics"):
-            for metric in payload.get(group, []):
+            for metric in observed_records(group, payload):
                 if metric["stock_id"] not in relevant:
                     continue
                 available = timestamp(metric["available_at"])
@@ -323,7 +360,7 @@ notices control corrections, withdrawals and republications of managed records.
                 old = selected[group].get(key)
                 if old and old["source_id"] != metric["source_id"]:
                     raise ValueError("multiple sources for one metric require an explicit reconciliation policy")
-                keep(group, key, item, (observed, available), metric)
+                keep(group, key, item, observation_rank(observed, available, metric), metric)
     revisions = []
     selected_doc_ids = set(selected["documents"])
     for entry, group, key, replacement in sorted(pending_revisions, key=lambda item: timestamp(item[0]['notice']['published_at'])):
@@ -348,6 +385,8 @@ notices control corrections, withdrawals and republications of managed records.
     if set(selected["stocks"]) != stock_ids:
         raise ValueError("no as-recorded stock coverage for: " + ",".join(sorted(stock_ids-set(selected["stocks"]))))
     selected["documents"] = {key: doc for key, doc in selected["documents"].items() if doc["stock_ids"]}
+    selected['financial_metrics'] = {key: row for key, row in selected['financial_metrics'].items()
+                                     if 'value' in row}
     payload = {group: [values[k] for k in sorted(values)] for group, values in selected.items()}
     payload["metadata"] = {"observed_at": known_at, "selection_mode": "explicit_symbols_not_index_membership",
                            "known_at": known_at, "snapshot_ids": [s["sha256"] for s in used]}

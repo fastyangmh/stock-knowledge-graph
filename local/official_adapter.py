@@ -21,11 +21,11 @@ from .dates import iso_date, timestamp
 from .source_registry import load_approved
 
 
-def csv_rows(body: bytes) -> list[dict[str, str]]:
+def csv_rows(body: bytes, *, strict=False) -> list[dict[str, str]]:
     text = body.decode("utf-8-sig")
     if text.lstrip().startswith("<"):
         raise ValueError("Expected CSV, received HTML/XML")
-    reader = csv.DictReader(io.StringIO(text, newline=""))
+    reader = csv.DictReader(io.StringIO(text, newline=""), strict=strict)
     headers = [field.strip() for field in (reader.fieldnames or [])]
     if not headers or any(not field for field in headers) or len(headers) != len(set(headers)):
         raise ValueError("Missing or duplicated CSV headers")

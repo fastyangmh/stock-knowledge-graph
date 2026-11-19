@@ -17,6 +17,7 @@ from .core import upsert_node, upsert_edge
 from .dates import iso_date, timestamp
 from .market_units import reviewed_record
 from .market_prices import FEEDS, FIELDS, normalize, source_info, MAX_BYTES
+from .research_history import canonical
 
 
 MAX_HISTORY_ROWS = 100000
@@ -43,6 +44,10 @@ class HistoryBudget:
         self.used['sql_steps'] += 1000
         self.exhausted = self.used['sql_steps'] > self.limits['sql_steps']
         return int(self.exhausted)
+
+
+def observation_version(item):
+    return item['raw_sha256'], hashlib.sha256(canonical(item['record'])).hexdigest()
 
 
 def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, snapshot_dir=None, *, budget=None, notice_history=None) -> list[dict]:
@@ -76,7 +81,7 @@ def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, sn
                                      (info['source_id'], trade_date, *symbols))
                 for size, in sizes:
                     budget.consume('record_bytes', size)
-            rows = conn.execute(query + " ORDER BY observed_at LIMIT 10001", (info["source_id"], trade_date, *symbols)).fetchall()
+            rows = conn.execute(query + " LIMIT 10001", (info["source_id"], trade_date, *symbols)).fetchall()
             notices = {symbol: entries_for(conn, info["source_id"], symbol, trade_date, budget) for symbol in symbols}
         except sqlite3.OperationalError as exc:
             if budget and budget.exhausted:
@@ -86,7 +91,9 @@ def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, sn
         raise ValueError("market revision budget exceeded")
     latest = {}
     bases = {symbol: {} for symbol in symbols if notices[symbol]}
-    for row in rows:
+    seen_versions = {symbol: set() for symbol in symbols}
+    last_observation = {}
+    for row in sorted(rows, key=lambda row: timestamp(row['observed_at'])):
         observed = timestamp(row["observed_at"])
         if observed > cutoff:
             continue
@@ -137,17 +144,45 @@ def read_prices(database, feed: str, symbols, trade_date: str, known_at: str, sn
                 "raw_sha256": row["raw_sha256"], "acquisition": row["acquisition"]}
         if row["symbol"] in bases:
             bases[row["symbol"]][(item["raw_sha256"], item["observed_at"])] = item
-        prior = latest.get(row["symbol"])
-        if prior is not None and observed == timestamp(prior["observed_at"]) and item != prior:
+        symbol = row['symbol']
+        previous = last_observation.get(symbol)
+        if previous and observed == timestamp(previous['observed_at']) and item != previous:
             raise ValueError("conflicting market revisions at the same instant")
-        if prior is None or observed > timestamp(prior["observed_at"]):
-            latest[row["symbol"]] = item
+        last_observation[symbol] = item
+        # Keep every retrieval as evidence. Re-fetching a superseded version cannot reinstate it.
+        version = observation_version(item)
+        current = latest.get(symbol)
+        if version not in seen_versions[symbol] or (current['raw_sha256'] == item['raw_sha256']
+                                                    and current['record'] == record):
+            latest[symbol] = item
+        seen_versions[symbol].add(version)
     if set(latest) != set(symbols):
         raise ValueError("market coverage missing at known_at: " + ",".join(sorted(set(symbols)-set(latest))))
     for symbol, originals in bases.items():
         latest[symbol] = resolve(notices[symbol], originals, latest[symbol], feed, symbol, trade_date,
                                  cutoff, snapshot_dir, budget, notice_history)
     return [latest[symbol] for symbol in sorted(latest) if latest[symbol] is not None]
+
+
+NOTICE_TIMES = ('notice_sha256', 'recorded_at', 'available_at', 'source_available_at')
+
+
+def observation_report(item):
+    return {'source_id': item['source']['source_id'], 'symbol': item['record']['symbol'],
+            'trade_date': item['record']['trade_date'], 'observed_at': item['observed_at'],
+            'raw_sha256': item['raw_sha256'], 'acquisition': item['acquisition'],
+            'raw_snapshot_verified': item['raw_snapshot_verified'],
+            **{k: item[k] for k in NOTICE_TIMES if k in item}}
+
+
+def price_node(item):
+    record, source = item['record'], item['source']
+    return {**record, **observation_report(item),
+            'id': f"market:{source['source_id']}:{record['symbol']}:{record['trade_date']}",
+            'type': 'market_price', 'label': f"{record['symbol']} {record['trade_date']} 盤後行情",
+            'source_url': source['dataset_url'], 'license_url': source['license_url'],
+            'attribution': source['attribution'], 'available_at': item.get('available_at', item['observed_at']),
+            'description': '盤後數值觀察；未還原價格，非語意分數或投資訊號。'}
 
 
 def attach_prices(conn, observations: list[dict]) -> int:
@@ -159,14 +194,8 @@ def attach_prices(conn, observations: list[dict]) -> int:
             raise ValueError("market stock is absent from research input: " + sid)
         conn.execute("INSERT INTO sources VALUES(?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET provider=excluded.provider,url=excluded.url,license_type=excluded.license_type",
                      (source["source_id"], source["provider"], source["dataset_url"], source["license"]))
-        node_id = f"market:{source['source_id']}:{record['symbol']}:{record['trade_date']}"
-        props = {**record, "source_id": source["source_id"], "source_url": source["dataset_url"],
-                 "license_url": source["license_url"], "attribution": source["attribution"],
-                 "available_at": item.get("available_at", item["observed_at"]), "observed_at": item["observed_at"],
-                 **{k: item[k] for k in ("notice_sha256", "recorded_at", "source_available_at") if k in item},
-                 "raw_sha256": item["raw_sha256"], "acquisition": item["acquisition"],
-                 "raw_snapshot_verified": item["raw_snapshot_verified"],
-                 "description": "盤後數值觀察；未還原價格，非語意分數或投資訊號。"}
-        upsert_node(conn, node_id, "market_price", f"{record['symbol']} {record['trade_date']} 盤後行情", stock_id=sid, props=props)
+        props = price_node(item)
+        node_id = props.pop('id')
+        upsert_node(conn, node_id, props.pop('type'), props.pop('label'), stock_id=sid, props=props)
         upsert_edge(conn, "stock:" + sid, node_id, "has_market_price", "observed_official_daily_price")
     return len(observations)

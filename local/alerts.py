@@ -87,7 +87,7 @@ def _result(check, value, threshold, *, absolute=True):
     return check
 
 
-def _market_ref(item):
+def market_ref(item):
     record, source = item["record"], item["source"]
     return {"source_id":source["source_id"], "source_url":source.get("dataset_url"),
             "period":record["trade_date"], "observed_at":item["observed_at"],
@@ -127,7 +127,7 @@ def _price_checks(items, sid, target, cutoff, config):
     for check, count in ((price, 1), (volume, config["volume_window"])):
         history = prior[-count:]
         used = history + [current]
-        check["evidence"] = [_market_ref(row) for row in used]
+        check["evidence"] = [market_ref(row) for row in used]
         check["baseline"] = {"required_observations":count, "available_observations":len(history),
                              "dates":[row["record"]["trade_date"] for row in history],
                              "target_excluded":True, "exchange_sessions_verified":False}

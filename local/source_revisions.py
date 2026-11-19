@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import re
+from itertools import chain
 
 from .dates import timestamp
+from .quarterly_observations import missing_cells
 
 KEY_FIELDS = {
     'documents': ('document_id',),
@@ -22,6 +24,16 @@ def record_available_at(group, row):
     if group == 'documents':
         return max(timestamp(row['published_at']), timestamp(row.get('available_at', row['published_at'])))
     return timestamp(row['available_at'])
+
+
+def observed_records(group, payload):
+    rows = payload.get(group, [])
+    return chain(rows, missing_cells(payload)) if group == 'financial_metrics' else rows
+
+
+def observation_rank(observed, available, row):
+    reviewed = row.get('normalization_version') == 'mops-quarterly-v1' and 'issuer_review' in row
+    return observed, available, reviewed
 
 
 def record_scope(group, row):
@@ -112,7 +124,7 @@ class RevisionTarget:
                 self.version = sha
                 self.target_scope = {stock['stock_id'] for stock in prior['stocks']}
             return
-        for record in prior.get(self.group, []):
+        for record in observed_records(self.group, prior):
             if record_key(self.group, record) != self.key:
                 continue
             available = record_available_at(self.group, record)
@@ -122,7 +134,7 @@ class RevisionTarget:
                 raise ValueError('revision target source mismatch')
             if self.latest_notice:
                 continue
-            rank = timestamp(observed), available
+            rank = observation_rank(timestamp(observed), available, record)
             if self.rank == rank and self.latest_record != record:
                 raise ValueError('conflicting same-time revision target')
             if self.rank is None or rank > self.rank:

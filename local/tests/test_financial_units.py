@@ -67,6 +67,31 @@ class FinancialUnitsTests(unittest.TestCase):
         self.assertEqual((self.root/'old-runs'/first['run']/'research-facts.json').read_bytes(),before)
         self.assertEqual(next(f for f in audit_bundle(self.root/'old-runs',first['run']).facts['facts'] if f['metric']=='monthly_revenue')['unit'],'source_reported')
 
+    def test_reviewed_monthly_and_quarterly_share_ledger_without_rebasing_monthly(self):
+        from local.tests.quarterly_fixtures import normalize_csv, research, save_csv
+        monthly = self.normalize()
+        first = research(self.root, monthly, '2330')
+        row = {'出表日期': '1091110', '年度': '109', '季別': '3', '公司代號': '2330',
+               '公司名稱': '測試公司', '資產總計': '80'}
+        save_csv(self.root, 94831, 't187ap07_L_ci.csv', row)
+        balance = self.root/'balance.json'
+        normalize_csv(self.root/'manifest.json', 94831, '2330', balance)
+        combined = research(self.root, balance, '2330')
+        self.assertEqual({r['source_id'] for r in combined.facts['facts']},
+                         {'twse_monthly_revenue', 'mops_94831'})
+        self.assertEqual(research(self.root, monthly, '2330', known_at=first.facts['scope']['known_at']).facts,
+                         first.facts)
+        with self.assertRaisesRegex(ValueError, 'normalization version.*separate ledger'):
+            research(self.root, self.normalize(False), '2330')
+
+    def test_monthly_fact_cannot_redeclare_another_version_under_same_policy(self):
+        path = self.normalize()
+        data = json.loads(path.read_bytes())
+        data['financial_metrics'][0]['normalization_version'] = 'unreviewed-replacement'
+        path.write_bytes(canonical(data))
+        with self.assertRaisesRegex(ValueError, 'normalization version'):
+            run(path, ['2330'], history_db=self.root/'ledger.db', output_root=self.root/'runs')
+
     def test_empty_review_and_tampered_evidence_are_rejected(self):
         # Empty decisions are not a successful unit review.
         original = copy.deepcopy(self.evidence)
