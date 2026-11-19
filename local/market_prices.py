@@ -315,6 +315,9 @@ def main(argv=None):
     parser.add_argument("--db", type=Path, default=ROOT/"local/private/market-prices.db")
     parser.add_argument("--output", type=Path, default=ROOT/"local/private/market-prices")
     parser.add_argument("--unit-review", type=Path, help="Explicit snapshot-bound unit review; use a separate DB for a new definition")
+    parser.add_argument("--notice", type=Path, help="Reviewed private market-notice-1.0 manifest")
+    parser.add_argument("--notice-evidence", type=Path, help="Original notice bytes identified by the manifest")
+    parser.add_argument("--known-at", help="Read-only historical replay, including visible notice evidence")
     args = parser.parse_args(argv)
     # Fail before network or disk IO for invalid selection/date/output paths.
     _symbols(args.symbols)
@@ -322,6 +325,19 @@ def main(argv=None):
         parser.error("--expected-date is in the future")
     _target(args.db)
     _target(args.output)
+    if args.known_at:
+        if args.notice or args.notice_evidence or args.input or args.unit_review:
+            parser.error("--known-at is a read-only query")
+        from .market_notices import inspect_prices
+        print(json.dumps(inspect_prices(args), ensure_ascii=False))
+        return
+    if args.notice:
+        from .market_notices import register
+        entry = register(args)
+        print(json.dumps({"notice_sha256": entry["notice_sha256"], "recorded_at": entry["recorded_at"]}))
+        return
+    if args.notice_evidence:
+        parser.error("--notice-evidence requires --notice")
     unit_review = None
     if args.unit_review:
         from .research_history import strict_json, MAX_INPUT_BYTES
