@@ -76,7 +76,7 @@ uv run --locked python -m local.preview \
 
 同一快照重跑不重複登錄；修訂追加新快照，不覆寫舊值。`--known-at` 是具時區的「本系統已知截止時間」，同時檢查 observed、recorded 與資料 available 時間。今天補匯入的舊檔不會變成系統昨天已知的證據。它不是完整市場歷史還原、退市資料庫或可直接宣稱無偏誤的回測引擎。
 
-同一時間互相矛盾的修訂、同一指標的多來源衝突會停止，需明確校對。檔案缺少紀錄不被解釋成刪除；目前 ledger 是 upsert 型觀察紀錄，尚未定義刪除／撤回事件。財務資料量以最多5000個快照、128 MiB replay 文字作防護，超限明確停止；尚未自動封存或清理。
+同一時間互相矛盾的修訂、同一指標的多來源衝突會停止，需明確校對。普通快照缺列時保留原紀錄；來源明示更正、撤回及重新發布使用下述版本化通知。財務資料量以最多5000個快照、128 MiB replay 文字作防護，超限明確停止；尚未自動封存或清理。
 
 ## 快取、失敗與保存
 
@@ -143,3 +143,44 @@ uv run --locked python -m local.model_check --offline \
 ## 完整數值契約
 
 新版 bundle 另保存 `research-facts.json`，包含 cutoff 的全部 replay 財務／籌碼與指定市場已保存行情歷史；展示名額不裁剪研究事實。保存前執行完整 audit，舊版仍標為 `display_graph_only`。欄位、時間語意、工作量限制與下游介面見[未裁剪研究事實契約](RESEARCH_FACTS.md)。
+
+## 來源明示更正、撤回與重新發布
+
+保存來源通知原文後，將下列 `source_revision` 放在**單獨一份私有正規化 JSON** 的頂層。仍需 `metadata.observed_at`、目標版本相同的 `metadata.normalization_version`（舊格式可無）、該筆涵蓋的全部 `stocks` 和唯一的 `sources`。來源 ID、provider、URL 與目標版一致。下例為合成格式，雜湊、時間與證詞須來自自己的來源及 ledger。
+
+```json
+{
+  "schema_version": "source-revision-1",
+  "action": "withdraw",
+  "group": "financial_metrics",
+  "key": {"stock_id": "TW:1000", "metric": "monthly_revenue", "period_end": "2019-12-31", "period_type": "month"},
+  "source_id": "synthetic",
+  "target_snapshot_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "effective_at": "2020-01-03T08:00:00Z",
+  "published_at": "2020-01-03T08:00:00Z",
+  "source_reference": "fixture:notice/01",
+  "evidence": "合成通知：來源明示撤回上列期別及指標。"
+}
+```
+
+`target_snapshot_sha256` 取自現行紀錄的 `input_snapshot_sha256`；重新發布時取上次撤回通知的 `quality.source_revisions[].snapshot_sha256`。原始 JSON 檔案的 bytes hash 可能因空白而不同。`source_reference` 保存可追查的公告編號或連結，`evidence` 保存支撐異動的證詞，每欄最多 8192 字元。系統驗證來源身分與版本鏈，公告真偽、權利及覆蓋仍需逐來源核對。
+
+| 目標 group | 邏輯鍵 | 支援範圍 |
+| --- | --- | --- |
+| `financial_metrics` | `stock_id, metric, period_end, period_type` | 已正規化單筆財務事實 |
+| `chip_metrics` | `stock_id, metric, trade_date` | 已正規化單筆籌碼事實；真實來源適配另列 P1-04 |
+| `documents` | `document_id` | 同來源、同一組股票連結的文件；整份撤回或用完整新文件更正／重發 |
+| 行情 | 獨立的行情觀察 DB | 此通知入口拒絕行情目標。來源明示的盤後行情撤回、其本地登錄時間及適配仍待建立 |
+
+每份通知只處理一筆，`withdraw` 不含替代列；`correct`、`republish` 只在同名 group 放入一筆完整替代列，保留邏輯鍵與股票範圍。外部身分或股票範圍變動須先核對。替代列的來源可得時間須涵蓋公告及生效時間；`published_at` 不得晚於觀察。截止時，通知的生效、公告、觀察、本地首次登錄及替代列可得時間均須已到達。之後一般快照中的舊值或缺列仍保留於 ledger；該邏輯紀錄繼續採用通知版本。撤回後僅接受指向撤回版本的 `republish`。相同來源公告時間的矛盾通知、錯誤來源、舊版目標會拒絕；重送同一份正規化 JSON 沿用首次登錄。
+
+先以既有備份工具保留 ledger 副本。首次啟用時在日常指令加上 `--enable-source-revisions`。亦可先用既有一般輸入單獨遷移。此版本在單一 SQLite 交易中檢查快照雜湊、格式、觀察／登錄時序及正規化版本，將 `PRAGMA user_version` 從 0 標為 1，既有列及時間保持原值。最多 5000 個快照、128 MiB，單檔仍為 32 MiB；檢查失敗會回滾。遷移後請使用此版或相容讀者，舊程式無法解讀通知。舊版 bundle 可直接 audit。
+
+```bash
+uv run --locked python -m local.research --input local/private/revision-notice.json \
+  --symbols 1000 --history-db local/private/research-history.db \
+  --output-root local/private/research-runs --enable-source-revisions
+uv run --locked python -m local.bundle_audit --root local/private/research-runs
+```
+
+用相同 ledger 及 `--known-at` 重讀較早截止。研究報告的 `quality.source_revisions` 列出該股票範圍內已生效的版本、證詞、觀察與登錄時間；`quality.snapshots` 及完整研究事實另保存已登錄通知的正規化內容，包括尚待生效的通知。Audit 核對通知雜湊、父版本與來源索引、重播截止及已套用的數值事實；舊圖譜、早期事件基準及報告保留原始版本。

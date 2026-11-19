@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 
 from .dates import iso_date, timestamp
 from .financial_definitions import financial_definition
+from .source_revisions import RevisionTarget, activation, record_key, revision_entry, validate_envelope
 
 MAX_INPUT_BYTES = 32 * 1024 * 1024
 MAX_REPLAY_SNAPSHOTS = 5000
@@ -131,6 +132,8 @@ def validate_payload(payload: dict) -> dict:
     observed = timestamp(metadata["observed_at"])
     if len(canonical(payload)) > MAX_INPUT_BYTES:
         raise ValueError("normalized payload exceeds 32 MiB")
+    if "source_revision" in payload:
+        validate_envelope(payload)
     warnings = []
     if any(row.get("unit") in (None, "", "source_reported") for row in payload.get("financial_metrics", [])):
         warnings.append("monetary_scale_unconfirmed: source_reported values are not comparable across sources")
@@ -140,7 +143,7 @@ def validate_payload(payload: dict) -> dict:
             "counts": {group: len(payload.get(group, [])) for group in GROUPS}, "warnings": warnings}
 
 
-def record_snapshot(conn: sqlite3.Connection, payload: dict) -> dict:
+def record_snapshot(conn: sqlite3.Connection, payload: dict, *, enable_source_revisions=False) -> dict:
     """Append one immutable snapshot under a savepoint; caller commits."""
     quality = validate_payload(payload)
     recorded = utc_now()
@@ -155,15 +158,40 @@ def record_snapshot(conn: sqlite3.Connection, payload: dict) -> dict:
         # Unit migrations use a new ledger. Never rewrite observation times to
         # make revised definitions win the old ledger's same-time conflict rule.
         version = payload['metadata'].get('normalization_version')
-        read_bytes = 0
-        for count, (prior_body,) in enumerate(conn.execute("SELECT payload_json FROM research_snapshots"), 1):
-            read_bytes += len(prior_body.encode('utf-8'))
-            if count > MAX_REPLAY_SNAPSHOTS or read_bytes > MAX_REPLAY_BYTES:
+        schema = conn.execute("PRAGMA user_version").fetchone()[0]
+        if schema not in (0, 1):
+            raise ValueError('unsupported research ledger schema')
+        migrating = schema == 0 and enable_source_revisions
+        if 'source_revision' in payload and schema == 0 and not migrating:
+            raise ValueError('explicit migration requires --enable-source-revisions')
+        old = conn.execute("SELECT observed_at,recorded_at,payload_json FROM research_snapshots WHERE sha256=?", (checksum,)).fetchone()
+        target = RevisionTarget(payload) if old is None and 'source_revision' in payload else None
+        adding = int(old is None)
+        sizes = conn.execute("SELECT length(CAST(payload_json AS BLOB)) FROM research_snapshots LIMIT ?",
+                             (MAX_REPLAY_SNAPSHOTS + 1,))
+        read_bytes = len(body) if adding else 0
+        for count, (size,) in enumerate(sizes, 1):
+            read_bytes += size
+            if count + adding > MAX_REPLAY_SNAPSHOTS or size > MAX_INPUT_BYTES or read_bytes > MAX_REPLAY_BYTES:
                 raise ValueError('normalization ledger inspection budget exceeded')
-            prior = strict_json(prior_body.encode('utf-8'))
+        prior_rows = conn.execute("SELECT sha256,observed_at,recorded_at,payload_json FROM research_snapshots "
+                                  "ORDER BY observed_at,recorded_at,sha256")
+        for sha, observed, registered, prior_body in prior_rows:
+            prior_bytes = prior_body.encode('utf-8')
+            prior = strict_json(prior_bytes)
+            if migrating or target:
+                if (hashlib.sha256(prior_bytes).hexdigest() != sha or validate_payload(prior)['observed_at'] != observed
+                        or not timestamp(observed) <= timestamp(registered) <= timestamp(recorded)
+                        or (migrating and 'source_revision' in prior)):
+                    raise ValueError('invalid prior snapshot during source revision validation')
+            if target:
+                target.inspect(sha, observed, prior, timestamp(recorded))
             if prior['metadata'].get('normalization_version') != version:
                 raise ValueError('normalization version changed; use a separate ledger and output root')
-        old = conn.execute("SELECT observed_at,recorded_at,payload_json FROM research_snapshots WHERE sha256=?", (checksum,)).fetchone()
+        if target:
+            target.verify()
+        if migrating:
+            conn.execute("PRAGMA user_version=1")
         if old:
             if old[0] != quality["observed_at"] or old[2].encode("utf-8") != body:
                 raise ValueError("immutable normalized snapshot has been changed")
@@ -183,20 +211,24 @@ def record_snapshot(conn: sqlite3.Connection, payload: dict) -> dict:
 def replay(conn: sqlite3.Connection, stock_ids: set[str], known_at: str) -> tuple[dict, dict]:
     """Rebuild facts known by cutoff, never infer index labels or deleted history.
 
-Records are revision/upsert observations, not deletions. Ambiguous metric sources
-and contradictory same-time revisions fail instead of choosing silently.
+Ordinary snapshots are upsert observations. Explicit, version-targeted source
+notices control corrections, withdrawals and republications of managed records.
 """
     if not stock_ids:
         raise ValueError("empty research selection")
     cutoff = timestamp(known_at)
     if cutoff > timestamp(utc_now()):
         raise ValueError("known_at must not be in the future")
+    schema = conn.execute("PRAGMA user_version").fetchone()[0]
+    if schema not in (0, 1):
+        raise ValueError("unsupported research ledger schema")
     if conn.execute("SELECT count(*) FROM research_snapshots").fetchone()[0] > MAX_REPLAY_SNAPSHOTS:
         raise ValueError("snapshot replay budget exceeded; archive or narrow the research database")
     rows = conn.execute("SELECT sha256,observed_at,recorded_at,payload_json FROM research_snapshots ORDER BY observed_at,recorded_at,sha256")
     read_bytes = 0
     selected = {group: {} for group in GROUPS}
     ranks, used, warnings = {}, [], set()
+    pending_revisions = []
     def keep(group, key, item, rank, facts=None):
         prior = ranks.get((group, key))
         facts = canonical(item) if facts is None else canonical(facts)
@@ -220,11 +252,33 @@ and contradictory same-time revisions fail instead of choosing silently.
             raise ValueError("snapshot timestamp differs from payload")
         relevant = {s["stock_id"] for s in payload["stocks"]} & stock_ids
         updates_selected_doc = any(d["document_id"] in selected["documents"] for d in payload.get("documents", []))
-        if not relevant and not updates_selected_doc:
+        if not relevant and (not updates_selected_doc or 'source_revision' in payload):
             continue
         used.append({"sha256": checksum, "observed_at": observed_at, "recorded_at": recorded_at,
                      "metadata": copy.deepcopy(payload["metadata"]),
                      "sources": copy.deepcopy(payload.get("sources", []))})
+        if 'source_revision' in payload:
+            notice = payload['source_revision']
+            if schema != 1:
+                raise ValueError('source revision in unmigrated ledger')
+            used[-1]['revision_payload'] = payload
+            if activation(payload) <= cutoff:
+                warnings.update(warning for warning in quality['warnings'] if not warning.startswith('no_documents:'))
+                group = notice['group']
+                row = next(iter(payload.get(group, [])), None)
+                available = timestamp(row.get('available_at', row.get('published_at'))) if row else observed
+                entry = revision_entry(used[-1], stock_ids)
+                replacement = None
+                if row is not None:
+                    replacement = {**row, 'input_snapshot_sha256': checksum, 'registered_at': recorded_at,
+                                   'available_at': max(available, observed, recorded).isoformat(timespec="microseconds")}
+                    if group == 'documents':
+                        replacement['stock_ids'] = sorted(relevant)
+                    else:
+                        replacement.update(source_available_at=row['available_at'], observed_at=observed_at)
+                key = notice['key']['document_id'] if group == 'documents' else record_key(group, notice['key'])
+                pending_revisions.append((entry, group, key, replacement))
+            continue
         warnings.update(quality["warnings"])
         for source in payload.get("sources", []):
             keep("sources", source["source_id"], source, observed)
@@ -259,17 +313,26 @@ and contradictory same-time revisions fail instead of choosing silently.
                 item["available_at"] = max(available, observed, recorded).isoformat(timespec="microseconds")
                 item["input_snapshot_sha256"] = checksum
                 item["registered_at"] = recorded_at
-                key = (metric["stock_id"], metric["metric"], metric.get("period_end", metric.get("trade_date")), metric.get("period_type"))
+                key = record_key(group, metric)
                 old = selected[group].get(key)
                 if old and old["source_id"] != metric["source_id"]:
                     raise ValueError("multiple sources for one metric require an explicit reconciliation policy")
                 keep(group, key, item, (observed, available), metric)
+    revisions = []
+    for entry, group, key, replacement in sorted(pending_revisions, key=lambda item: timestamp(item[0]['notice']['published_at'])):
+        revisions.append(entry)
+        source = entry['notice']['source_id']
+        old = selected[group].pop(key, None)
+        if old and old['source_id'] != source:
+            raise ValueError('conflicting source for managed revision target')
+        if replacement is not None:
+            selected[group][key] = replacement
     if set(selected["stocks"]) != stock_ids:
         raise ValueError("no as-recorded stock coverage for: " + ",".join(sorted(stock_ids-set(selected["stocks"]))))
     selected["documents"] = {key: doc for key, doc in selected["documents"].items() if doc["stock_ids"]}
     payload = {group: [values[k] for k in sorted(values)] for group, values in selected.items()}
     payload["metadata"] = {"observed_at": known_at, "selection_mode": "explicit_symbols_not_index_membership",
                            "known_at": known_at, "snapshot_ids": [s["sha256"] for s in used]}
-    return payload, {"known_at": known_at, "snapshots": used, "warnings": sorted(warnings),
+    return payload, {"known_at": known_at, "source_revisions": revisions, "snapshots": used, "warnings": sorted(warnings),
                      "counts": {g: len(payload[g]) for g in GROUPS},
                      "scope": "as-recorded local observations only; not reconstructed historical market knowledge"}

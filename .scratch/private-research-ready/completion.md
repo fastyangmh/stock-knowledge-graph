@@ -11,7 +11,7 @@
 | M2 | [P2-01](../../docs/DEVELOPMENT_BACKLOG.md#p2-01研究事實與展示裁剪分離優先) | [已保存未裁剪事實並驗證新舊讀者與分母](../../docs/VERIFICATION-2026-11-17-REVIEW.md) | 持續用既有首次保存口徑做相容性回歸 |
 | M2 | [P2-02](../../docs/DEVELOPMENT_BACKLOG.md#p2-02交易日完整性) | [逐日、序號及兩市場真實驗收完成](../../docs/VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) | [521 pytest／282 subtests／55 Node，修復後 16 次真實 CLI 重播](../../docs/VERIFICATION-2026-11-19-CALENDAR-REVIEW.md)。本輪完成，日曆期間外仍顯示未知 |
 | M2 | [P2-03](../../docs/DEVELOPMENT_BACKLOG.md#p2-03公司行為與價格基準) | [兩市場真實區間與六類來源](../../docs/PRICE_ACTION_REVIEW.md)已核對，個別除權息證據與未知期間可讀 | 較長歷史與其他公司行為的完整涵蓋仍未知 |
-| M2 | [P2-04](../../docs/DEVELOPMENT_BACKLOG.md#p2-04修訂與撤回) | 歷史 ledger 保存快照及本地登錄時間，現行 replay 依 upsert | 明示更正／撤回證據、截止重建、舊版 migration 與 audit |
+| M2 | [P2-04](../../docs/DEVELOPMENT_BACKLOG.md#p2-04修訂與撤回) | 已驗舊庫重播與[兩份正式重大訊息更正](../m2-price-history/official-document-corrections-2026-11-19.md)，合成案例涵蓋撤回及重新發布 | 正式撤回、財務與籌碼的真實更正及行情庫適用性待驗 |
 | M3 | [P1-03](../../docs/DEVELOPMENT_BACKLOG.md#p1-03季度財報) | 現有官方適配及單位實測涵蓋月營收 | 季度三表、產業差異、時間與單位逐源抽檢 |
 | M3 | [P1-04](../../docs/DEVELOPMENT_BACKLOG.md#p1-04籌碼資料) | 有籌碼數值的保存與重播契約 | 核對官方法人／融資融券來源，驗證方向、尺度、修訂與冪等 |
 | M3 | [P1-05](../../docs/DEVELOPMENT_BACKLOG.md#p1-05重大訊息新聞與產業證據) | 已支援文件、股票對應與文字語意 | 每來源確認使用條件，驗證版本、重複、撤回與報表變更 |
