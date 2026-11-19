@@ -15,10 +15,14 @@ import sqlite3
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from .chip_evidence import CHIP_VERSIONS, validate_chip
+from .news_index import VERSION as NEWS_VERSION, evidence_source, validate_news_payload
 from .quarterly_observations import missing_cells, quarterly_receipt
+from .source_receipts import ADAPTERS, announcement_locations, fallback_stocks, raw_receipt
 from .dates import iso_date, timestamp
 from .financial_definitions import financial_definition, source_definitions, validate_financial_versions
-from .source_revisions import (RevisionTarget, activation, observation_rank, observed_records,
+from .source_revisions import (AnnouncementObservations, RevisionTarget, activation, announcement_records,
+                               observation_rank, observed_records,
                                record_available_at, record_key, revision_entry, validate_envelope)
 
 MAX_INPUT_BYTES = 32 * 1024 * 1024
@@ -88,7 +92,8 @@ def validate_payload(payload: dict) -> dict:
         if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
             raise ValueError(group + " must be an array of objects")
     stocks = _ids(payload.get("stocks", []), "stock_id")
-    if not stocks:
+    is_news = validate_news_payload(payload)
+    if not stocks and not is_news:
         raise ValueError("normalized input requires stocks")
     for stock in payload["stocks"]:
         sid = stock["stock_id"]
@@ -135,6 +140,9 @@ def validate_payload(payload: dict) -> dict:
     metadata = payload.get("metadata")
     if not isinstance(metadata, dict) or not metadata.get("observed_at"):
         raise ValueError("metadata.observed_at is required; do not invent a publication date")
+    if metadata.get('adapter_version') == 'mops-announcement-1' and 'source_revision' not in payload:
+        announcement_locations(payload)
+    validate_chip(payload)
     validate_financial_versions(payload)
     observed = timestamp(metadata["observed_at"])
     if len(canonical(payload)) > MAX_INPUT_BYTES:
@@ -142,9 +150,11 @@ def validate_payload(payload: dict) -> dict:
     if "source_revision" in payload:
         validate_envelope(payload)
     warnings = []
+    if metadata.get('adapter_version') in ('tpex-margin-1', 'tpex-institutional-1'):
+        warnings.append('legacy_chip_projection_only: original CSV omitted by v1 adapter')
     if any(row.get("unit") in (None, "", "source_reported") for row in payload.get("financial_metrics", [])):
         warnings.append("monetary_scale_unconfirmed: source_reported values are not comparable across sources")
-    if not payload.get("documents"):
+    if not payload.get("documents") and not is_news:
         warnings.append("no_documents: no textual similarity can be computed")
     return {"observed_at": observed.isoformat(timespec="microseconds"),
             "counts": {group: len(payload.get(group, [])) for group in GROUPS}, "warnings": warnings}
@@ -157,8 +167,8 @@ def record_snapshot(conn: sqlite3.Connection, payload: dict, *, enable_source_re
     if timestamp(quality["observed_at"]) > timestamp(recorded):
         raise ValueError("observation timestamp is in the future")
     reviewed = payload['metadata'].get('reviewed_at')
-    receipt = quarterly_receipt(payload)
-    if receipt and reviewed and timestamp(reviewed) > timestamp(recorded):
+    receipt = raw_receipt(payload)
+    if quarterly_receipt(payload) and reviewed and timestamp(reviewed) > timestamp(recorded):
         raise ValueError('quarterly review timestamp is in the future')
     body = canonical(payload)
     checksum = hashlib.sha256(body).hexdigest()
@@ -173,6 +183,7 @@ def record_snapshot(conn: sqlite3.Connection, payload: dict, *, enable_source_re
         numeric_stocks = {row['stock_id'] for row in payload.get('financial_metrics', [])}
         missing_only = {(row['source_id'], row['stock_id'], row['period_end'])
                         for row in missing_cells(payload) if row['stock_id'] not in numeric_stocks}
+        source_dataset = evidence_source(payload)
         definitions = source_definitions(payload)
         schema = conn.execute("PRAGMA user_version").fetchone()[0]
         if schema not in (0, 1):
@@ -198,10 +209,13 @@ def record_snapshot(conn: sqlite3.Connection, payload: dict, *, enable_source_re
             if missing_only and observed < quality['observed_at']:
                 missing_only.difference_update((r['source_id'], r['stock_id'], r['period_end'])
                                                for r in prior.get('financial_metrics', []))
+            if (source_dataset and observed == quality['observed_at'] and sha != checksum
+                    and source_dataset == evidence_source(prior)):
+                raise ValueError('conflicting same-time official evidence snapshot')
             if receipt and observed == quality['observed_at']:
-                prior_receipt = quarterly_receipt(prior)
+                prior_receipt = raw_receipt(prior)
                 if prior_receipt and receipt[0] == prior_receipt[0] and receipt[1] != prior_receipt[1]:
-                    raise ValueError('conflicting same-time revision of quarterly raw snapshot')
+                    raise ValueError('conflicting same-time revision of source raw snapshot')
             if migrating or target:
                 if (hashlib.sha256(prior_bytes).hexdigest() != sha or validate_payload(prior)['observed_at'] != observed
                         or not timestamp(observed) <= timestamp(registered) <= timestamp(recorded)
@@ -255,6 +269,8 @@ notices control corrections, withdrawals and republications of managed records.
     selected = {group: {} for group in GROUPS}
     ranks, warnings = {}, set()
     raw_receipts = {}
+    news_indexes = {}
+    announcements = AnnouncementObservations()
     pending_revisions = []
     candidates = {}
     used_ids = set()
@@ -279,18 +295,27 @@ notices control corrections, withdrawals and republications of managed records.
         quality = validate_payload(payload)
         if quality["observed_at"] != observed_at:
             raise ValueError("snapshot timestamp differs from payload")
-        receipt = quarterly_receipt(payload)
+        receipt = raw_receipt(payload)
+        if receipt and raw_receipts.setdefault(receipt[0], receipt[1]) != receipt[1]:
+            raise ValueError('conflicting same-time revision of source raw snapshot')
         reviewed = payload['metadata'].get('reviewed_at')
-        if receipt and reviewed and timestamp(reviewed) > cutoff:
+        if quarterly_receipt(payload) and reviewed and timestamp(reviewed) > cutoff:
             continue
         relevant = {s["stock_id"] for s in payload["stocks"]} & stock_ids
         updates_selected_doc = any(d["document_id"] in selected["documents"] for d in payload.get("documents", []))
         snapshot = {"sha256": checksum, "observed_at": observed_at, "recorded_at": recorded_at,
                     "metadata": payload["metadata"], "sources": payload.get("sources", [])}
+        if relevant and payload['metadata'].get('adapter_version') in CHIP_VERSIONS:
+            snapshot['chip_payload'] = payload
         candidates[checksum] = snapshot
+        if payload['metadata'].get('adapter_version') == NEWS_VERSION:
+            source_id = payload['sources'][0]['source_id']
+            raw_sha = payload['metadata']['source_snapshots'][0]['sha256']
+            news_indexes[source_id] = dict(source_id=source_id, snapshot_sha256=checksum, raw_sha256=raw_sha,
+                                          articles=payload['articles'])
+            used_ids.add(checksum)
+            continue
         if relevant or updates_selected_doc:
-            if receipt and raw_receipts.setdefault(receipt[0], receipt[1]) != receipt[1]:
-                raise ValueError('conflicting same-time revision of quarterly raw snapshot')
             used_ids.add(checksum)
         if 'source_revision' in payload:
             notice = payload['source_revision']
@@ -321,14 +346,27 @@ notices control corrections, withdrawals and republications of managed records.
         warnings.update(quality["warnings"])
         for source in payload.get("sources", []):
             keep("sources", source["source_id"], source, observed)
-        for stock in payload["stocks"]:
+        adapter = payload['metadata'].get('adapter_version')
+        quarterly = quarterly_receipt(payload)
+        for stock in fallback_stocks(payload):
             if stock["stock_id"] in relevant:
-                if receipt:
+                if quarterly:
                     # v1 also wrote report-specific attribution on the issuer.
                     stock = {k: v for k, v in stock.items()
                              if k not in ('source_id', 'source_url', 'license_url', 'attribution')}
-                keep("stocks", stock["stock_id"], stock, observed)
+                # Standalone source reports identify a row. A company master
+                # supplies company-wide identity and industry across reports.
+                if adapter in ADAPTERS:
+                    rank = (0, observed, stock['source_id'])
+                    identity = {k: stock[k] for k in ('stock_id', 'market', 'ticker', 'name')}
+                    keep('stocks', stock['stock_id'], stock, rank, identity)
+                else:
+                    keep('stocks', stock['stock_id'], stock, (1 if quarterly else 2, observed))
+        locators = announcement_records(payload)
         for doc in payload.get("documents", []):
+            locator = locators.get(doc["document_id"])
+            if announcements.repeated(doc, locator):
+                continue
             links = set(doc.get("stock_ids", [])) & stock_ids
             if not links and doc["document_id"] not in selected["documents"]:
                 continue
@@ -341,7 +379,7 @@ notices control corrections, withdrawals and republications of managed records.
             item["input_snapshot_sha256"] = checksum
             item["registered_at"] = recorded_at
             # Provenance differences between repeated observations are not fact conflicts.
-            rank = (observed, available)
+            rank = (observed, available, bool(locator and 'reviewed_links' in locator))
             keep("documents", doc["document_id"], item, rank, {**doc, "stock_ids": sorted(links)})
         for group in ("financial_metrics", "chip_metrics"):
             for metric in observed_records(group, payload):
@@ -390,6 +428,7 @@ notices control corrections, withdrawals and republications of managed records.
     payload = {group: [values[k] for k in sorted(values)] for group, values in selected.items()}
     payload["metadata"] = {"observed_at": known_at, "selection_mode": "explicit_symbols_not_index_membership",
                            "known_at": known_at, "snapshot_ids": [s["sha256"] for s in used]}
-    return payload, {"known_at": known_at, "source_revisions": revisions, "snapshots": used, "warnings": sorted(warnings),
+    context = {"news_indexes": [news_indexes[k] for k in sorted(news_indexes)]} if news_indexes else {}
+    return payload, {**context, "known_at": known_at, "source_revisions": revisions, "snapshots": used, "warnings": sorted(warnings),
                      "counts": {g: len(payload[g]) for g in GROUPS},
                      "scope": "as-recorded local observations only; not reconstructed historical market knowledge"}

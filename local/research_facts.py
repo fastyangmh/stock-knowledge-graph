@@ -224,6 +224,8 @@ def validate_facts(document, report, *, archived_snapshots, graphs):
         selected = {f['stock_id'] for f in facts if f['kind'] == 'market_price' and f['trade_date'] == day}
         require(selected | withdrawn_stocks(notices or [], day, cutoff) == set(stock_ids),
                 'selected_market_coverage_mismatch')
+    from .chip_evidence import audit_chip_facts
+    audit_chip_facts(archived_snapshots, facts, set(stock_ids), report['quality'].get('source_revisions', []))
     from .source_revisions import audit_revisions
     audit_revisions(archived_snapshots, report['quality'].get('source_revisions', []), facts, stock_ids, cutoff, graphs)
     require(document.get('coverage') == coverage(facts, stock_ids), 'coverage_mismatch')
