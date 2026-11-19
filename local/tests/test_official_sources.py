@@ -5,6 +5,17 @@ from pathlib import Path
 from local.source_registry import load_approved
 
 class OfficialSourceTests(unittest.TestCase):
+    def test_11633_is_registered_only_for_saved_capture_review(self):
+        from local.core import ROOT
+        from local.tpex_action_evidence import CATALOG, RESOURCE
+        registry = ROOT / 'local/official_datasets.json'
+        matches = [r for r in json.loads(registry.read_bytes()) if r['dataset_url'] == CATALOG]
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]['resource_url'], RESOURCE)
+        self.assertFalse(matches[0]['enabled'])
+        self.assertFalse(matches[0]['redistribution_reviewed'])
+        self.assertNotIn(matches[0], load_approved(registry))
+
     def test_disabled_default(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/"registry.json"

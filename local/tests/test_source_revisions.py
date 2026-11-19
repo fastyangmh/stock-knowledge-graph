@@ -23,7 +23,7 @@ class SourceRevisionTests(unittest.TestCase):
     def submit(self, data, **options):
         path = self.root / 'input.json'
         path.write_text(json.dumps(data))
-        return run(path, ['1000'], history_db=self.root / 'history.db', output_root=self.runs, **options)
+        return run(path, options.pop('symbols', ['1000']), history_db=self.root / 'history.db', output_root=self.runs, **options)
 
     def notice(self, target, action='withdraw', *, observed=T1, value=2000, group='financial_metrics'):
         data = payload(observed, value)
@@ -191,6 +191,78 @@ class SourceRevisionTests(unittest.TestCase):
                 if hashlib.sha256(canonical(withdrawal)).hexdigest() < prior['registered_snapshot']['sha256']:
                     break
             self.assertEqual(self.values(self.submit(withdrawal)), [])
+
+    def test_replacement_waits_until_document_publication(self):
+        correction = self.notice(self.original, 'correct', group='documents')
+        correction['documents'][0].update(title='Future correction', published_at='2099-01-01T00:00:00Z')
+        saved = self.submit(correction, enable_source_revisions=True)
+        bundle = audit_bundle(self.runs, saved['run'])
+        doc, = [node for node in bundle.graphs['TW:1000']['nodes'] if node['id'] == 'doc:d1']
+        self.assertEqual(doc['label'], 'Synthetic monthly report')
+        self.assertEqual(saved['quality']['source_revisions'], [])
+
+    def test_future_other_source_does_not_block_current_notice(self):
+        future = payload(T1)
+        future['sources'][0]['source_id'] = future['financial_metrics'][0]['source_id'] = 'other'
+        future['documents'] = []
+        future['financial_metrics'][0]['available_at'] = '2099-01-01T00:00:00Z'
+        self.submit(future)
+        result = self.submit(self.notice(self.original, observed=T2), enable_source_revisions=True)
+        self.assertEqual(self.values(result), [])
+
+    def test_unlinked_legacy_document_has_empty_revision_scope(self):
+        unlinked = payload(T1)
+        del unlinked['documents'][0]['stock_ids']
+        prior = self.submit(unlinked)
+        with self.assertRaisesRegex(ValueError, 'stock coverage'):
+            self.submit(self.notice(prior, observed=T2, group='documents'), enable_source_revisions=True)
+
+    def test_withdrawn_document_cannot_reappear_under_another_stock(self):
+        self.submit(self.notice(self.original, group='documents'), enable_source_revisions=True)
+        moved = payload(T2)
+        moved['documents'][0]['stock_ids'] = ['TW:1001']
+        result = self.submit(moved, symbols=['1001'])
+        graph = audit_bundle(self.runs, result['run']).graphs['TW:1001']
+        self.assertNotIn('doc:d1', [node['id'] for node in graph['nodes']])
+
+    def test_multiple_large_corrections_can_be_archived_and_audited(self):
+        from unittest.mock import patch
+        # Exercise the per-file limit using smaller documents; each envelope fits.
+        previous = self.original
+        with patch('local.bundle_audit.MAX_INPUT_BYTES', 32768):
+            for when in (T1, T2):
+                data = self.notice(previous, 'correct', observed=when, group='documents')
+                data['documents'][0]['content'] = when + 'x' * 20000
+                previous = self.submit(data, enable_source_revisions=True)
+                bundle = audit_bundle(self.runs, previous['run'])
+                doc, = [n for n in bundle.graphs['TW:1000']['nodes'] if n['id'] == 'doc:d1']
+                self.assertEqual(doc['description'], data['documents'][0]['content'][:240])
+
+    def test_failed_staged_bundle_does_not_commit_new_notice(self):
+        from unittest.mock import patch
+        correction = self.notice(self.original, 'correct', group='documents')
+        correction['documents'][0]['content'] = 'large revision' * 2000
+        with patch('local.bundle_audit.MAX_INPUT_BYTES', 16000):
+            with self.assertRaisesRegex(ValueError, 'size_budget'):
+                self.submit(correction, enable_source_revisions=True)
+        accepted = self.submit(correction, enable_source_revisions=True)
+        self.assertTrue(accepted['registered_snapshot']['inserted'])
+        self.assertEqual(self.values(accepted), [1000])
+
+    def test_audit_rejects_stale_visible_document_after_withdrawal_or_correction(self):
+        import shutil
+        correction = self.notice(self.original, 'correct', group='documents')
+        correction['documents'][0]['title'] = 'New title'
+        changed = self.submit(correction, enable_source_revisions=True)
+        gone = self.submit(self.notice(changed, group='documents', observed=T2))
+        for saved in (changed, gone):
+            with self.subTest(run=saved['run']):
+                directory = self.runs / saved['run']
+                shutil.copytree(self.runs / self.original['run'] / 'data', directory / 'data', dirs_exist_ok=True)
+                saved['manifest_sha256'] = hashlib.sha256((directory / 'data/manifest.json').read_bytes()).hexdigest()
+                (directory / 'report.json').write_text(json.dumps(saved))
+                with self.assertRaisesRegex(ValueError, 'revision'):
+                    audit_bundle(self.runs, saved['run'])
 
     def test_notice_updates_only_the_named_record(self):
         withdrawal = self.notice(self.original)
