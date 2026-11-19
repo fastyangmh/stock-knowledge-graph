@@ -11,6 +11,8 @@
 
 入口：[第一里程碑規格](spec.md) · [逐票清單](#任務拆分) · [程式盤點](inventory.md) · [原 backlog](../../docs/DEVELOPMENT_BACKLOG.md) · [已確認決策](../../docs/HANDOFF.md)。
 
+後續調查：[2026-11-18 行情驗收缺口研究](research-market-gaps-2026-11-18.md)（P1-02／09／10；研究不替代正式驗收）。
+
 本輪已依核准方案完成實作與當前環境驗收；01～08、11／12 resolved，09／10 needs-info，M1未全過。每張 ticket 連回原 ID；本地詳細 tracker 依 [issue-tracker](../../docs/agents/issue-tracker.md)。
 本輪驗證範圍及結果見文末。
 

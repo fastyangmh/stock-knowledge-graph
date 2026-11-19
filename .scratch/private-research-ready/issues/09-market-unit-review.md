@@ -37,3 +37,5 @@ market_prices／market_graph／research／audit→私有核對報告與提醒／
 工程實作與合成TDD已完成，產品提交1037fe1；[行情核對證據](../../../docs/VERIFICATION-2026-11-17-MARKET-UNITS.md)保留原始來源與限制。10於3834c19重跑兩市場正式market_review，仍各exit 2、compared_fields=0。TWSE bulk交易範圍未證明；TPEx同日獨立reference未取得。28欄數字診斷不構成已確認定義，不以同源不同表示或昨日資料結案。
 
 未知項維持source_reported；舊bytes／ledger未改。需要真正取得並核對來源定義及TPEx參考後才可勾選前兩條與設resolved；10依賴gate維持未完成。Linux移轉不是本輪blocker。
+
+2026-11-18 的官方來源續查見[行情缺口研究](../research-market-gaps-2026-11-18.md)。研究分開記錄同日資料可得性、數值差異、交易範圍與參考獨立性；取得新參考不等於正式驗收通過。本輪不改舊快照、正規化定義或既有核對報告，狀態維持 needs-info。

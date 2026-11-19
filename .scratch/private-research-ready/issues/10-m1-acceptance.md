@@ -43,3 +43,5 @@
 
 
 Post-review：`ecd176b` 修復證據覆寫、事件完整定義 identity、check來源hash並重跑本票受影響串接；最新490 pytest／246 subtests／55 Node及兩市場真實三頁通過。原 `3834c19` 證據不覆寫；09行情仍兩次exit2，本票保持needs-info。詳見[審查修復驗證](../../../docs/VERIFICATION-2026-11-17-REVIEW.md)。
+
+2026-11-18 補充[09 官方來源研究](../research-market-gaps-2026-11-18.md)。本輪只調查證據與後續實作條件，未重跑本票整合驗收；09 未通過前，本票維持 needs-info，既有成功紀錄不擴大為新尺度已驗證。
