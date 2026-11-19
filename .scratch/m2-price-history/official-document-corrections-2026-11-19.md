@@ -7,3 +7,6 @@
 - 兩股分別經 research 與 bundle audit 實際建立四版，檢查原始、更正、依原本地 cutoff 回讀原標題及重複送入更正。八次均通過；兩份原 bundle 的報告 SHA256 在最後重驗相同。
 - 原始 bytes 及擷取 metadata 在 `local/private/source-review-2026-11-19/official-resources/`。重播腳本為 `local/private/m2-revisions/real-notices.py`，工作目錄需為相應候選的乾淨 worktree。驗證紀錄 `local/private/m2-revisions/source-notices-9e429cc/result.json` 保存程式候選、兩組原件定位、發布與登錄時間、研究版本及各版 SHA256；exit 0。早一次試跑 `source-notices-01/` 的程式匯入自候選，但記錄的 Git 目錄不同，正式驗收採後一次。
 - 本次驗證正式文件更正與人工確認的關聯，尚待分開驗正式撤回、更正財務或籌碼欄位的公告及獨立行情庫的適用性。重大訊息自動適配仍由 P1-05 負責。[P2-04 票](issues/02-revision-ledger.md) · [M3 重大訊息](../m3-evidence-sources/issues/06-announcements.md)
+## 財報更正所指的欄位
+
+另逐列讀取 11/18 原件的更正前後說明。上市 18415 第 28 列明示兩項第三季合併現金流量表 iXBRL 明細的前後數字及重新上傳。兩項都是現金流調整明細，與現金流票選用的三類活動淨額、淨變動及兩筆期初期末餘額不同。第 83 列指向期後事項附註。上櫃 18418 第 7 列更正重編理由及其影響的附註表，第 38 列更正資金貸與明細的編號。這些原件可定位發行人財報更正及受影響項目。目前尚缺該項更正所指的前版原檔、受影響的同一欄定義與本地原始觀察，未據此宣稱已重播既有季度數值的真實更正。[上市重大訊息](https://data.gov.tw/dataset/18415) · [上櫃重大訊息](https://data.gov.tw/dataset/18418)

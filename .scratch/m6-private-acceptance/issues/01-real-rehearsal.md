@@ -35,3 +35,8 @@ uv run --locked python "$packet/check.py" "$packet/post-new"
 ```
 
 私有重建摘要在 `live-610e4b3/summary.json`，瀏覽器證據在 `browser-610e4b3/browser.json`。這次預演涵蓋公司、月營收及兩日行情。季報、籌碼、其他文件、維運與還原仍須在最終整合候選一併驗收。09／10 仍為 `needs-info`。
+
+文件提交 `c429270` 沿用同一產品程式，再對上述新建研究執行兩組獨立檢查。
+
+- 以 `financial-reviews.py <新建研究根目錄> <新目的地>` 經四次 `local.financial_review` 核對兩市場各兩檔，4 筆月營收金額完全相符，8 筆增率在已確認的 0.01 個百分點以內。私有輸出為 `financial-c429270/`。
+- 以 `check-sqlite-restore.py <新建研究根目錄> <新目的地>` 逐一對兩個市場的價格庫和正規化 ledger 執行 `local.backup create/verify/restore`，12 次命令 exit 0。四個還原庫均通過 SQLite `integrity_check`，來源與還原庫的完整邏輯匯出雜湊各自相符。私有輸出為 `sqlite-c429270/`。此項只驗四個 SQLite，本地整組證據封存與實體異機復原另列 P0-03。
