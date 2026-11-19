@@ -82,6 +82,8 @@ uv run --locked python -m local.preview \
 
 每次成功產生新 bundle，舊 bundle 不變；有相同模型身分時，從上一個通過 SHA256 的圖譜 DB 複製適用向量及語意狀態。資料與關係未變時可達 `encoded=0`、`graph_reused=true`，但仍會重建私有展示版本與報告。
 
+月營收與季度損益、期末資產負債、現金流可依序以同一組 `--history-db`、`--output-root` 建立混合研究版本。各來源保留自己的取得時間與首次登錄，兩市場月營收共用尺度版本約束。[操作與覆核時序](QUARTERLY_STATEMENTS.md#月營收與季報共用研究版本) · [真實五個截止的重播結果](VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md)
+
 候選輸入與研究重播使用同一筆 SQLite 交易。暫存 bundle 通過 audit 後才提交 ledger，接著將 bundle 移入正式目錄並更新 `latest.json`。匯出或稽核失敗會回滾候選輸入，重送可重新登錄。若已提交 ledger、檔案系統移動才失敗，已驗證輸入可冪等重送。若最後更新指標檔失敗，可能留下一個完整但未被 latest 指向的 bundle，應人工查核，不能當作新發布成功。
 
 預設保留所有 bundle 與備份，不自動刪資料；正式長期排程前要決定磁碟預算與保存策略。公開發布仍需獨立審查，不因私有 bundle 可看就自動推送 GitHub。

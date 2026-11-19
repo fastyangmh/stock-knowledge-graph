@@ -160,7 +160,7 @@ def validate_facts(document, report, *, archived_snapshots, graphs):
     require(len(facts) <= MAX_FACTS, 'entry_budget_exceeded')
     require(type(report['research_facts'].get('count')) is int and len(facts) == report['research_facts']['count'], 'count_mismatch')
     ids = set()
-    record_digests = {}
+    market_items = {}
     for fact in facts:
         require(isinstance(fact, dict) and fact.get('stock_id') in stock_ids, 'foreign_stock')
         kind = fact.get('kind')
@@ -204,19 +204,32 @@ def validate_facts(document, report, *, archived_snapshots, graphs):
             require(fact.get('acquisition') in ('https_download', 'local_file_unverified'), 'invalid_acquisition')
             record = _validate_market_fact(fact, market['market'])
             if version == NOTICE_SCHEMA:
-                record_digests[fact['symbol'], fact['trade_date']] = hashlib.sha256(canonical(record)).hexdigest()
+                from .market_graph import NOTICE_TIMES
+                item = {k: fact[k] for k in ('source', 'observed_at', 'raw_sha256',
+                                             'raw_snapshot_verified', 'acquisition')}
+                if 'notice_sha256' in fact:
+                    item.update({k: fact[k] for k in NOTICE_TIMES})
+                market_items[fact['symbol'], fact['trade_date']] = {**item, 'record': record}
     notices = document.get('market_notices')
     if version == NOTICE_SCHEMA:
         require(isinstance(notices, list) and notices and notices == report['quality'].get('market_notices'), 'market_notices_mismatch')
         from .market_notices import audit_entries
-        audit_entries(notices, facts, scope, cutoff, record_digests)
+        audit_entries(notices, facts, scope, cutoff,
+                      {key: hashlib.sha256(canonical(item['record'])).hexdigest() for key, item in market_items.items()})
     else:
         require(notices is None and 'market_notices' not in report['quality'], 'market_notices_mismatch')
+    if market['included']:
+        from .market_notices import withdrawn_stocks
+        day = market['trade_date']
+        selected = {f['stock_id'] for f in facts if f['kind'] == 'market_price' and f['trade_date'] == day}
+        require(selected | withdrawn_stocks(notices or [], day, cutoff) == set(stock_ids),
+                'selected_market_coverage_mismatch')
     from .source_revisions import audit_revisions
     audit_revisions(archived_snapshots, report['quality'].get('source_revisions', []), facts, stock_ids, cutoff, graphs)
     require(document.get('coverage') == coverage(facts, stock_ids), 'coverage_mismatch')
     for group, kind in (('financial_metrics', 'financial_metric'), ('chip_metrics', 'chip_metric')):
         require(sum(f['kind'] == kind for f in facts) == report['quality']['counts'][group], 'replay_count_mismatch')
+    return market_items
 
 
 def _validate_market_fact(fact, feed):

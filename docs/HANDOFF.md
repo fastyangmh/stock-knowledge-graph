@@ -6,11 +6,13 @@
 
 ## 1. 接手時先知道的事
 
+開發候選 `63e0f49` 已整合 M2 行情通知審查修正與 M3 季度三表。完整套件通過 597 個 pytest、341 個 subtests、55 個 Node；七家公司 26 版季報、兩市場各兩日行情完成實際重播。M1 09／10 與需要真實撤回證據的項目維持待驗。[整合驗收與私有重跑位置](VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md#價格通知與季度財報整合後的驗證)
+
 P2-02 六票已交付合成 CLI 與兩市場 11/14～17 的官方日曆驗收。11/18 的實際報價超出已核對日曆，事件報告能顯示第 1 筆已保存觀察，交易日序號維持未知。候選 `f45a8ac` 已修復未來截止、當日待到與同時首存衝突，並通過完整套件及真實重播。P2-02 在已記錄的範圍完成。[雙軸審查及重驗](VERIFICATION-2026-11-19-CALENDAR-REVIEW.md) · [真實日曆驗收](VERIFICATION-2026-11-19-CALENDAR-COVERAGE.md) · [逐項清單與後續規格](../.scratch/private-research-ready/completion.md)
 
 M2 價格基準與正規化來源通知已整合至 `9a0bce9`。兩市場四檔原始價格可查回原件，更正公告可按截止時間還原。已修補晚公告、跨選股撤回、舊格式文件、跨幣別比較與大通知的儲存及回滾。兩市場三版真實歷史與事件頁已在桌面及手機寬度複驗。獨立行情庫已支援明示更正、撤回與重發；兩市場兩日既有行情與研究按原截止重播一致。正式行情通知原件仍待驗。[行情通知實作及驗收](../.scratch/m2-market-revisions/issues/01-market-notices.md) [雙軸審查及整合驗證](VERIFICATION-2026-11-19-M2-HISTORY-REVIEW.md)
 
-最新一期季報、籌碼與重大訊息已開始分來源核對。11/17 與 11/18 的兩市場真實研究版本可供後續品質驗證。[真實後續行情及官方原件索引](../.scratch/private-research-ready/source-samples-2026-11-19.md) · [兩市場發行人季報抽檢](../.scratch/m3-evidence-sources/issuer-reference-2026-11-19.md)
+月營收與八份季報 CSV、兩份現金流私有筆記已在一個 ledger 分段驗收，五個截止均還原相同事實。[季報雙軸審查與混合驗收](VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md)。籌碼與重大訊息依來源分別核對。11/17 與 11/18 的兩市場真實研究版本可供後續品質驗證。[真實後續行情及官方原件索引](../.scratch/private-research-ready/source-samples-2026-11-19.md) · [兩市場發行人季報抽檢](../.scratch/m3-evidence-sources/issuer-reference-2026-11-19.md)
 
 專案已以真實官方快照、固定真實模型，在使用者指定的當前 macOS arm64／Python 3.11 環境完成兩市場各兩版私有研究、提醒、audit、歷史比較、事件報告及三頁真實 HTTP 驗收。公開 `data/` 仍為示範；沒有啟用發布、排程或交易。
 
@@ -43,14 +45,14 @@ Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/pri
 
 | 能力 | 程式／文件 | 已完成與剩餘界線 |
 | --- | --- | --- |
-| 公司／月營收快照與正規化 | `local.collect_official`、`local.official_import`；[資料管線](DATA_PIPELINE.md) | 兩市場公司／月營收真實全檔與月營收單位抽檢完成；季度尚未適配 |
+| 公司／月營收快照與正規化 | `local.collect_official`、`local.official_import`；[資料管線](DATA_PIPELINE.md) | 兩市場公司／月營收真實全檔與月營收單位抽檢完成；[季度三表](QUARTERLY_STATEMENTS.md)有逐來源私有適配及抽檢 |
 | 盤後行情 | `local.market_prices`、`local.market_graph`；[行情](MARKET_PRICES.md) | 兩市場真實全檔及私有串接完成；單位／交易範圍抽檢未過，保留 source_reported |
 | 行情交易日完整性 | `local.calendar_coverage`；[私有日曆 CLI](CALENDAR_COVERAGE.md) | 逐日查開休市與缺觀察、獨立序號、證據截止與時序衝突；官方日曆目前核至 11/14～17 |
 | SQLite／語意／展示子圖 | `core.py`、`semantic.py`、`neighbors.py`、`lifecycle.py`、`export_json.py` | 向量與關聯快取、精確Top-K、裁剪、JSON校驗；不是ANN |
 | 私有研究版本 | `local.research`、`research_history.py`；[私有研究](PRIVATE_RESEARCH.md) | 觀察ledger、獨立bundle、latest指標與跨版本快取；不是完整市場雙時間資料庫 |
 | 獨立研究提醒 | `alerts.py`、`alert_inputs.py`；[提醒規則](RESEARCH_ALERTS.md) | 2條價量、4條營收規則；未經真實績效校準 |
 | 歷史稽核與比較 | `local.bundle_audit`、`local.research_compare`、`local.research_archive`；[研究歷史](RESEARCH_HISTORY.md) | 比較已保存版本，明確區分缺漏／定義改變；非策略回測 |
-| 財務抽檢與備份 | `local.financial_review`、`local.backup`；[抽檢](FINANCIAL_REVIEW.md) | 真實月營收獨立抽檢完成；季度抽檢及 NAS 復原演練未完成 |
+| 財務抽檢與備份 | `local.financial_review`、`local.backup`；[抽檢](FINANCIAL_REVIEW.md) | 真實月營收獨立抽檢完成；季度抽檢限已記錄來源與欄位，NAS 復原演練待驗 |
 | 事件後描述統計 | `local.event_study`、`event_outcomes.py`；[事件統計](EVENT_STUDY.md) | 新版讀未裁剪研究事實，舊版標 display_graph_only；凍結首次保存基準與後續值 |
 | 網頁／私有預覽 | `index.html`、`history.html`、`event-study.html`、`js/`；[使用手冊](USER_MANUAL.md) | 股票池／搜尋／來源、兩類提醒、歷史及事件頁；私有頁由本機工具供應，不是公開後端 |
 
@@ -62,7 +64,7 @@ Repository：`fastyangmh/stock-knowledge-graph`；本輪工作整合於 `dev/pri
 
 05／06／07 的原始官方擷取證據仍保留。本輪重讀其 bytes、重新正規化財務且與08已核對輸入相同，在全新 ledger／runs 合併財務新版與未確認行情原值。每市場兩版、每版8筆完整 facts；首次編碼2文件／1配對，重跑 encoded=0、pairs=0、loader=0。各市場一個營收事件，後續數值均為 insufficient_data 或 pending，沒有真實 observed 結果。完整金融／模型 bytes、報告與截圖只留私有。
 
-Linux／NAS、完整歷史、每日穩定性、季度／籌碼／公告適配與真實投資品質未驗證。單次下載、hash、模型執行或工程綠燈都不能替代來源尺度、授權或金融有效性。較早[事件驗證](VERIFICATION-2026-11-16-EVENTS.md)保留為歷史，不冒稱本輪執行。
+Linux／NAS、完整歷史、每日穩定性、其餘季度產業與期別、籌碼／公告適配及真實投資品質待驗。單次下載、hash、模型執行或工程綠燈都不能替代來源尺度、授權或金融有效性。較早[事件驗證](VERIFICATION-2026-11-16-EVENTS.md)保留為歷史，不冒稱本輪執行。
 
 ## 5. 接手操作
 
