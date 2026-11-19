@@ -137,7 +137,7 @@ def _reuse_cache(conn, prior, model_name, revision):
 def run(input_file, symbols, *, history_db, output_root, analysis="none", known_at=None,
         prices_db=None, trade_date=None, price_market="twse", price_snapshots=None, model=DEFAULT_MODEL, revision=None,
         top_k=10, threshold=0.65, max_pairs=2_000_000, lookback_days=None, encoder=None,
-        alerts=False, alerts_config=None, max_information_nodes=100):
+        alerts=False, alerts_config=None, max_information_nodes=100, enable_source_revisions=False):
     """Materialize an isolated research database from as-recorded observations."""
     stock_ids = validate_symbols(symbols)
     if type(max_information_nodes) is not int or not 0 <= max_information_nodes <= 100:
@@ -174,7 +174,7 @@ def run(input_file, symbols, *, history_db, output_root, analysis="none", known_
         with closing(sqlite3.connect(ledger)) as history:
             with history:
                 history.execute("BEGIN IMMEDIATE")
-                snapshot = record_snapshot(history, input_payload)
+                snapshot = record_snapshot(history, input_payload, enable_source_revisions=enable_source_revisions)
         cutoff = timestamp(known_at or utc_now()).isoformat(timespec="microseconds")
         # Replay deliberately uses registration time as well as source observation.
         with closing(sqlite3.connect(ledger.as_uri()+"?mode=ro", uri=True)) as history:
@@ -295,6 +295,7 @@ def main(argv=None):
     p.add_argument("--symbols", required=True, nargs="+")
     p.add_argument("--history-db", type=Path, default=ROOT/"local/private/research-history.db")
     p.add_argument("--output-root", type=Path, default=ROOT/"local/private/research-runs")
+    p.add_argument("--enable-source-revisions", action="store_true", help="Verify and migrate the normalized ledger to accept explicit source notices")
     p.add_argument("--known-at", help="Timezone-aware local knowledge cutoff; default is now")
     p.add_argument("--prices-db", type=Path)
     p.add_argument("--price-snapshots", type=Path, help="Required raw snapshot directory when including market observations")

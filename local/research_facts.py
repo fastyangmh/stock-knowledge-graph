@@ -188,6 +188,8 @@ def validate_facts(document, report):
                     isinstance(fact.get('raw_sha256'), str) and re.fullmatch(r'[0-9a-f]{64}', fact['raw_sha256']), 'invalid_raw_evidence')
             require(fact.get('acquisition') in ('https_download', 'local_file_unverified'), 'invalid_acquisition')
             _validate_market_fact(fact, market['market'])
+    from .source_revisions import audit_revisions
+    audit_revisions(snapshots, report['quality'].get('source_revisions', []), facts, stock_ids, cutoff)
     require(document.get('coverage') == coverage(facts, stock_ids), 'coverage_mismatch')
     for group, kind in (('financial_metrics', 'financial_metric'), ('chip_metrics', 'chip_metric')):
         require(sum(f['kind'] == kind for f in facts) == report['quality']['counts'][group], 'replay_count_mismatch')
