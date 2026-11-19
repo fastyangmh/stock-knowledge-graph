@@ -15,8 +15,8 @@
 | M3 | [P1-03](../../docs/DEVELOPMENT_BACKLOG.md#p1-03季度財報) | [兩市場六家公司季報抽樣](../m3-evidence-sources/issuer-reference-2026-11-19.md)已核對 22 筆損益與 23 筆資產負債，另 11 筆資產負債待核 | [三表與兩市場月營收已同庫](../../docs/VERIFICATION-2026-11-19-M3-FINANCIALS-REVIEW.md)。現金流私有筆記兩家 12 筆可重播，正式原件封存、獨立金額差額與其他產業仍待驗 |
 | M3 | [P1-04](../../docs/DEVELOPMENT_BACKLOG.md#p1-04籌碼資料) | [已依上櫃原始 CSV 重建兩股 44 筆法人與 34 筆融資融券；新版 audit 會偵測改值與刪格](../../docs/VERIFICATION-2026-11-19-M3-SOURCE-REVIEW.md) | 待同日同範圍獨立抽檢、數量尺度與上市來源證據 |
 | M3 | [P1-05](../../docs/DEVELOPMENT_BACKLOG.md#p1-05重大訊息新聞與產業證據) | [兩市場共 148 筆正式公告、跨兩股關聯、兩組更正、兩份新聞索引與產業季表已重播](../../docs/VERIFICATION-2026-11-19-M3-SOURCE-REVIEW.md) | 需可定位的真實撤回、第三方新聞權利及獨立產業分類 |
-| M4 | [P3-01](../../docs/DEVELOPMENT_BACKLOG.md#p3-01提醒品質與可解釋性) | [四檔股票 32 個規則／期間組合已對照來源](../m4-research-quality/issues/01-alert-quality.md)，現有歷史仍不足以核實全部可計算情境 | 按規則核對真實歷史分母及人工案例，揭露誤報或無法判讀的原因 |
-| M4 | [P4A-01](../../docs/DEVELOPMENT_BACKLOG.md#p4a-01事件後描述統計擴充) | 已保存兩市場各一個事件的第 1 筆真實後續觀察，5／20 筆仍不足。[後續行情與原件](source-samples-2026-11-19.md) | 在可確認的資料範圍檢查右設限、分組、重疊及選樣偏誤 |
+| M4 | [P3-01](../../docs/DEVELOPMENT_BACKLOG.md#p3-01提醒品質與可解釋性) | [四檔股票 32 個規則／期間組合已對照來源](../m4-research-quality/issues/01-alert-quality.md)，私有 CLI 的 72 筆保存與逐例核算相符 | 補 20 筆同來源較早行情、相鄰營收月份及 P1-02 行情定義，核對長窗與修訂等真實案例 |
+| M4 | [P4A-01](../../docs/DEVELOPMENT_BACKLOG.md#p4a-01事件後描述統計擴充) | [兩市場三代事件報告及六規則雙軸重驗](../../docs/VERIFICATION-2026-11-19-M4-REVIEW.md)，各驗一個首次事件、兩次重複保存與兩個第 1 筆後續值 | 補第 5／20 筆行情、到期的 1／3／6 月營收、同股不同事件重疊及正式公司行為案例 |
 | M5 | [P0-03](../../docs/DEVELOPMENT_BACKLOG.md#p0-03復原與備份) | 在 macOS 同一裝置還原兩市場四組共十個版本，另以[混合財報庫還原 26 個版本、618 條引用](../m6-private-acceptance/issues/01-real-rehearsal.md) | 待全部必要來源整合後重跑，並在 Linux／NAS 與獨立儲存實測 |
 | M5 | [P2-05](../../docs/DEVELOPMENT_BACKLOG.md#p2-05容量量測與ann評估) | 有固定模型快取及精確 Top-K 工作預算 | 固定資料尺度，量測 CPU、記憶體、輸出與瀏覽器成本後決定索引需求 |
 | M5 | [P2-06](../../docs/DEVELOPMENT_BACKLOG.md#p2-06儲存預算與封存) | 已有部分讀取與工作量上限 | 盤點各類實際路徑、增長與超限，驗證封存 dry-run、還原及事件引用 |
