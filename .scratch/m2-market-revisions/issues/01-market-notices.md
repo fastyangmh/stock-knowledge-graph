@@ -22,3 +22,5 @@
 **驗證版本**　實作 `bb611d0`，與正規化來源修復整合後的乾淨候選 `6c79abd`。macOS arm64、Python 3.11.11，既有 Node 22.16.0，`TMPDIR=/private/tmp uv run --locked python -m local.check --frontend` exit 0，559 pytest、296 subtests、55 Node tests。測試涵蓋兩市場通知輸入、明示撤回、重發、待生效、原件與來源錯配、同時衝突、一般日檔缺列及晚到舊檔、歸檔數值／報告錯配、提醒與事件首次保存。最初 sandbox 禁止 loopback；取得本機測試權限後，第一次完整檢查未找到 Node，加入專案既有的 Node 路徑後全套通過。瀏覽器、真實通知及語意模型不在這次重跑範圍。
 
 主要工作區私有證據 `local/private/m2-market-notices/` 內，`full-6c79abd.json` SHA256 `5ffbbb632bb978b524c3c1d02fec25e5b60c69821453d826c719e9c680750b1c`，`replay-9hzf5tl1/result.json` SHA256 `085a28541f934c2fdd683992a2f9946cd89e594105d50e7848f9e4808bc1b9b1`。
+
+**審查後重驗**　候選 `8175e97` 已補齊重抓舊檔、通知待生效時的一般行情、累計預算、跨股票撤回原因與圖譜／提醒引用。57 個聚焦測試及完整 `--frontend` 通過。上市、上櫃兩日再次重播，每市場 21 份原有檔案和首次事件核對相同。[Standards 與 Spec 逐條結果](../../../docs/VERIFICATION-2026-11-19-MARKET-NOTICE-REVIEW.md)
