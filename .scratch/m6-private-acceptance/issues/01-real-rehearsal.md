@@ -46,3 +46,9 @@ uv run --locked python "$packet/check.py" "$packet/post-new"
 2026-11-19 在 M5 候選 `88e20e8`，以 `63e0f49` 實測時保存的七家公司研究庫及 26 個歷史版本執行 `local.portable_backup create`、`verify`、`restore`，並分別對原目錄與新目錄執行 `local.bundle_audit`。五次命令 exit 0。封存 327 個檔案、618 條引用、21 個正規化輸入。還原後 26 個版本均 valid，最新指標一致，SQLite integrity_check 回覆 ok。重算來源 ledger 及 55 個具名輸入檔案的 SHA256 均相符。
 
 這次使用兩市場公司與月營收、17 個季報快照及兩份人工現金流筆記。財報獨立參考的涵蓋程度沿用 P1-03 的逐欄紀錄。原始資料與私有重演程式位於 `local/private/m6-preflight/portfolio-restore.py`，同層 `portable-financial-88e20e8-b/summary.json`、`commands.json` 和 `selected-sources.json` 可追查實際輸入與命令。本機同一裝置的新目錄已驗，完整多來源研究與異機復原待驗。
+
+### 兩市場共用研究庫、行情庫與版本目錄
+
+M3 候選 `c7db79c` 上的私有 `m6-preflight/full-portfolio.py` 從前述財報研究庫的一致副本開始，將 7 份籌碼、公告、產業與新聞輸入登錄在同一研究庫。從封存公司及月營收重新正規化，依原 SHA256 從兩市場各匯入兩天行情至同一行情庫，執行四次含固定模型與兩類提醒的研究。整個目錄共 37 個有效版本，兩市場的歷史比較、事件報告均 exit 0。第二日上市保有 32 筆財務事實及 4 筆行情，上櫃保有 22 筆財務、78 筆籌碼及 4 筆行情。兩市場各自的第一版實際編碼 9／11 篇，第二版皆為 0。原財報研究目錄逐檔雜湊一致。事件報告覆蓋 37 個版本，其中 33 個未帶提醒、2 個首次事件、2 次重複。這是本次重讀行情的取得時間；未回填原始研究的首次保存時間。
+
+同一候選以 Chromium 在 localhost 測試兩組股票，各自讀取圖譜、37 版歷史及事件，原 CDN、瀏覽器原生 fetch、桌機與手機寬度均通過。為發現跨里程碑相容問題，另在隔離目錄組合該候選與 M5 `88e20e8` 的封存程式，從同一組研究建立 420 檔封存、驗證 829 條引用、還原後再稽核全部 37 版。這次是兩個固定程式樹的整合預演，正式單一候選需重跑。私有位置為 `m6-preflight/{portfolio-c7db79c,browser-portfolio-c7db79c,portable-source-diagnostic}/`。完整現金流 PDF、來源使用權、行情獨立抽檢及異機復原仍依原票追蹤。
