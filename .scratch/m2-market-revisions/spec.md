@@ -2,7 +2,7 @@
 
 **Parent:** [P2-04](../../docs/DEVELOPMENT_BACKLOG.md#p2-04修訂與撤回) · [正規化 ledger 已支援的範圍](../m2-price-history/issues/02-revision-ledger.md)
 
-**Status:** ready-for-agent
+**Status:** needs-info（工程與兩市場既有行情重播已驗，待真實行情通知原件）
 
 ## Problem Statement
 

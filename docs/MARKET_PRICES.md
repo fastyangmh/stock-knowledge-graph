@@ -97,3 +97,33 @@ uv run --locked python -m local.market_review \
 新 record 保存 `normalization_version: market-units-2.0`、`raw_values` 的原有十進位精度及完整 `unit_review`。建議以獨立 DB 重新產生新版研究；同 timestamp 的矛盾舊新 record 仍拒絕，不修改觀察時間以規避。舊 DB／bundle 不就地升級；market_graph 和完整事實 audit 依 record 宣告重建舊／新版本，未知版本、raw hash／原始數值不一致、未有版本卻注入新版單位都拒絕。提醒與事件比較鍵包括幣別、股數／金額／筆數單位、交易範圍與正規化版本；不能跨定義混成一條數列。舊版來源內的相對描述仍保留原讀取行為，不表示已完成單位驗收。
 
 截至本次[真實抽檢紀錄](VERIFICATION-2026-11-17-MARKET-UNITS.md)，兩市場範圍／幣別證據尚未全部確認，因此**未將任何真實快照升級為已審閱單位，也未完成 ticket 09**。同一官方端點在不同發布時段的註記可能不同，審閱結論須綁當次 bytes，不適用全部日期。
+
+## 行情來源明示更正、撤回與重發
+
+以個股及交易日為單位審閱交易所原件，確認通知明列該筆行情、處置與適用範圍，再準備私有 `market-notice-1.0` JSON。使用原已審資料集 TWSE 11549 或 TPEx 11371。兩種市場分別核對 `www.twse.com.tw`、`www.tpex.org.tw` 的 HTTPS 來源網址與原件定位。這是人工審閱的來源聲明，檔案雜湊只能重驗保存的 bytes。
+
+先執行讀取模式，從原有行情庫核對當時的 `raw_sha256` 與 `record_sha256`。後者涵蓋該股的標準化數字與單位定義。下面各日期、代碼與私有路徑應換成原件對應值。
+
+```bash
+uv run --locked python -m local.market_prices --market twse --symbols 2330 \
+  --expected-date YYYY-MM-DD --known-at "<含時區的截止時間>"
+
+uv run --locked python -m local.market_prices --market twse --symbols 2330 \
+  --expected-date YYYY-MM-DD --notice local/private/notice.json \
+  --notice-evidence local/private/official-notice.pdf --input local/private/corrected.csv
+```
+
+| Manifest 欄位 | 內容 |
+| --- | --- |
+| `schema_version`、`action` | `market-notice-1.0`，處置為 `correct`、`withdraw`、`republish` 之一 |
+| `source_id`、`market`、`symbol`、`trade_date` | 對應 CLI 的行情來源、市場小寫識別字、四碼股票與 ISO 交易日 |
+| `target_raw_sha256`、`target_record_sha256` | 前一版原始 CSV 與該股正規化紀錄各自的校驗碼。重發時引用撤回前的最後一筆 |
+| `parent_notice_sha256` | 首次通知為 JSON `null`，後續引用 CLI 回報的前一份 manifest 雜湊 |
+| `replacement_raw_sha256` | 更正或重發提供替代 CSV 的 SHA256。撤回填 `null`，並省略 `--input` |
+| `evidence_url`、`evidence_sha256`、`locator` | 對應市場交易所通知網址、獨立通知原始 bytes SHA256、指出處置與資料範圍的位置 |
+| `published_at`、`effective_at`、`observed_at` | 通知原始發布時間、來源明示生效時間、觀察該原件時間，均含時區 |
+| `replacement_unit_review` | 僅於替代檔有獨立單位審閱時附上，綁定替代 CSV。原版與替代版須具相同單位、交易範圍及價格基準 |
+
+成功後另存 `market_price_notices`，最初本地登錄時間由系統產生。完全相同的通知重跑保留首次登錄。本機提供的替代行情保留 `local_file_unverified`。原檔及替代 CSV 按 SHA256 留在來源目錄，正式通知 bytes 位於 `<source_id>/notices/<evidence_sha256>.bin`。日常蒐集的 `latest-<market>.json` 和 SQL 的 `market_prices_latest` 只代表一般觀察，研究採用版本由上述 `--known-at` 或 `local.research` 查詢。
+
+截止在首次登錄之前仍見原觀察，之後可看到待生效、已取代、有效或撤回的通知。撤回生效時該股該日的有效觀察為空。普通行情缺列與再次匯入舊檔均保留當前明示處置。要恢復須用 `republish` 引用撤回通知及替代原件。各股／日最多 256 份通知、每個登錄項 64 KiB、各原件上限 20 MB。讀取或寫入若發現版本、時間、單位或原件衝突會停止。實際驗收與仍缺的原件見[行情通知驗收](../.scratch/m2-market-revisions/issues/01-market-notices.md)。

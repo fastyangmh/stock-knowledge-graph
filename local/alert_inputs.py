@@ -6,7 +6,7 @@ import sqlite3
 
 from .alerts import policy
 from .dates import iso_date, timestamp
-from .market_graph import read_prices
+from .market_graph import HistoryBudget, read_prices
 from .market_prices import source_info
 from .research_history import validate_symbols
 
@@ -29,18 +29,18 @@ def load_price_history(database, feed, symbols, trade_date, known_at, snapshot_d
         rows = conn.execute(sql, (info["source_id"], lower.isoformat(), trade_date, *symbols)).fetchall()
     if len(rows) > 100000:
         raise ValueError("alert price history exceeds revision budget")
-    available = {symbol:set() for symbol in symbols}
+    by_day = {}
     for symbol, day, observed in rows:
         iso_date(day)
         if timestamp(observed) <= cutoff:
-            available[symbol].add(day)
-    by_day = {}
-    for symbol, dates in available.items():
-        for day in sorted(dates)[-count:]:
-            by_day.setdefault(day, []).append(symbol)
+            by_day.setdefault(day, set()).add(symbol)
     result = {sid:[] for sid in ids}
-    for day, members in sorted(by_day.items()):
+    budget = HistoryBudget()
+    for day, candidates in sorted(by_day.items(), reverse=True):
+        members = sorted(symbol for symbol in candidates if len(result["TW:"+symbol]) < count)
+        if not members:
+            continue
         # Reuses source, revision, OHLC, and original CSV checksum verification.
-        for item in read_prices(database, feed, members, day, known_at, snapshot_dir=snapshot_dir):
+        for item in read_prices(database, feed, members, day, known_at, snapshot_dir=snapshot_dir, budget=budget):
             result["TW:"+item["record"]["symbol"]].append(item)
-    return result
+    return {sid: list(reversed(items)) for sid, items in result.items()}

@@ -12,12 +12,17 @@ from .research_history import canonical
 from .financial_definitions import financial_definition
 
 SCHEMA = 'research-facts-1.0'
+NOTICE_SCHEMA = 'research-facts-1.1'
 PRODUCER = 'private-research-1'
 MAX_FACTS = 100000
 TIME_SEMANTICS = {
     'available_at': 'max(source_available_at, observed_at, recorded_at) for normalized facts; observed_at for market facts',
     'recorded_at': 'first local normalized ledger registration; null means unknown for market facts',
     'completed_at': 'bundle save time only; never historical availability',
+}
+NOTICE_TIME_SEMANTICS = {**TIME_SEMANTICS,
+    'available_at': 'market notice replacement: max(published_at, effective_at, observed_at, recorded_at); other facts follow 1.0',
+    'recorded_at': 'first local registration of normalized snapshot or market notice; unknown for ordinary market observations',
 }
 
 
@@ -57,17 +62,22 @@ def build_facts(payload, quality, stock_ids, known_at, prices=(), market=None, t
                 'recorded_at': None, 'recorded_at_status': 'unknown',
                 'raw_sha256': item['raw_sha256'], 'raw_snapshot_verified': item['raw_snapshot_verified'],
                 'acquisition': item['acquisition']}
+        if 'notice_sha256' in item:
+            fact.update({key: item[key] for key in ('observed_at', 'available_at', 'recorded_at', 'source_available_at', 'notice_sha256')})
+            fact['recorded_at_status'] = 'known'
         fact['id'] = fact_id(fact)
         facts.append(fact)
-    return {'schema_version': SCHEMA, 'producer': PRODUCER,
+    notices = quality.get('market_notices')
+    return {'schema_version': NOTICE_SCHEMA if notices else SCHEMA, 'producer': PRODUCER,
             'scope': {'stock_ids': sorted(stock_ids), 'known_at': known_at,
                       'market': {'included': market is not None, 'market': market, 'trade_date': trade_date}},
-            'time_semantics': TIME_SEMANTICS.copy(),
+            'time_semantics': (NOTICE_TIME_SEMANTICS if notices else TIME_SEMANTICS).copy(),
+            **({'market_notices': copy.deepcopy(notices)} if notices else {}),
             'normalized_snapshots': copy.deepcopy(quality['snapshots']),
             'coverage': coverage(facts, stock_ids), 'facts': sorted(facts, key=lambda f: f['id'])}
 
 
-def load_market_history(database, feed, symbols, trade_date, known_at, snapshot_dir, budget):
+def load_market_history(database, feed, symbols, trade_date, known_at, snapshot_dir, budget, *, notice_history=None):
     """All locally saved eligible dates, with bounded work and no backfill IO."""
     from contextlib import closing
     from pathlib import Path
@@ -100,12 +110,13 @@ def load_market_history(database, feed, symbols, trade_date, known_at, snapshot_
     result = []
     for day, members in sorted(by_day.items()):
         result.extend(read_prices(database, feed, sorted(members), day, known_at,
-                                  snapshot_dir=snapshot_dir, budget=budget))
+                                  snapshot_dir=snapshot_dir, budget=budget, notice_history=notice_history))
     return result
 
 
 def validate_facts(document, report, *, archived_snapshots, graphs):
-    if document.get('schema_version') != SCHEMA or report['research_facts'].get('schema_version') != SCHEMA:
+    version = document.get('schema_version')
+    if version not in (SCHEMA, NOTICE_SCHEMA) or report['research_facts'].get('schema_version') != version:
         raise ValueError('facts_schema_unsupported')
     if document.get('producer') != PRODUCER:
         raise ValueError('facts_producer_unsupported')
@@ -123,7 +134,7 @@ def validate_facts(document, report, *, archived_snapshots, graphs):
     scope = document.get('scope', {})
     require(isinstance(scope, dict), 'invalid_scope')
     require(scope.get('stock_ids') == stock_ids and scope.get('known_at') == report['known_at'], 'scope_mismatch')
-    require(document.get('time_semantics') == TIME_SEMANTICS, 'time_semantics_mismatch')
+    require(document.get('time_semantics') == (NOTICE_TIME_SEMANTICS if version == NOTICE_SCHEMA else TIME_SEMANTICS), 'time_semantics_mismatch')
     market = scope.get('market', {})
     require(isinstance(market, dict), 'invalid_market_scope')
     require(type(market.get('included')) is bool, 'invalid_market_scope')
@@ -149,6 +160,7 @@ def validate_facts(document, report, *, archived_snapshots, graphs):
     require(len(facts) <= MAX_FACTS, 'entry_budget_exceeded')
     require(type(report['research_facts'].get('count')) is int and len(facts) == report['research_facts']['count'], 'count_mismatch')
     ids = set()
+    record_digests = {}
     for fact in facts:
         require(isinstance(fact, dict) and fact.get('stock_id') in stock_ids, 'foreign_stock')
         kind = fact.get('kind')
@@ -181,13 +193,25 @@ def validate_facts(document, report, *, archived_snapshots, graphs):
                 require(field in fact and (fact[field] is None or isinstance(fact[field], str)), 'invalid_definition')
         else:
             require(market['included'] and fact['stock_id'] == 'TW:'+fact['symbol'], 'market_coverage_mismatch')
-            require(fact.get('recorded_at') is None and fact.get('recorded_at_status') == 'unknown'
-                    and fact.get('source_available_at') is None and available == observed, 'invented_market_time')
+            if 'notice_sha256' in fact:
+                require(version == NOTICE_SCHEMA and fact.get('recorded_at_status') == 'known', 'invented_market_time')
+            else:
+                require(fact.get('recorded_at') is None and fact.get('recorded_at_status') == 'unknown'
+                        and fact.get('source_available_at') is None and available == observed, 'invented_market_time')
             require(iso_date(fact['trade_date']) <= iso_date(market['trade_date']), 'future_market_date')
             require(fact.get('raw_snapshot_verified') is True and
                     isinstance(fact.get('raw_sha256'), str) and re.fullmatch(r'[0-9a-f]{64}', fact['raw_sha256']), 'invalid_raw_evidence')
             require(fact.get('acquisition') in ('https_download', 'local_file_unverified'), 'invalid_acquisition')
-            _validate_market_fact(fact, market['market'])
+            record = _validate_market_fact(fact, market['market'])
+            if version == NOTICE_SCHEMA:
+                record_digests[fact['symbol'], fact['trade_date']] = hashlib.sha256(canonical(record)).hexdigest()
+    notices = document.get('market_notices')
+    if version == NOTICE_SCHEMA:
+        require(isinstance(notices, list) and notices and notices == report['quality'].get('market_notices'), 'market_notices_mismatch')
+        from .market_notices import audit_entries
+        audit_entries(notices, facts, scope, cutoff, record_digests)
+    else:
+        require(notices is None and 'market_notices' not in report['quality'], 'market_notices_mismatch')
     from .source_revisions import audit_revisions
     audit_revisions(archived_snapshots, report['quality'].get('source_revisions', []), facts, stock_ids, cutoff, graphs)
     require(document.get('coverage') == coverage(facts, stock_ids), 'coverage_mismatch')
@@ -210,3 +234,4 @@ def _validate_market_fact(fact, feed):
     record = reviewed_record(record, fact, fact["source_id"], fact["raw_sha256"])
     if any(key not in fact or fact[key] != value or type(fact[key]) != type(value) for key, value in record.items()):
         raise ValueError('facts_market_normalization_mismatch')
+    return record
