@@ -124,6 +124,12 @@ class EventIntegrationTests(unittest.TestCase):
         self.assertEqual(old['cohorts']['unpruned_facts']['excluded_runs'],4)
         self.assertFalse(new['categories']['monthly_revenue']['events'])
         self.assertEqual(len(new['excluded_events']),4)
+        self.assertEqual(new['categories']['monthly_revenue']['excluded_by_origin'],
+                         [e['event_id'] for e in new['excluded_events']])
+        for excluded in new['excluded_events']:
+            self.assertEqual(excluded['first_report_sha256'], new['excluded_inputs'][0]['report_sha256'])
+            self.assertTrue(excluded['selected_runs'])
+            self.assertTrue(set(excluded['selected_runs']).issubset(b['run'] for b in new['inputs']))
         self.assertTrue(all(e['reason']=='first_trigger_saved_in_other_cohort' for e in new['excluded_events']))
         self.assertEqual(new['excluded_inputs'][0]['run'],self.first['run'])
         self.assertEqual(new['excluded_inputs'][0]['reason'],'different_fact_scope')
